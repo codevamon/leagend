@@ -61,11 +61,15 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_27_051736) do
     t.string "country_code", limit: 5
     t.text "bio"
     t.datetime "birthday"
-    t.decimal "height_cm", precision: 8, scale: 2
     t.boolean "owner", default: false
     t.boolean "partner", default: false
     t.boolean "active", default: false
     t.boolean "live", default: false
+    t.integer "status", default: 0, null: false
+    t.integer "prestige", default: 0, null: false
+    t.decimal "latitude", precision: 10, scale: 6
+    t.decimal "longitude", precision: 10, scale: 6
+    t.decimal "height_cm", precision: 8, scale: 2
     t.string "reset_password_token"
     t.datetime "reset_password_sent_at"
     t.datetime "remember_created_at"
@@ -78,7 +82,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_27_051736) do
     t.datetime "confirmed_at"
     t.datetime "confirmation_sent_at"
     t.datetime "locked_at"
-    t.integer "prestige", default: 0, null: false
+    t.string "position"
+    t.integer "dorsal", default: 0, null: false
+    t.integer "fav", default: 0, null: false
     t.decimal "height", precision: 8, scale: 2
     t.decimal "skills", precision: 8, scale: 2
     t.decimal "rate", precision: 8, scale: 2

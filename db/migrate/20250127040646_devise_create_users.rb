@@ -15,11 +15,15 @@ class DeviseCreateUsers < ActiveRecord::Migration[8.0]
       t.string   :country_code,       limit: 5
       t.text     :bio
       t.datetime :birthday
-      t.decimal  :height_cm,          precision: 8, scale: 2
       t.boolean  :owner,              default: false
       t.boolean  :partner,            default: false
       t.boolean  :active,             default: false
       t.boolean  :live,               default: false
+      t.integer  :status,             default: 0, null: false
+      t.integer  :prestige,           default: 0, null: false
+      t.decimal  :latitude,           precision: 10, scale: 6
+      t.decimal  :longitude,          precision: 10, scale: 6
+      t.decimal  :height_cm,          precision: 8, scale: 2
 
       ## Recoverable
       t.string   :reset_password_token
@@ -48,7 +52,9 @@ class DeviseCreateUsers < ActiveRecord::Migration[8.0]
 
       
       ## Player data
-      t.integer  :prestige, default: 0, null: false
+      t.string  :position
+      t.integer  :dorsal, default: 00, null: false
+      t.integer  :fav, default: 0, null: false
       t.decimal  :height, precision: 8, scale: 2
       t.decimal  :skills, precision: 8, scale: 2
       t.decimal  :rate, precision: 8, scale: 2

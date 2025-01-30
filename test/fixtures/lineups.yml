@@ -1,0 +1,13 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  duel: one
+  team: one
+  user: one
+  position: MyString
+
+two:
+  duel: two
+  team: two
+  user: two
+  position: MyString

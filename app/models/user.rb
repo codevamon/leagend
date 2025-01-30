@@ -24,7 +24,46 @@ class User < ApplicationRecord
   has_one_attached :avatar
   has_one_attached :coverpage
   
+  # Relaciones como árbitro
+  has_one :referee
+  has_many :refereed_duels, through: :referee, source: :duels
+
+  # Otras relaciones
+  has_many :admins
+  has_many :clubs, through: :admins
+  has_many :clans, through: :admins
   
+  # Relaciones como jugador
+  has_many :team_memberships
+  has_many :teams, through: :team_memberships
+  has_many :duels, through: :teams
+  
+  # Método para verificar si el usuario es líder de algún equipo
+  def leader?
+    team_memberships.exists?(leader: true)
+  end
+
+  # Método para obtener los equipos donde el usuario es líder
+  def leading_teams
+    teams.joins(:team_memberships).where(team_memberships: { leader: true })
+  end
+  
+  # Métodos para estadísticas unificadas
+  def total_duels
+    duels.count
+  end
+
+  def wins
+    duels.joins(:results).where(results: { team_id: teams.ids, outcome: 'win' }).count
+  end
+
+  def losses
+    duels.joins(:results).where(results: { team_id: teams.ids, outcome: 'loss' }).count
+  end
+
+  def draws
+    duels.joins(:results).where(results: { team_id: teams.ids, outcome: 'draw' }).count
+  end
 
 
   private

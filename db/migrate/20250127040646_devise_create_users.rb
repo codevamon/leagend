@@ -52,7 +52,7 @@ class DeviseCreateUsers < ActiveRecord::Migration[8.0]
 
       
       ## Player data
-      t.string  :position
+      t.string   :position
       t.integer  :dorsal, default: 00, null: false
       t.integer  :fav, default: 0, null: false
       t.decimal  :height, precision: 8, scale: 2

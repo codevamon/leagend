@@ -1,15 +1,85 @@
 Rails.application.routes.draw do
-  devise_for :users
-  # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
+  # Devise routes for User authentication
+  devise_for :users, controllers: {
+    confirmations: 'users/confirmations',
+    passwords: 'users/passwords',
+    registrations: 'users/registrations',
+    sessions: 'users/sessions',
+    omniauth_callbacks: 'users/omniauth_callbacks'
+  }
 
-  # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
-  # Can be used by load balancers and uptime monitors to verify that the app is live.
-  get "up" => "rails/health#show", as: :rails_health_check
+  # Root route
+  root to: 'home#index'
 
-  # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
-  # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
-  # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
+  # Resources for main models
+  resources :clubs do
+    resources :teams, only: [:index, :new, :create]
+    resources :admins, only: [:index, :new, :create]
+  end
 
-  # Defines the root path route ("/")
-  # root "posts#index"
+  resources :clans do
+    resources :teams, only: [:index, :new, :create]
+    resources :admins, only: [:index, :new, :create]
+  end
+
+  resources :teams, except: [:index, :new, :create] do
+    resources :team_memberships, only: [:index, :new, :create, :destroy]
+    resources :duels, only: [:index, :new, :create]
+    member do
+      patch :assign_leader
+    end
+  end
+
+  resources :duels do
+    resources :lineups, only: [:index, :new, :create, :destroy]
+    resources :duel_goals, only: [:index, :new, :create, :destroy]
+    resources :results, only: [:new, :create, :edit, :update]
+    member do
+      patch :start
+      patch :complete
+    end
+  end
+
+  resources :referees, only: [:index, :show, :new, :create, :edit, :update, :destroy]
+
+  # User profiles
+  resources :users, only: [:show, :edit, :update] do
+    member do
+      get :stats
+    end
+  end
+
+  # Admin namespace for administrative actions
+  namespace :admin do
+    resources :users, only: [:index, :show, :edit, :update, :destroy]
+    resources :clubs, only: [:index, :show, :edit, :update, :destroy]
+    resources :clans, only: [:index, :show, :edit, :update, :destroy]
+    resources :teams, only: [:index, :show, :edit, :update, :destroy]
+    resources :duels, only: [:index, :show, :edit, :update, :destroy]
+    resources :referees, only: [:index, :show, :edit, :update, :destroy]
+  end
+
+  # API namespace for future API endpoints
+  namespace :api do
+    namespace :v1 do
+      resources :users, only: [:index, :show]
+      resources :clubs, only: [:index, :show]
+      resources :clans, only: [:index, :show]
+      resources :teams, only: [:index, :show]
+      resources :duels, only: [:index, :show]
+      resources :referees, only: [:index, :show]
+    end
+  end
+
+  # Custom routes for specific actions
+  get 'dashboard', to: 'dashboard#index'
+  get 'search', to: 'search#index'
+  post 'search', to: 'search#results'
+
+  # Error handling
+  match '/404', to: 'errors#not_found', via: :all
+  match '/500', to: 'errors#internal_server_error', via: :all
+
+  # Catch-all route for undefined routes
+  match '*path', to: 'errors#not_found', via: :all
 end

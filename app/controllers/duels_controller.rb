@@ -11,8 +11,14 @@ class DuelsController < ApplicationController
     date = params[:duel][:start_date]
     location = params[:duel][:address]
     referee_id = params[:duel][:referee_id]
+    
+    if home_team.nil? || away_team.nil?
+      redirect_to new_duel_path, alert: 'One or both teams could not be found.'
+      return
+    end
 
-    duel = DuelCreator.new(home_team, away_team, date, location, referee_id).create_duel
+    # duel = DuelCreator.new(home_team, away_team, date, location, referee_id).create_duel
+    duel = DuelCreator.new(home_team, away_team, params[:duel][:start_date], params[:duel][:address], params[:duel][:referee_id]).create_duel
 
     if duel.persisted?
       # Asignar árbitro aleatorio

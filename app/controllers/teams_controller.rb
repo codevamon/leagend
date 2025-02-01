@@ -11,7 +11,15 @@ class TeamsController < ApplicationController
       if @team.save
         # Asignar líder si se proporciona
         if params[:team][:leader_id].present?
-          TeamMembership.create(team: @team, user_id: params[:team][:leader_id], leader: true)
+
+          user = User.find_by(id: params[:team][:leader_id])
+          if user && @team.users.include?(user)
+            TeamMembership.create(team: @team, user: user, leader: true)
+          else
+            flash[:alert] = 'The selected leader is not a member of the team.'
+          end
+    
+          # TeamMembership.create(team: @team, user_id: params[:team][:leader_id], leader: true)
         end
         redirect_to @team, notice: 'Team was successfully created.'
       else
@@ -23,10 +31,18 @@ class TeamsController < ApplicationController
       if @team.update(team_params)
         # Actualizar líder si se proporciona
         if params[:team][:leader_id].present?
+
+          user = User.find_by(id: params[:team][:leader_id])
+          if user && @team.users.include?(user)
+            @team.team_memberships.update_all(leader: false)
+            TeamMembership.create(team: @team, user: user, leader: true)
+          else
+            flash[:alert] = 'The selected leader is not a member of the team.'
+          end
           # Quitar el liderazgo actual
-          @team.team_memberships.update_all(leader: false)
+          # @team.team_memberships.update_all(leader: false)
           # Asignar nuevo líder
-          TeamMembership.create(team: @team, user_id: params[:team][:leader_id], leader: true)
+          # TeamMembership.create(team: @team, user_id: params[:team][:leader_id], leader: true)
         end
         redirect_to @team, notice: 'Team was successfully updated.'
       else

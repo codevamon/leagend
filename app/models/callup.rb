@@ -1,0 +1,2 @@
+class Callup < ApplicationRecord
+end

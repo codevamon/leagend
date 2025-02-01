@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_01_30_070540) do
+ActiveRecord::Schema[8.0].define(version: 2025_01_31_223818) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -49,6 +49,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_070540) do
     t.index ["clan_id"], name: "index_admins_on_clan_id"
     t.index ["club_id"], name: "index_admins_on_club_id"
     t.index ["user_id"], name: "index_admins_on_user_id"
+  end
+
+  create_table "callups", force: :cascade do |t|
+    t.integer "team_id", null: false
+    t.integer "user_id", null: false
+    t.integer "duel_id", null: false
+    t.integer "status", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["duel_id"], name: "index_callups_on_duel_id"
+    t.index ["team_id", "user_id", "duel_id"], name: "index_callups_on_team_id_and_user_id_and_duel_id", unique: true
+    t.index ["team_id"], name: "index_callups_on_team_id"
+    t.index ["user_id"], name: "index_callups_on_user_id"
   end
 
   create_table "clans", id: { type: :string, limit: 36 }, force: :cascade do |t|
@@ -295,6 +308,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_30_070540) do
   add_foreign_key "admins", "clans"
   add_foreign_key "admins", "clubs"
   add_foreign_key "admins", "users"
+  add_foreign_key "callups", "duels"
+  add_foreign_key "callups", "teams"
+  add_foreign_key "callups", "users"
   add_foreign_key "clans", "users"
   add_foreign_key "clubs", "users"
   add_foreign_key "duel_goals", "duels"

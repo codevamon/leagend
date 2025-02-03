@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_01_31_223818) do
+ActiveRecord::Schema[8.0].define(version: 2025_02_03_033653) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -208,6 +208,20 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_31_223818) do
     t.index ["duel_id"], name: "index_lineups_on_duel_id"
     t.index ["team_id"], name: "index_lineups_on_team_id"
     t.index ["user_id"], name: "index_lineups_on_user_id"
+  end
+
+  create_table "notifications", force: :cascade do |t|
+    t.string "recipient_type", null: false
+    t.integer "recipient_id", null: false
+    t.string "sender_type", null: false
+    t.integer "sender_id", null: false
+    t.string "message", null: false
+    t.integer "category", default: 0
+    t.integer "status", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["recipient_type", "recipient_id"], name: "index_notifications_on_recipient"
+    t.index ["sender_type", "sender_id"], name: "index_notifications_on_sender"
   end
 
   create_table "referees", id: { type: :string, limit: 36 }, force: :cascade do |t|

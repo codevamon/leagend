@@ -37,6 +37,9 @@ class User < ApplicationRecord
   has_many :team_memberships
   has_many :teams, through: :team_memberships
   has_many :duels, through: :teams
+  has_many :callups, dependent: :destroy
+  has_many :called_up_teams, through: :callups, source: :team
+  has_many :notifications, as: :recipient
   
   # Método para verificar si el usuario es líder de algún equipo
   def leader?

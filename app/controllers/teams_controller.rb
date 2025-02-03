@@ -1,6 +1,6 @@
 # app/controllers/teams_controller.rb
 class TeamsController < ApplicationController
-    before_action :set_team, only: [:show, :edit, :update, :destroy]
+    before_action :set_team, only: [:show, :edit, :update, :destroy, :callup_users, :create_callup]
   
     def new
       @team = Team.new
@@ -50,6 +50,24 @@ class TeamsController < ApplicationController
       end
     end
   
+
+    def callup_users
+      @users = @team.users
+    end
+  
+    def create_callup
+      user = User.find(params[:user_id])
+      duel = Duel.find(params[:duel_id])
+  
+      callup = @team.callups.new(user: user, duel: duel)
+  
+      if callup.save
+        redirect_to @team, notice: 'User has been called up successfully.'
+      else
+        redirect_to @team, alert: 'Failed to call up user.'
+      end
+    end
+
     private
   
     def set_team

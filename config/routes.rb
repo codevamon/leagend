@@ -26,6 +26,9 @@ Rails.application.routes.draw do
     resources :team_memberships, only: [:index, :new, :create, :destroy]
     resources :duels, only: [:index, :new, :create]
     member do
+      resources :callups, only: [:new, :create]
+      get :callup_users
+      post :create_callup
       patch :assign_leader
     end
   end

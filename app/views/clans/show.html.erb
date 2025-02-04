@@ -1,0 +1,5 @@
+
+  <h1><%= @clan.name %></h1>
+  <p>Admin: <%= @clan.admin.name %></p>
+  <%= link_to 'Edit', edit_clan_path(@clan) %> |
+  <%= link_to 'Back', clans_path %>

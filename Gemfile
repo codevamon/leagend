@@ -30,14 +30,18 @@ gem "solid_cable"
 gem "jbuilder"
 gem "devise"
 gem "friendly_id", "~> 5.4.0"
-# gem "ransack", "~> 3.0"
-# gem 'ransack'
 gem "geocoder", "~> 1.8"
 gem "will_paginate", "~> 3.1"
 gem "simple_form", "~> 5.0"
 gem "omniauth", "~> 2.0"
 gem "omniauth-facebook", "~> 8.0"
 gem "omniauth-google-oauth2", "~> 1.0"
+gem 'pundit', '~> 2.3' # Para autorización
+gem 'activeadmin', '~> 3.2' # Para el panel de administración
+gem 'sidekiq', '~> 7.0' # Para tareas en segundo plano
+gem 'rack-cors', '~> 2.0' # Para manejar CORS en la API
+gem 'kaminari', '~> 1.2' # Para paginación
+gem 'ransack', '~> 4.0' # Para búsquedas
 
 # Frontend
 gem "sassc-rails", ">= 2.1.0"
@@ -59,6 +63,7 @@ gem "streamio-ffmpeg", "~> 3.0"
 # Otros
 gem "tzinfo-data", platforms: %i[ mingw mswin x64_mingw jruby ]
 gem 'sprockets-rails'
+
 
 group :development, :test do
   gem "debug", platforms: %i[ mri mingw x64_mingw ], require: "debug/prelude"

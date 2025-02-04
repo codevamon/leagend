@@ -27,19 +27,17 @@ class User < ApplicationRecord
   # Relaciones como árbitro
   has_one :referee
   has_many :refereed_duels, through: :referee, source: :duels
-
-  # Otras relaciones
   has_many :admins
   has_many :clubs, through: :admins
   has_many :clans, through: :admins
-  
-  # Relaciones como jugador
   has_many :team_memberships
   has_many :teams, through: :team_memberships
   has_many :duels, through: :teams
   has_many :callups, dependent: :destroy
   has_many :called_up_teams, through: :callups, source: :team
   has_many :notifications, as: :recipient
+  has_many :owned_teams, class_name: 'Team', foreign_key: 'leader_id'
+  has_many :stats
   
   # Método para verificar si el usuario es líder de algún equipo
   def leader?

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_02_03_033653) do
+ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -210,6 +210,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_03_033653) do
     t.index ["user_id"], name: "index_lineups_on_user_id"
   end
 
+  create_table "memberships", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.string "joinable_type", null: false
+    t.integer "joinable_id", null: false
+    t.integer "status"
+    t.integer "role"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["joinable_type", "joinable_id"], name: "index_memberships_on_joinable"
+    t.index ["user_id"], name: "index_memberships_on_user_id"
+  end
+
   create_table "notifications", force: :cascade do |t|
     t.string "recipient_type", null: false
     t.integer "recipient_id", null: false
@@ -222,6 +234,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_03_033653) do
     t.datetime "updated_at", null: false
     t.index ["recipient_type", "recipient_id"], name: "index_notifications_on_recipient"
     t.index ["sender_type", "sender_id"], name: "index_notifications_on_sender"
+  end
+
+  create_table "pages", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "referees", id: { type: :string, limit: 36 }, force: :cascade do |t|
@@ -336,6 +353,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_03_033653) do
   add_foreign_key "lineups", "duels"
   add_foreign_key "lineups", "teams"
   add_foreign_key "lineups", "users"
+  add_foreign_key "memberships", "users"
   add_foreign_key "referees", "users"
   add_foreign_key "results", "duels"
   add_foreign_key "results", "teams"

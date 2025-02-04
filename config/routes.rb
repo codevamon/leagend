@@ -9,17 +9,30 @@ Rails.application.routes.draw do
   }
 
   # Root route
-  root to: 'home#index'
+  root to: 'pages#home'
+  
 
   # Resources for main models
   resources :clubs do
     resources :teams, only: [:index, :new, :create]
     resources :admins, only: [:index, :new, :create]
+    resources :memberships, only: [:create]
+    member do
+      patch 'memberships/:id/approve', to: 'memberships#approve', as: :approve_membership
+    end
+    member do
+      post :join
+      post :approve_member
+    end
   end
 
   resources :clans do
     resources :teams, only: [:index, :new, :create]
     resources :admins, only: [:index, :new, :create]
+    resources :memberships, only: [:create]
+    member do
+      post :join
+    end
   end
 
   resources :teams, except: [:index, :new, :create] do

@@ -14,8 +14,8 @@ class User < ApplicationRecord
 
   # Devise modules
   devise :database_authenticatable, :registerable,
-         :recoverable, :rememberable, :validatable,
-         :confirmable, :omniauthable, omniauth_providers: [:facebook, :google_oauth2]
+         :recoverable, :rememberable, :validatable, 
+         :omniauthable, omniauth_providers: [:google_oauth2]
          
   attr_writer :login
   attr_accessor :image_url
@@ -64,6 +64,31 @@ class User < ApplicationRecord
 
   def draws
     duels.joins(:results).where(results: { team_id: teams.ids, outcome: 'draw' }).count
+  end
+
+  def avatar_url
+    avatar.attached? ? Rails.application.routes.url_helpers.rails_blob_url(avatar, only_path: true) : "/default_avatar.png"
+  end
+
+  
+  def self.from_omniauth(auth)
+    user = User.where(email: auth.info.email).first
+    if user
+      return user
+    else
+      where(provider: auth.provider, uid: auth.uid).first_or_create do |user|
+        user.email = auth.info.email
+        user.password = Devise.friendly_token[0,20]
+        user.firstname = auth.info.first_name || auth.info.profile   # assuming the user model has a name
+        user.lastname = auth.info.last_name || auth.info.profile  # assuming the user model has a name
+        # user.image = auth.info.image # assuming the user model has an image
+        user.skip_confirmation!
+      end
+
+      # user.avatar.attach(io: URI.open(auth.info.image), filename: "avatar.jpg") if auth.info.image.present? && !user.avatar.attached?
+      user.save
+      user
+    end
   end
 
 

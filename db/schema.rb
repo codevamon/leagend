@@ -286,6 +286,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
     t.string "uid"
+    t.string "provider"
     t.string "firstname"
     t.string "lastname"
     t.string "phone_number", null: false

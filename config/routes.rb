@@ -1,12 +1,4 @@
 Rails.application.routes.draw do
-  # Devise routes for User authentication
-  devise_for :users, controllers: {
-    confirmations: 'users/confirmations',
-    passwords: 'users/passwords',
-    registrations: 'users/registrations',
-    sessions: 'users/sessions',
-    omniauth_callbacks: 'users/omniauth_callbacks'
-  }
 
   # Root route
   root to: 'pages#home'
@@ -87,15 +79,26 @@ Rails.application.routes.draw do
     end
   end
 
-  # Custom routes for specific actions
-  get 'dashboard', to: 'dashboard#index'
-  get 'search', to: 'search#index'
-  post 'search', to: 'search#results'
+  devise_for :users,
+              path: '',
+              path_names: {
+                sign_in: 'login', 
+                sign_out: 'logout', 
+                edit: 'users/:id/edit',
+                # sign_up: 'registration' 
+              }, 
+              controllers: {
+                omniauth_callbacks: 'users/omniauth_callbacks'
+              }
+  # # Custom routes for specific actions
+  # get 'dashboard', to: 'dashboard#index'
+  # get 'search', to: 'search#index'
+  # post 'search', to: 'search#results'
 
-  # Error handling
-  match '/404', to: 'errors#not_found', via: :all
-  match '/500', to: 'errors#internal_server_error', via: :all
+  # # Error handling
+  # match '/404', to: 'errors#not_found', via: :all
+  # match '/500', to: 'errors#internal_server_error', via: :all
 
-  # Catch-all route for undefined routes
-  match '*path', to: 'errors#not_found', via: :all
+  # # Catch-all route for undefined routes
+  # match '*path', to: 'errors#not_found', via: :all
 end

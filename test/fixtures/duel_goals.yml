@@ -1,0 +1,13 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  duel: one
+  user: one
+  team: one
+  minute: 1
+
+two:
+  duel: two
+  user: two
+  team: two
+  minute: 1

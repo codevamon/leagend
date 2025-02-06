@@ -1,0 +1,30 @@
+
+  <h1><%= @club.name %></h1>
+  <p>Admin: <%= @club.admin.name %></p>
+  <%= link_to 'Edit', edit_club_path(@club) %> |
+  <%= link_to 'Back', clubs_path %>
+
+  <h2>Pending Members</h2>
+  <% @pending_memberships.each do |membership| %>
+    <div class="member-request">
+      <%= membership.user.email %>
+      <%= button_to "Approve", 
+          approve_membership_club_path(@club, membership), 
+          method: :patch %>
+    </div>
+  <% end %>
+
+  <h1><%= @club.name %></h1>
+<p><%= @club.description %></p>
+
+<% if current_user && !@club.memberships.where(user: current_user).exists? %>
+  <%= button_to "Join Club", club_memberships_path(@club), method: :post %>
+<% end %>
+
+<h2>Pending Members</h2>
+<% @pending_memberships.each do |membership| %>
+  <div>
+    <%= membership.user.email %>
+    <%= button_to "Approve", approve_membership_club_path(@club, membership), method: :patch %>
+  </div>
+<% end %>

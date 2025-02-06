@@ -14,8 +14,8 @@ class User < ApplicationRecord
 
   # Devise modules
   devise :database_authenticatable, :registerable,
-         :recoverable, :rememberable, :validatable,
-         :confirmable, :omniauthable, omniauth_providers: [:facebook, :google_oauth2]
+         :recoverable, :rememberable, :validatable, 
+         :omniauthable, omniauth_providers: [:google_oauth2]
          
   attr_writer :login
   attr_accessor :image_url
@@ -24,6 +24,72 @@ class User < ApplicationRecord
   has_one_attached :avatar
   has_one_attached :coverpage
   
+  # Relaciones como árbitro
+  has_one :referee
+  has_many :refereed_duels, through: :referee, source: :duels
+  has_many :admins
+  has_many :clubs, through: :admins
+  has_many :clans, through: :admins
+  has_many :team_memberships
+  has_many :teams, through: :team_memberships
+  has_many :duels, through: :teams
+  has_many :callups, dependent: :destroy
+  has_many :called_up_teams, through: :callups, source: :team
+  has_many :notifications, as: :recipient
+  has_many :owned_teams, class_name: 'Team', foreign_key: 'leader_id'
+  has_many :stats
+  
+  # Método para verificar si el usuario es líder de algún equipo
+  def leader?
+    team_memberships.exists?(leader: true)
+  end
+
+  # Método para obtener los equipos donde el usuario es líder
+  def leading_teams
+    teams.joins(:team_memberships).where(team_memberships: { leader: true })
+  end
+  
+  # Métodos para estadísticas unificadas
+  def total_duels
+    duels.count
+  end
+
+  def wins
+    duels.joins(:results).where(results: { team_id: teams.ids, outcome: 'win' }).count
+  end
+
+  def losses
+    duels.joins(:results).where(results: { team_id: teams.ids, outcome: 'loss' }).count
+  end
+
+  def draws
+    duels.joins(:results).where(results: { team_id: teams.ids, outcome: 'draw' }).count
+  end
+
+  def avatar_url
+    avatar.attached? ? Rails.application.routes.url_helpers.rails_blob_url(avatar, only_path: true) : "/default_avatar.png"
+  end
+
+  
+  def self.from_omniauth(auth)
+    user = User.where(email: auth.info.email).first
+    if user
+      return user
+    else
+      where(provider: auth.provider, uid: auth.uid).first_or_create do |user|
+        user.email = auth.info.email
+        user.password = Devise.friendly_token[0,20]
+        user.firstname = auth.info.first_name || auth.info.profile   # assuming the user model has a name
+        user.lastname = auth.info.last_name || auth.info.profile  # assuming the user model has a name
+        # user.image = auth.info.image # assuming the user model has an image
+        user.skip_confirmation!
+      end
+
+      # user.avatar.attach(io: URI.open(auth.info.image), filename: "avatar.jpg") if auth.info.image.present? && !user.avatar.attached?
+      user.save
+      user
+    end
+  end
 
 
   private

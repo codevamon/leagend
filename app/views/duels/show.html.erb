@@ -1,0 +1,26 @@
+<!-- app/views/duels/show.html.erb -->
+<h1>Duel Details</h1>
+
+<h2>Home Team: <%= @home_team.name %></h2>
+<ul>
+  <% @home_team_users.each do |user| %>
+    <li>
+      <%= user.full_name %>
+      <% if user == @home_team.leader %>
+        <strong>(Leader)</strong>
+      <% end %>
+    </li>
+  <% end %>
+</ul>
+
+<h2>Away Team: <%= @away_team.name %></h2>
+<ul>
+  <% @away_team_users.each do |user| %>
+    <li>
+      <%= user.full_name %>
+      <% if user == @away_team.leader %>
+        <strong>(Leader)</strong>
+      <% end %>
+    </li>
+  <% end %>
+</ul>

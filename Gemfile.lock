@@ -322,8 +322,6 @@ GEM
     rack (3.1.8)
     rack-cors (2.0.2)
       rack (>= 2.0.0)
-    rack-mini-profiler (2.3.4)
-      rack (>= 1.2.0)
     rack-protection (4.1.1)
       base64 (>= 0.1.0)
       logger (>= 1.6.0)
@@ -549,7 +547,6 @@ DEPENDENCIES
   puma (>= 5.0)
   pundit (~> 2.3)
   rack-cors (~> 2.0)
-  rack-mini-profiler (~> 2.0)
   rails (~> 8.0.1)
   ransack (~> 4.0)
   rubocop-rails-omakase

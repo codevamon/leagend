@@ -1,4 +1,20 @@
 class User < ApplicationRecord
+  # Devise modules
+  attr_writer :login
+  attr_accessor :image_url
+
+  devise :database_authenticatable, :registerable,
+         :recoverable, :rememberable, :validatable,
+         :omniauthable, omniauth_providers: [:google_oauth2]  # 👈 ESTA LÍNEA ES CLAVE
+
+  def self.from_omniauth(auth)
+    where(provider: auth.provider, uid: auth.uid).first_or_create do |user|
+      user.email = auth.info.email
+      user.password = Devise.friendly_token[0, 20]
+      user.name = auth.info.name   # Ajusta si tienes un campo "name"
+    end
+  end
+  
   # Friendly ID
   extend FriendlyId
   friendly_id :slug_candidates, use: :slugged
@@ -12,13 +28,36 @@ class User < ApplicationRecord
   validates :slug, presence: true, uniqueness: true, length: { maximum: 50 }, format: { without: /\s/, message: "cannot contain spaces" }
   validates :phone_number, format: { with: /\A\+\d{1,3}\d{7,15}\z/, message: "must be a valid phone number" }, allow_blank: true
 
-  # Devise modules
-  devise :database_authenticatable, :registerable,
-         :recoverable, :rememberable, :validatable, 
-         :omniauthable, omniauth_providers: [:google_oauth2]
-         
-  attr_writer :login
-  attr_accessor :image_url
+  
+  
+  # def self.from_omniauth(auth)
+  #   user = User.where(email: auth.info.email).first
+  #   if user
+  #     return user
+  #   else
+  #     where(provider: auth.provider, uid: auth.uid).first_or_create do |user|
+  #       user.email = auth.info.email
+  #       user.password = Devise.friendly_token[0,20]
+  #       user.firstname = auth.info.first_name || auth.info.profile   # assuming the user model has a name
+  #       user.lastname = auth.info.last_name || auth.info.profile  # assuming the user model has a name
+  #       # user.image = auth.info.image # assuming the user model has an image
+  #       user.skip_confirmation!
+  #     end
+
+  #     # user.avatar.attach(io: URI.open(auth.info.image), filename: "avatar.jpg") if auth.info.image.present? && !user.avatar.attached?
+  #     user.save
+  #     user
+  #   end
+  # end
+
+  # def self.from_omniauth(auth)
+  #   where(provider: auth.provider, uid: auth.uid).first_or_create do |user|
+  #     user.email = auth.info.email
+  #     user.password = Devise.friendly_token[0, 20]
+  #     user.name = auth.info.name # si tienes un campo 'name'
+  #   end
+  # end
+
 
   # Medias
   has_one_attached :avatar
@@ -70,26 +109,6 @@ class User < ApplicationRecord
     avatar.attached? ? Rails.application.routes.url_helpers.rails_blob_url(avatar, only_path: true) : "/default_avatar.png"
   end
 
-  
-  def self.from_omniauth(auth)
-    user = User.where(email: auth.info.email).first
-    if user
-      return user
-    else
-      where(provider: auth.provider, uid: auth.uid).first_or_create do |user|
-        user.email = auth.info.email
-        user.password = Devise.friendly_token[0,20]
-        user.firstname = auth.info.first_name || auth.info.profile   # assuming the user model has a name
-        user.lastname = auth.info.last_name || auth.info.profile  # assuming the user model has a name
-        # user.image = auth.info.image # assuming the user model has an image
-        user.skip_confirmation!
-      end
-
-      # user.avatar.attach(io: URI.open(auth.info.image), filename: "avatar.jpg") if auth.info.image.present? && !user.avatar.attached?
-      user.save
-      user
-    end
-  end
 
 
   private

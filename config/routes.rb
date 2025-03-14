@@ -1,7 +1,8 @@
 Rails.application.routes.draw do
 
   # Root route
-  root to: 'pages#home'
+  root to: 'users#index'
+  devise_for :users, controllers: { omniauth_callbacks: 'omniauth_callbacks' }
   
 
   # Resources for main models
@@ -50,13 +51,6 @@ Rails.application.routes.draw do
 
   resources :referees, only: [:index, :show, :new, :create, :edit, :update, :destroy]
 
-  # User profiles
-  resources :users, only: [:show, :edit, :update] do
-    member do
-      get :stats
-    end
-  end
-
   # Admin namespace for administrative actions
   namespace :admin do
     resources :users, only: [:index, :show, :edit, :update, :destroy]
@@ -79,17 +73,7 @@ Rails.application.routes.draw do
     end
   end
 
-  devise_for :users,
-              path: '',
-              path_names: {
-                sign_in: 'login', 
-                sign_out: 'logout', 
-                edit: 'users/:id/edit',
-                # sign_up: 'registration' 
-              }, 
-              controllers: {
-                omniauth_callbacks: 'users/omniauth_callbacks'
-              }
+
   # # Custom routes for specific actions
   # get 'dashboard', to: 'dashboard#index'
   # get 'search', to: 'search#index'

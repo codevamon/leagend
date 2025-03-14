@@ -31,9 +31,14 @@ class UsersController < ApplicationController
 
   private
   
-      def set_user
-      @user = User.friendly.find(params[:id])
+    def set_user
+      if params[:id] =~ /\A\d+\z/ || User.friendly.exists?(slug: params[:id])
+        @user = User.friendly.find(params[:id])
+      else
+        redirect_to root_path, alert: "User not found."
       end
+    end
+  
   
       def user_params
         params.require(:user).permit(:phone_number, :pin, :latitude, :longitude, :avatar, :coverpage, :firstname, :lastname, :email, :bio)

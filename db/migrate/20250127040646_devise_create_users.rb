@@ -8,12 +8,14 @@ class DeviseCreateUsers < ActiveRecord::Migration[8.0]
       t.string   :slug,               null: false, default: ""
       t.string   :email,              null: false, default: ""
       t.string   :encrypted_password, null: false, default: ""
-      t.string   :uid
       t.string   :provider
+      t.string   :uid
       t.string   :firstname
       t.string   :lastname
       t.string   :phone_number,       null: false
       t.string   :country_code,       limit: 5
+      t.string   :avatar
+      t.string   :cover
       t.text     :bio
       t.datetime :birthday
       t.boolean  :owner,              default: false

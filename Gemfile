@@ -34,8 +34,8 @@ gem "geocoder", "~> 1.8"
 gem "will_paginate", "~> 3.1"
 gem "simple_form", "~> 5.0"
 gem "omniauth", "~> 2.0"
-gem "omniauth-facebook", "~> 8.0"
-gem "omniauth-google-oauth2", "~> 1.0"
+gem "omniauth-google-oauth2"
+gem 'omniauth-rails_csrf_protection'
 gem 'pundit', '~> 2.3' # Para autorización
 gem 'activeadmin', '~> 3.2' # Para el panel de administración
 gem 'sidekiq', '~> 7.0' # Para tareas en segundo plano

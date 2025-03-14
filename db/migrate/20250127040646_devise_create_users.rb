@@ -14,6 +14,9 @@ class DeviseCreateUsers < ActiveRecord::Migration[8.0]
       t.string   :lastname
       t.string   :phone_number,       null: false
       t.string   :country_code,       limit: 5
+      t.string   :country
+      t.string   :city
+      t.string   :neighborhood            
       t.string   :avatar
       t.string   :cover
       t.text     :bio

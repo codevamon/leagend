@@ -309,8 +309,6 @@ Devise.setup do |config|
   # changed. Defaults to true, so a user is signed in automatically after changing a password.
   # config.sign_in_after_change_password = true
 
-  # config.omniauth :google_oauth2, '859539787958-5f91d2qcbalks99mdn5fprgbp0kjefij.apps.googleusercontent.com', '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', scope: 'userinfo.email, userinfo.profile', skip_jwt: true
-  # config.omniauth :facebook, '3226249004258110', '388fc99ab1aa4b48667809e1b087aa85', scope: 'email', info_fields: 'email,first_name,last_name'
   config.omniauth :google_oauth2,
     Rails.application.credentials.dig(:google_oauth2, :client_id),
     Rails.application.credentials.dig(:google_oauth2, :client_secret),

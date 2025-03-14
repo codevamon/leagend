@@ -291,6 +291,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
     t.string "lastname"
     t.string "phone_number", null: false
     t.string "country_code", limit: 5
+    t.string "country"
+    t.string "city"
+    t.string "neighborhood"
     t.string "avatar"
     t.string "cover"
     t.text "bio"

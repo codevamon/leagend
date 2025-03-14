@@ -1,3 +1,5 @@
+require 'open-uri'
+
 class User < ApplicationRecord
   # Devise modules
   attr_writer :login
@@ -7,14 +9,43 @@ class User < ApplicationRecord
          :recoverable, :rememberable, :validatable,
          :omniauthable, omniauth_providers: [:google_oauth2]  # 👈 ESTA LÍNEA ES CLAVE
 
+
   def self.from_omniauth(auth)
-    where(provider: auth.provider, uid: auth.uid).first_or_create do |user|
-      user.email = auth.info.email
-      user.password = Devise.friendly_token[0, 20]
-      user.name = auth.info.name   # Ajusta si tienes un campo "name"
+    where(provider: auth.provider, uid: auth.uid).first_or_initialize.tap do |user|
+      # Asignar datos básicos de Google
+      user.email       = auth.info.email
+      user.firstname   = auth.info.first_name  || auth.info.name&.split&.first
+      user.lastname    = auth.info.last_name   || auth.info.name&.split&.last
+
+      # Generar slug si está en blanco
+      if user.slug.blank?
+        slug_candidate = [user.firstname, user.lastname].compact.join("-").parameterize
+        user.slug      = slug_candidate.presence || "google-#{SecureRandom.hex(4)}"
+      end
+
+      # Si tu callback set_avatar_from_url espera user.image_url
+      if auth.info.image.present?
+        user.image_url = auth.info.image
+      end
+
+      # Campos extra (country, city, neighborhood):
+      # Google no los da por defecto, puedes obtenerlos si configuras scopes avanzados.
+      # Suponiendo que estuvieran en auth.extra.raw_info:
+      # user.country      = auth.extra.raw_info.country      if auth.extra&.raw_info&.country
+      # user.city         = auth.extra.raw_info.city         if auth.extra&.raw_info&.city
+      # user.neighborhood = auth.extra.raw_info.neighborhood if auth.extra&.raw_info&.neighborhood
+
+      # Evitar error con phone_number NOT NULL, asignando placeholder válido
+      user.phone_number ||= "+0000000000"
+
+      # Generar password si no existe
+      user.password = Devise.friendly_token[0,20] if user.encrypted_password.blank?
+
+      user.save
     end
   end
-  
+          
+
   # Friendly ID
   extend FriendlyId
   friendly_id :slug_candidates, use: :slugged
@@ -29,26 +60,6 @@ class User < ApplicationRecord
   validates :phone_number, format: { with: /\A\+\d{1,3}\d{7,15}\z/, message: "must be a valid phone number" }, allow_blank: true
 
   
-  
-  # def self.from_omniauth(auth)
-  #   user = User.where(email: auth.info.email).first
-  #   if user
-  #     return user
-  #   else
-  #     where(provider: auth.provider, uid: auth.uid).first_or_create do |user|
-  #       user.email = auth.info.email
-  #       user.password = Devise.friendly_token[0,20]
-  #       user.firstname = auth.info.first_name || auth.info.profile   # assuming the user model has a name
-  #       user.lastname = auth.info.last_name || auth.info.profile  # assuming the user model has a name
-  #       # user.image = auth.info.image # assuming the user model has an image
-  #       user.skip_confirmation!
-  #     end
-
-  #     # user.avatar.attach(io: URI.open(auth.info.image), filename: "avatar.jpg") if auth.info.image.present? && !user.avatar.attached?
-  #     user.save
-  #     user
-  #   end
-  # end
 
   # def self.from_omniauth(auth)
   #   where(provider: auth.provider, uid: auth.uid).first_or_create do |user|
@@ -105,8 +116,13 @@ class User < ApplicationRecord
     duels.joins(:results).where(results: { team_id: teams.ids, outcome: 'draw' }).count
   end
 
+
   def avatar_url
-    avatar.attached? ? Rails.application.routes.url_helpers.rails_blob_url(avatar, only_path: true) : "/default_avatar.png"
+    if avatar.attached?
+      Rails.application.routes.url_helpers.rails_blob_url(avatar, only_path: true)
+    else
+      "/default_avatar.png"
+    end
   end
 
 

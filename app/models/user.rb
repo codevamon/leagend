@@ -76,8 +76,9 @@ class User < ApplicationRecord
   
   # Relaciones como árbitro
   has_one :referee
+  has_many :owned_clubs, class_name: 'Club', foreign_key: 'user_id', dependent: :destroy
   has_many :refereed_duels, through: :referee, source: :duels
-  has_many :admins
+  has_many :admins, dependent: :destroy
   has_many :clubs, through: :admins
   has_many :clans, through: :admins
   has_many :team_memberships

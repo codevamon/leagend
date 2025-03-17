@@ -1,6 +1,37 @@
-
-  <%= form_with model: club, local: true do |form| %>
-    <%= form.label :name %>
-    <%= form.text_field :name %>
-    <%= form.submit %>
+<div>
+  <h2>Welcome, <%= current_user.firstname %></h2>
+  
+  <% if current_user.avatar_url.present? %>
+    <%= image_tag(current_user.avatar_url, alt: "User Avatar") %>
+  <% else %>
+    <p>No avatar available</p>
   <% end %>
+</div>
+  
+  
+<%= form_with(model: club, local: true, html: { class: "needs-validation", novalidate: true }) do |f| %>
+  <div class="form-floating mb-3">
+    <%= f.text_field :name, class: "form-control", id: "clubName", placeholder: "Nombre del Club", required: true %>
+    <%= f.label :name, "Nombre del Club", for: "clubName" %>
+  </div>
+
+  <div class="form-floating mb-3">
+    <%= f.text_area :description, class: "form-control", id: "clubDescription", placeholder: "Descripción", style: "height: 100px;" %>
+    <%= f.label :description, "Descripción", for: "clubDescription" %>
+  </div>
+
+  <div class="form-floating mb-3">
+    <%= f.text_field :address, class: "form-control", id: "clubAddress", placeholder: "Dirección" %>
+    <%= f.label :address, "Dirección", for: "clubAddress" %>
+  </div>
+
+  <div class="mb-3">
+    <label for="clubAvatar" class="form-label">Logo del Club</label>
+    <%= f.file_field :avatar, class: "form-control", id: "clubAvatar", accept: "image/png, image/jpeg" %>
+  </div>
+
+  <div class="d-grid">
+    <%= f.submit club.new_record? ? "Crear Club" : "Actualizar Club", class: "btn btn-primary btn-lg" %>
+  </div>
+<% end %>
+

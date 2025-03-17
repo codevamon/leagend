@@ -44,6 +44,6 @@ class AdminsController < ApplicationController
     end
   
     def admin_params
-      params.require(:admin).permit(:user_id, :club_id, :clan_id)
+      params.require(:admin).permit(:user_id, :club_id, :clan_id, :level)
     end
   end

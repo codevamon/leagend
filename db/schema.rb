@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
+ActiveRecord::Schema[8.0].define(version: 2025_03_17_081816) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -39,17 +39,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
-  create_table "admins", force: :cascade do |t|
-    t.integer "user_id", null: false
-    t.integer "club_id", null: false
-    t.integer "clan_id", null: false
-    t.integer "level", default: 0
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["clan_id"], name: "index_admins_on_clan_id"
-    t.index ["club_id"], name: "index_admins_on_club_id"
-    t.index ["user_id"], name: "index_admins_on_user_id"
-  end
+# Could not dump table "admins" because of following StandardError
+#   Unknown type '' for column 'user_id'
+
 
   create_table "callups", force: :cascade do |t|
     t.integer "team_id", null: false
@@ -64,71 +56,13 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
     t.index ["user_id"], name: "index_callups_on_user_id"
   end
 
-  create_table "clans", id: { type: :string, limit: 36 }, force: :cascade do |t|
-    t.integer "user_id", null: false
-    t.string "slug", default: "", null: false
-    t.string "name"
-    t.string "country"
-    t.string "city"
-    t.string "neighborhood"
-    t.string "address"
-    t.text "description"
-    t.integer "status"
-    t.integer "price"
-    t.decimal "latitude", precision: 10, scale: 6
-    t.decimal "longitude", precision: 10, scale: 6
-    t.boolean "active", default: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["slug"], name: "index_clans_on_slug", unique: true
-    t.index ["user_id"], name: "index_clans_on_user_id"
-  end
+# Could not dump table "clans" because of following StandardError
+#   Unknown type '' for column 'user_id'
 
-  create_table "clubs", id: { type: :string, limit: 36 }, force: :cascade do |t|
-    t.integer "user_id", null: false
-    t.string "slug", default: "", null: false
-    t.string "name"
-    t.string "country"
-    t.string "city"
-    t.string "neighborhood"
-    t.string "address"
-    t.integer "sport"
-    t.integer "status"
-    t.integer "price"
-    t.text "description"
-    t.decimal "prestige", precision: 10, scale: 6
-    t.decimal "latitude", precision: 10, scale: 6
-    t.decimal "longitude", precision: 10, scale: 6
-    t.boolean "private", default: false
-    t.boolean "uniform", default: false
-    t.boolean "training", default: false
-    t.boolean "active", default: false
-    t.boolean "lockers", default: false
-    t.boolean "snacks", default: false
-    t.boolean "payroll", default: false
-    t.boolean "bathrooms", default: false
-    t.boolean "staff", default: false
-    t.boolean "assistance", default: false
-    t.boolean "roof", default: false
-    t.boolean "parking", default: false
-    t.boolean "wifi", default: false
-    t.boolean "gym", default: false
-    t.boolean "showers", default: false
-    t.boolean "amenities", default: false
-    t.boolean "payment", default: false
-    t.boolean "transport", default: false
-    t.boolean "lunch", default: false
-    t.boolean "videogames", default: false
-    t.boolean "air", default: false
-    t.boolean "pools", default: false
-    t.boolean "front", default: false
-    t.string "main_color", default: "#000000"
-    t.string "other_color", default: "#FFFFFF"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["slug"], name: "index_clubs_on_slug", unique: true
-    t.index ["user_id"], name: "index_clubs_on_user_id"
-  end
+
+# Could not dump table "clubs" because of following StandardError
+#   Unknown type '' for column 'user_id'
+
 
   create_table "duel_goals", force: :cascade do |t|
     t.integer "duel_id", null: false

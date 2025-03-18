@@ -1,8 +1,0 @@
-
-  <h1>Referees</h1>
-  <%= link_to 'New Referee', new_referee_path %>
-  <ul>
-    <% @referees.each do |referee| %>
-      <li><%= link_to referee.name, referee_path(referee) %></li>
-    <% end %>
-  </ul>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
+ActiveRecord::Schema[8.0].define(version: 2025_03_17_081816) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -40,24 +40,41 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
   end
 
 # Could not dump table "admins" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
+#   Unknown type '' for column 'user_id'
 
 
-# Could not dump table "callups" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
-
+  create_table "callups", force: :cascade do |t|
+    t.integer "team_id", null: false
+    t.integer "user_id", null: false
+    t.integer "duel_id", null: false
+    t.integer "status", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["duel_id"], name: "index_callups_on_duel_id"
+    t.index ["team_id", "user_id", "duel_id"], name: "index_callups_on_team_id_and_user_id_and_duel_id", unique: true
+    t.index ["team_id"], name: "index_callups_on_team_id"
+    t.index ["user_id"], name: "index_callups_on_user_id"
+  end
 
 # Could not dump table "clans" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
+#   Unknown type '' for column 'user_id'
 
 
 # Could not dump table "clubs" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
+#   Unknown type '' for column 'user_id'
 
 
-# Could not dump table "duel_goals" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
-
+  create_table "duel_goals", force: :cascade do |t|
+    t.integer "duel_id", null: false
+    t.integer "user_id", null: false
+    t.integer "team_id", null: false
+    t.integer "minute"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["duel_id"], name: "index_duel_goals_on_duel_id"
+    t.index ["team_id"], name: "index_duel_goals_on_team_id"
+    t.index ["user_id"], name: "index_duel_goals_on_user_id"
+  end
 
   create_table "duels", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.integer "home_team_id", null: false
@@ -115,13 +132,29 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
     t.index ["sluggable_type", "sluggable_id"], name: "index_friendly_id_slugs_on_sluggable_type_and_sluggable_id"
   end
 
-# Could not dump table "lineups" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
+  create_table "lineups", force: :cascade do |t|
+    t.integer "duel_id", null: false
+    t.integer "team_id", null: false
+    t.integer "user_id", null: false
+    t.string "position"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["duel_id"], name: "index_lineups_on_duel_id"
+    t.index ["team_id"], name: "index_lineups_on_team_id"
+    t.index ["user_id"], name: "index_lineups_on_user_id"
+  end
 
-
-# Could not dump table "memberships" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
-
+  create_table "memberships", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.string "joinable_type", null: false
+    t.integer "joinable_id", null: false
+    t.integer "status"
+    t.integer "role"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["joinable_type", "joinable_id"], name: "index_memberships_on_joinable"
+    t.index ["user_id"], name: "index_memberships_on_user_id"
+  end
 
   create_table "notifications", force: :cascade do |t|
     t.string "recipient_type", null: false
@@ -142,9 +175,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
     t.datetime "updated_at", null: false
   end
 
-# Could not dump table "referees" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
-
+  create_table "referees", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.decimal "fee", precision: 8, scale: 2, default: "0.0"
+    t.boolean "available"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_referees_on_user_id"
+  end
 
   create_table "results", force: :cascade do |t|
     t.integer "duel_id", null: false
@@ -156,13 +194,26 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
     t.index ["team_id"], name: "index_results_on_team_id"
   end
 
-# Could not dump table "team_memberships" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
+  create_table "team_memberships", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.integer "team_id", null: false
+    t.boolean "leader"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["team_id"], name: "index_team_memberships_on_team_id"
+    t.index ["user_id"], name: "index_team_memberships_on_user_id"
+  end
 
-
-# Could not dump table "teams" because of following StandardError
-#   Unknown type 'uuid' for column 'club_id'
-
+  create_table "teams", force: :cascade do |t|
+    t.string "name"
+    t.integer "club_id", null: false
+    t.integer "clan_id", null: false
+    t.integer "status"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["clan_id"], name: "index_teams_on_clan_id"
+    t.index ["club_id"], name: "index_teams_on_club_id"
+  end
 
   create_table "users", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "slug", default: "", null: false

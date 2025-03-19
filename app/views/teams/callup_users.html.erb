@@ -1,0 +1,15 @@
+
+<h1>Call Up Users for <%= @team.name %></h1>
+
+<%= form_with url: create_callup_team_path(@team), method: :post do |form| %>
+  <%= form.hidden_field :duel_id, value: params[:duel_id] %>
+
+  <ul>
+    <% @users.each do |user| %>
+      <li>
+        <%= user.full_name %>
+        <%= form.submit "Call Up", name: "user_id", value: user.id %>
+      </li>
+    <% end %>
+  </ul>
+<% end %>

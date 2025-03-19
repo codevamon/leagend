@@ -33,9 +33,3 @@
 
 # Ignore master key for decrypting credentials and more.
 /config/master.key
-
-# ===================== CONFIGURACIÓN PARA SEPARAR BACKEND Y FRONTEND =====================
-
-# Ignorar views y assets por defecto (master no los tendrá)
-app/views/
-app/assets/

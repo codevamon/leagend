@@ -1,0 +1,8 @@
+
+  <h1>Duelos</h1>
+  <%= link_to 'New Duel', new_duel_path %>
+  <ul>
+    <% @duels.each do |duel| %>
+      <li><%= link_to "Duel ##{duel.id}", duel_path(duel) %></li>
+    <% end %>
+  </ul>

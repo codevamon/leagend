@@ -3,7 +3,7 @@ class CreateLineups < ActiveRecord::Migration[8.0]
     create_table :lineups do |t|
       t.references :duel, null: false, foreign_key: true
       t.references :team, null: false, foreign_key: true
-      t.references :user, null: false, foreign_key: true
+      t.references :user, null: false, foreign_key: true, type: :uuid
       t.string :position
 
       t.timestamps

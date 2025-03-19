@@ -1,9 +1,9 @@
 Rails.application.routes.draw do
-
   # Root route
   root to: 'pages#home'
   devise_for :users, controllers: { omniauth_callbacks: 'omniauth_callbacks' }
   
+  resources :notifications, only: [:index, :update]
 
   # Resources for main models
   resources :clubs do

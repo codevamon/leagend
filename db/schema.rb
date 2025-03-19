@@ -125,16 +125,16 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
 
   create_table "notifications", force: :cascade do |t|
     t.string "recipient_type", null: false
-    t.integer "recipient_id", null: false
+    t.string "recipient_id", null: false
     t.string "sender_type", null: false
-    t.integer "sender_id", null: false
+    t.string "sender_id", null: false
     t.string "message", null: false
     t.integer "category", default: 0
     t.integer "status", default: 0
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["recipient_type", "recipient_id"], name: "index_notifications_on_recipient"
-    t.index ["sender_type", "sender_id"], name: "index_notifications_on_sender"
+    t.index ["recipient_type", "recipient_id"], name: "index_notifications_on_recipient_type_and_recipient_id"
+    t.index ["sender_type", "sender_id"], name: "index_notifications_on_sender_type_and_sender_id"
   end
 
   create_table "pages", force: :cascade do |t|

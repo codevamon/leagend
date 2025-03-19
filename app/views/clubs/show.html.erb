@@ -13,3 +13,40 @@
   <h1><%= @club.name %></h1>
 <p><%= @club.description %></p> 
 
+<% if current_user.memberships.find_by(joinable: @club)&.approved? %>
+  <!-- Si el usuario ya es miembro, no mostramos nada -->
+<% elsif current_user.memberships.find_by(joinable: @club)&.pending? %>
+  <button class="btn btn-warning" disabled>Pending Approval</button>
+<% else %>
+  <button id="join-club-btn" class="btn btn-primary" data-club-id="<%= @club.id %>">Join Club</button>
+<% end %>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const joinBtn = document.getElementById("join-club-btn");
+
+    if (joinBtn) {
+      joinBtn.addEventListener("click", function() {
+        const clubId = joinBtn.dataset.clubId;
+        
+        fetch(`/clubs/${clubId}/memberships`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": document.querySelector("meta[name='csrf-token']").content
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.message.includes("submitted")) {
+            joinBtn.textContent = "Pending Approval";
+            joinBtn.classList.remove("btn-primary");
+            joinBtn.classList.add("btn-warning");
+            joinBtn.disabled = true;
+          }
+        })
+        .catch(error => console.error("Error:", error));
+      });
+    }
+  });
+</script>

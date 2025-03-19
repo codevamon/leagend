@@ -4,7 +4,7 @@ class Membership < ApplicationRecord
 
   # Enums
   enum :status, { pending: 0, approved: 1 }
-  enum :role, { admin: 0, member: 1 }
+  enum :role, { admin: 0, member: 1, king: 2 }
 
   # Validación para evitar membresías duplicadas
   validates :user_id, uniqueness: { 

@@ -36,7 +36,10 @@ class User < ApplicationRecord
       # user.neighborhood = auth.extra.raw_info.neighborhood if auth.extra&.raw_info&.neighborhood
 
       # Evitar error con phone_number NOT NULL, asignando placeholder válido
-      user.phone_number ||= "+0000000000"
+        
+      if user.phone_number.blank? || User.exists?(phone_number: user.phone_number)
+        user.phone_number = "+000000#{rand(1000..9999)}"
+      end
 
       # Generar password si no existe
       user.password = Devise.friendly_token[0,20] if user.encrypted_password.blank?
@@ -57,7 +60,7 @@ class User < ApplicationRecord
   # Validations
   validates :id, presence: true
   validates :slug, presence: true, uniqueness: true, length: { maximum: 50 }, format: { without: /\s/, message: "cannot contain spaces" }
-  validates :phone_number, format: { with: /\A\+\d{1,3}\d{7,15}\z/, message: "must be a valid phone number" }, allow_blank: true
+  # validates :phone_number, format: { with: /\A\+\d{1,3}\d{7,15}\z/, message: "must be a valid phone number" }, allow_blank: true
 
   
 

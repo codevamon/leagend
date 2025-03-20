@@ -9,11 +9,9 @@ Rails.application.routes.draw do
   resources :clubs do
     resources :teams, only: [:index, :new, :create]
     resources :admins, only: [:index, :new, :create]
-    resources :memberships, only: [:create]
+    resources :memberships, only: [:create, :destroy] # <- Corrección
     member do
       patch 'memberships/:id/approve', to: 'memberships#approve', as: :approve_membership
-    end
-    member do
       post :join
       post :approve_member
     end
@@ -22,7 +20,7 @@ Rails.application.routes.draw do
   resources :clans do
     resources :teams, only: [:index, :new, :create]
     resources :admins, only: [:index, :new, :create]
-    resources :memberships, only: [:create]
+    resources :memberships, only: [:create, :destroy] # <- Corrección
     member do
       post :join
     end

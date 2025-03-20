@@ -41,7 +41,7 @@ class ClubsController < ApplicationController
   end
 
   def update
-    if @club.update(club_params.except(:avatar, :slug))
+    if @club.update(club_params.except(:avatar))
       if params[:club][:avatar].present?
         unless @club.avatar.nil?
           @club.avatar.purge # Elimina la imagen anterior antes de adjuntar la nueva

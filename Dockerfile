@@ -44,10 +44,8 @@ RUN chmod +x bin/* && \
     sed -i 's/ruby\.exe$/ruby/' bin/*
 
 # Precompilar assets (sin necesidad de SECRET_KEY_BASE real)
-RUN SECRET_KEY_BASE=DUMMY ./bin/rails assets:precompile
-
-# Configurar variable de entorno SECRET_KEY_BASE
-ENV SECRET_KEY_BASE=${SECRET_KEY_BASE}
+ARG SECRET_KEY_BASE_DUMMY=1
+RUN SECRET_KEY_BASE=$SECRET_KEY_BASE_DUMMY ./bin/rails assets:precompile
 
 # Fase final
 FROM base

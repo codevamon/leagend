@@ -22,8 +22,21 @@ class Club < ApplicationRecord
 
     private
     
+    
       def set_uuid
         self.id ||= SecureRandom.uuid
+      end
+        
+      def set_slug
+        self.slug = name.parameterize if slug.blank? || new_record?
+      end
+      
+      def create_king_membership
+        memberships.create!(
+          user: king,
+          status: :approved,
+          role: :king
+        )
       end
     
       def slug_candidates
@@ -32,17 +45,6 @@ class Club < ApplicationRecord
           [:name, SecureRandom.hex(4)]
         ]
       end
-    
-      def set_slug
-        self.slug = name.parameterize if slug.blank?
-      end
 
-      def create_king_membership
-        memberships.create!(
-          user: king,
-          status: :approved,
-          role: :king
-        )
-      end
   end
   

@@ -12,13 +12,16 @@
 
   <h1><%= @club.name %></h1>
 <p><%= @club.description %></p> 
+<% membership = current_user.memberships.find_by(joinable: @club) %>
 
-<% if current_user.memberships.find_by(joinable: @club)&.approved? %>
-  <!-- Si el usuario ya es miembro, no mostramos nada -->
-<% elsif current_user.memberships.find_by(joinable: @club)&.pending? %>
+<% if membership&.approved? %>
+  <!-- Si ya está aprobado, no mostramos nada -->
+<% elsif membership&.pending? %>
   <button class="btn btn-warning" disabled>Pending Approval</button>
 <% else %>
-  <button id="join-club-btn" class="btn btn-primary" data-club-id="<%= @club.id %>">Join Club</button>
+  <button id="join-club-btn" class="btn btn-primary" data-club-id="<%= @club.id %>">
+    Join Club
+  </button>
 <% end %>
 
 <script>
@@ -38,7 +41,7 @@
         })
         .then(response => response.json())
         .then(data => {
-          if (data.message.includes("submitted")) {
+          if (data.status === "pending") {
             joinBtn.textContent = "Pending Approval";
             joinBtn.classList.remove("btn-primary");
             joinBtn.classList.add("btn-warning");

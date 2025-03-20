@@ -16,17 +16,20 @@ class ClubsController < ApplicationController
   end
 
   def create
-    @club = Club.new(club_params)
+    @club = Club.new(club_params.except(:avatar)) # No incluir avatar al inicio
     @club.king = current_user
   
-
     if @club.save
+      # Adjuntar la imagen solo después de que el club ha sido guardado
+      @club.avatar.attach(params[:club][:avatar]) if params[:club][:avatar].present?
+  
       # Crear el Admin correctamente asignando UUIDs
       Admin.create!(
         user_id: current_user.id,
         club_id: @club.id,
         level: 2
       )
+      
       redirect_to @club, notice: 'Club creado exitosamente.'
     else
       flash.now[:alert] = @club.errors.full_messages.join(", ")
@@ -38,12 +41,19 @@ class ClubsController < ApplicationController
   end
 
   def update
-    if @club.update(club_params)
-      redirect_to @club, notice: 'Club actualizado correctamente.'
+    if @club.update(club_params.except(:avatar, :slug))
+      if params[:club][:avatar].present?
+        unless @club.avatar.nil?
+          @club.avatar.purge # Elimina la imagen anterior antes de adjuntar la nueva
+        end
+        @club.avatar.attach(params[:club][:avatar])
+      end
+      redirect_to @club, notice: "Club actualizado correctamente."
     else
       render :edit
     end
   end
+  
 
   def destroy
     @club.destroy
@@ -72,8 +82,14 @@ class ClubsController < ApplicationController
 
   private
 
+
   def set_club
-    @club = Club.friendly.find(params[:id])
+    @club = Club.friendly.find_by(slug: params[:id])
+    
+    unless @club
+      redirect_to clubs_path, alert: "No se encontró el club."
+      return
+    end
   end
 
   def club_params

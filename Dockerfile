@@ -2,7 +2,7 @@
 # check=error=true
 
 ARG RUBY_VERSION=3.2.6
-FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
+FROM ruby:$RUBY_VERSION-slim AS base
 
 # Definir directorio de trabajo
 WORKDIR /rails
@@ -43,9 +43,8 @@ RUN chmod +x bin/* && \
     sed -i "s/\r$//g" bin/* && \
     sed -i 's/ruby\.exe$/ruby/' bin/*
 
-# Precompilar assets (sin necesidad de SECRET_KEY_BASE real)
-ARG SECRET_KEY_BASE_DUMMY=1
-RUN SECRET_KEY_BASE=$SECRET_KEY_BASE_DUMMY ./bin/rails assets:precompile
+# Precompilar assets usando una clave dummy
+RUN SECRET_KEY_BASE=DUMMY ./bin/rails assets:precompile
 
 # Fase final
 FROM base

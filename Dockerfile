@@ -66,4 +66,5 @@ ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 EXPOSE 80
 
 # Comando por defecto
-CMD ["./bin/rails", "server"]
+# CMD ["./bin/rails", "server"]
+CMD ["sh", "-c", "bundle exec rails db:migrate && ./bin/rails server"]

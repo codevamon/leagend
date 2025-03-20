@@ -1,3 +1,7 @@
 
+<% if current_user.avatar.attached? %>
+  <img style="max-width:100px" src="<%= url_for(current_user.avatar) %>" alt="Logo de <%= current_user.firstname %>" class="img-fluid rounded">
+<% end %>
+
   <h1>New Club</h1>
   <%= render 'clubs/forms/form', club: @club %>

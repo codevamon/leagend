@@ -43,9 +43,9 @@ class ClubsController < ApplicationController
   def update
     if @club.update(club_params.except(:avatar))
       if params[:club][:avatar].present?
-        unless @club.avatar.nil?
-          @club.avatar.purge # Elimina la imagen anterior antes de adjuntar la nueva
-        end
+        # Elimina la imagen anterior si existe antes de adjuntar la nueva
+        @club.avatar.purge_later if @club.avatar.attached?
+  
         @club.avatar.attach(params[:club][:avatar])
       end
       redirect_to @club, notice: "Club actualizado correctamente."

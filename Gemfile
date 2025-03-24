@@ -39,7 +39,7 @@ gem "omniauth", "~> 2.0"
 gem "omniauth-google-oauth2"
 gem 'omniauth-rails_csrf_protection'
 gem 'pundit', '~> 2.3' # Para autorización
-gem 'activeadmin', '~> 3.2' # Para el panel de administración
+gem 'activeadmin', '~> 3.3' # Para el panel de administración
 gem 'sidekiq', '~> 7.0' # Para tareas en segundo plano
 gem 'rack-cors', '~> 2.0' # Para manejar CORS en la API
 gem 'kaminari', '~> 1.2' # Para paginación

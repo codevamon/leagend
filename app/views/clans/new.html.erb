@@ -1,3 +1,6 @@
+<% if current_user.avatar.attached? %>
+  <img style="max-width:100px" src="<%= url_for(current_user.avatar) %>" alt="Logo de <%= current_user.firstname %>" class="img-fluid rounded">
+<% end %>
 
-  <h1>New Clan</h1>
-  <%= render 'form', clan: @clan %>
+<h1>Nuevo Clan</h1>
+<%= render 'clans/forms/form', clan: @clan %>

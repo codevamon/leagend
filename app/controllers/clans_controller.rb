@@ -1,75 +1,77 @@
 class ClansController < ApplicationController
-    before_action :set_clan, only: [:show, :edit, :update, :destroy, :join]
-    before_action :authenticate_user!, except: [:index, :show]
-  
-    # Listar todos los clans
-    def index
-      @clans = Clan.all
-    end
-  
-    # Mostrar un clan específico
-    def show
-      @members = @clan.users
-      @clan = Clan.find(params[:id])
-      @memberships = @clan.memberships.approved
-    end
-  
-    # Formulario para crear un nuevo clan
-    def new
-      @clan = Clan.new
-    end
-  
-    # Crear un nuevo clan
-    def create
-      @clan = Clan.new(clan_params)
-      @clan.user = current_user # El usuario que crea el clan es el admin inicial
-  
-      if @clan.save
-        # Crear una membresía automática para el creador del clan
-        Membership.create(user: current_user, clan: @clan, role: :admin)
-        redirect_to @clan, notice: 'Clan was successfully created.'
-      else
-        render :new
-      end
-    end
-  
-    # Formulario para editar un clan
-    def edit
-    end
-  
-    # Actualizar un clan
-    def update
-      if @clan.update(clan_params)
-        redirect_to @clan, notice: 'Clan was successfully updated.'
-      else
-        render :edit
-      end
-    end
-  
-    # Eliminar un clan
-    def destroy
-      @clan.destroy
-      redirect_to clans_url, notice: 'Clan was successfully destroyed.'
-    end
-  
-    # Unirse a un clan (sin necesidad de aprobación)
-    def join
-      if @clan.memberships.where(user: current_user).exists?
-        redirect_to @clan, alert: 'You are already a member of this clan.'
-      else
-        # Crear una membresía automática
-        Membership.create(user: current_user, clan: @clan, status: :approved)
-        redirect_to @clan, notice: 'You have successfully joined the clan.'
-      end
-    end
-  
-    private
-  
-    def set_clan
-      @clan = Clan.find(params[:id])
-    end
-  
-    def clan_params
-      params.require(:clan).permit(:name, :description, :address, :avatar)
+  before_action :set_clan, only: [:show, :edit, :update, :destroy, :join]
+  before_action :authenticate_user!, except: [:index, :show]
+
+  def index
+    @clans = Clan.all
+  end
+
+  def show
+    @members = @clan.users
+    @membership = @clan.memberships.find_by(user: current_user) if user_signed_in?
+    @is_admin = @clan.admins.exists?(user_id: current_user.id)
+  end
+
+  def new
+    @clan = Clan.new
+  end
+
+  def create
+    @clan = Clan.new(clan_params.except(:avatar))
+    @clan.creator = current_user
+
+    if @clan.save
+      @clan.avatar.attach(params[:clan][:avatar]) if params[:clan][:avatar].present?
+
+      Admin.create!(
+        user_id: current_user.id,
+        clan_id: @clan.id,
+        level: 2 # king
+      )
+
+      redirect_to @clan, notice: 'Clan creado exitosamente.'
+    else
+      flash.now[:alert] = @clan.errors.full_messages.join(", ")
+      render :new
     end
   end
+
+  def edit; end
+
+  def update
+    if @clan.update(clan_params.except(:avatar))
+      if params[:clan][:avatar].present?
+        @clan.avatar.purge_later if @clan.avatar.attached?
+        @clan.avatar.attach(params[:clan][:avatar])
+      end
+      redirect_to @clan, notice: 'Clan actualizado correctamente.'
+    else
+      render :edit
+    end
+  end
+
+  def destroy
+    @clan.destroy
+    redirect_to clans_url, notice: 'Clan eliminado correctamente.'
+  end
+
+  def join
+    if @clan.memberships.where(user: current_user).exists?
+      redirect_to @clan, alert: 'Ya eres miembro de este clan.'
+    else
+      Membership.create!(user: current_user, joinable: @clan, status: :approved, role: :member)
+      redirect_to @clan, notice: 'Te uniste al clan exitosamente.'
+    end
+  end
+
+  private
+
+  def set_clan
+    @clan = Clan.friendly.find_by(slug: params[:id])
+    redirect_to clans_path, alert: "No se encontró el clan." unless @clan
+  end
+
+  def clan_params
+    params.require(:clan).permit(:name, :description, :address, :avatar)
+  end
+end

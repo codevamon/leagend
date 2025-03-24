@@ -3,7 +3,7 @@ class Membership < ApplicationRecord
   belongs_to :joinable, polymorphic: true # Puede ser Club o Clan
 
   # Enums
-  enum :status, { pending: 0, approved: 1 }
+  enum :status, { pending: 0, approved: 1, rejected: 2 }
   enum :role, { admin: 0, member: 1, king: 2 }
 
   # Validación para evitar membresías duplicadas
@@ -14,7 +14,7 @@ class Membership < ApplicationRecord
 
 
   
-  after_create :notify_admins, if: -> { joinable.is_a?(Club) }
+  # after_create :notify_admins, if: -> { joinable.is_a?(Club) }
 
   private
 

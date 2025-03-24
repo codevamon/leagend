@@ -1,2 +1,34 @@
-<h1>Notifications#index</h1>
-<p>Find me in app/views/notifications/index.html.erb</p>
+<h1>Notificaciones</h1>
+
+<% if @notifications.any? %>
+  <ul class="list-group">
+    <% @notifications.each do |notification| %>
+      <li class="list-group-item d-flex justify-content-between align-items-center <%= "opacity-50" if notification.read? %>">
+        <div>
+          <strong><%= notification.category.capitalize %></strong> — 
+          <%= notification.message %>
+          <small class="text-muted d-block"><%= time_ago_in_words(notification.created_at) %> atrás</small>
+        </div>
+
+        <div class="d-flex gap-2">
+          <% if notification.unread? %>
+            <%= button_to "Marcar como leída", notification_path(notification), method: :put, class: "btn btn-sm btn-outline-secondary" %>
+          <% end %>
+
+          <% if notification.category == "club" && notification.unread? %>
+            <%= button_to "Aceptar", notification_path(notification, approve: true), method: :put, class: "btn btn-sm btn-success" %>
+            <%= button_to "Rechazar", notification_path(notification, reject: true), method: :put, class: "btn btn-sm btn-danger" %>
+          <% end %>
+        </div>
+      </li>
+    <% end %>
+  </ul>
+<% else %>
+  <p>No tienes notificaciones por ahora.</p>
+<% end %>
+
+<style>
+  .opacity-50 {
+    opacity: 0.6;
+  }
+</style>

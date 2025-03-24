@@ -1,19 +1,14 @@
 <!-- app/views/users/show.html.erb -->
-<h1><%= @user.name %></h1>
-
-<% if @user.avatar.attached? %>
-  <%= image_tag @user.avatar, alt: "User Avatar" %>
-<% else %>
-  <p>No avatar uploaded yet.</p>
-<% end %>
-
-
-<h1><%= @user.name %></h1>
-<p>Email: <%= @user.email %></p>
-
 <% if @user.avatar.attached? %>
   <%= image_tag @user.avatar.variant(resize_to_limit: [150, 150]) %>
 <% else %>
   <%= image_tag "default_avatar.png", size: "150x150" %>
+<% end %>
+<h1><%= @user.slug %></h1>
+<% if user_signed_in? %>
+  <%= link_to 'Cerrar sesión', destroy_user_session_path, method: :delete %>
+<% else %>
+  <%= link_to 'Iniciar sesión', new_user_session_path %> |
+  <%= link_to 'Registrarse', new_user_registration_path %>
 <% end %>
 <!-- Resto de la vista -->

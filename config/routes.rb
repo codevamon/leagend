@@ -1,31 +1,26 @@
 Rails.application.routes.draw do
-  # Root route
   root to: 'pages#home'
+
   devise_for :users, controllers: { omniauth_callbacks: 'omniauth_callbacks' }
-  
+  resources :users, only: [:index, :show, :edit, :update, :destroy]
   resources :notifications, only: [:index, :update]
 
-  # Resources for main models
+  # Clubs y Clans
   resources :clubs do
     resources :teams, only: [:index, :new, :create]
     resources :admins, only: [:index, :new, :create]
-    resources :memberships, only: [:create, :destroy] # <- Corrección
-    member do
-      patch 'memberships/:id/approve', to: 'memberships#approve', as: :approve_membership
-      post :join
-      post :approve_member
-    end
+    resources :memberships, only: [:create, :destroy]
+    post :join, on: :member
   end
 
   resources :clans do
     resources :teams, only: [:index, :new, :create]
     resources :admins, only: [:index, :new, :create]
-    resources :memberships, only: [:create, :destroy] # <- Corrección
-    member do
-      post :join
-    end
+    resources :memberships, only: [:create, :destroy]
+    post :join, on: :member
   end
 
+  # Equipos y duelos
   resources :teams, except: [:index, :new, :create] do
     resources :team_memberships, only: [:index, :new, :create, :destroy]
     resources :duels, only: [:index, :new, :create]
@@ -47,19 +42,26 @@ Rails.application.routes.draw do
     end
   end
 
+  # Árbitros
   resources :referees, only: [:index, :show, :new, :create, :edit, :update, :destroy]
 
-  # Admin namespace for administrative actions
+  # Arenas y Propietarios
+  resources :arenas do
+    resources :arena_owners, only: [:index, :create]
+    post :reserve, on: :member
+  end
+
+  # Namespace para administración
   namespace :admin do
-    resources :users, only: [:index, :show, :edit, :update, :destroy]
     resources :clubs, only: [:index, :show, :edit, :update, :destroy]
     resources :clans, only: [:index, :show, :edit, :update, :destroy]
     resources :teams, only: [:index, :show, :edit, :update, :destroy]
     resources :duels, only: [:index, :show, :edit, :update, :destroy]
     resources :referees, only: [:index, :show, :edit, :update, :destroy]
+    resources :arenas, only: [:index, :show, :edit, :update, :destroy]
   end
 
-  # API namespace for future API endpoints
+  # API pública
   namespace :api do
     namespace :v1 do
       resources :users, only: [:index, :show]
@@ -68,19 +70,15 @@ Rails.application.routes.draw do
       resources :teams, only: [:index, :show]
       resources :duels, only: [:index, :show]
       resources :referees, only: [:index, :show]
+      resources :arenas, only: [:index, :show]
     end
   end
 
-
-  # # Custom routes for specific actions
+  # # Extras y errores
   # get 'dashboard', to: 'dashboard#index'
   # get 'search', to: 'search#index'
   # post 'search', to: 'search#results'
-
-  # # Error handling
   # match '/404', to: 'errors#not_found', via: :all
   # match '/500', to: 'errors#internal_server_error', via: :all
-
-  # # Catch-all route for undefined routes
   # match '*path', to: 'errors#not_found', via: :all
 end

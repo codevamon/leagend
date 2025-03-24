@@ -1,6 +1,7 @@
 class Notification < ApplicationRecord
     belongs_to :recipient, polymorphic: true
     belongs_to :sender, polymorphic: true
+    belongs_to :notifiable, polymorphic: true, optional: true
   
     enum :category, { callup: 0, duel: 1, club: 2, team: 3, general: 4 }
     enum :status, { unread: 0, read: 1 }

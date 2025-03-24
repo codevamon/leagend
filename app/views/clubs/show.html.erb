@@ -1,33 +1,36 @@
 
 <% if @club.avatar.attached? %>
-  <img src="<%= url_for(@club.avatar) %>" alt="Logo de <%= @club.name %>" class="img-fluid rounded">
-<% else %>
-  <p>No hay imagen de club.</p>
+  <img src="<%= url_for(@club.avatar) %>" alt="Logo de <%= @club.name %>" class="img-fluid rounded" width="150" hegiht="150">
 <% end %>
-  <h1><%= @club.name %></h1>
-  <p>Admin: <%= @club.king_admin&.user&.firstname %> <%= @club.king_admin&.user&.lastname %> (<%= @club.king_admin&.user&.slug %>)</p>
-  <%= link_to 'Edit', edit_club_path(@club) %> |
-  <%= link_to 'Back', clubs_path %>
 
-
-  <h1><%= @club.name %></h1>
+<h1><%= @club.name %></h1>
 <p><%= @club.description %></p> 
+<p>Admin: <%= @club.king_admin&.user&.firstname %> <%= @club.king_admin&.user&.lastname %> (<%= @club.king_admin&.user&.slug %>)</p>
 
-
-
-
-<% membership = current_user.memberships.find_by(joinable: @club) %>
-
-<% if membership&.approved? %>
-  <button class="btn btn-success" disabled>Ya eres miembro</button>
-<% elsif membership&.pending? %>
-  <button class="btn btn-warning" disabled>Solicitud en espera</button>
-<% else %>
-  <%= link_to "Solicitar entrar", 
-        join_club_path(@club), 
-        method: :post, 
-        remote: true, 
-        class: "btn btn-primary", 
-        id: "join-club-btn",
-        data: { disable_with: "Enviando solicitud..." } %>
+<% if user_signed_in? && @is_admin %>
+  <%= link_to 'Editar club', edit_club_path(@club), class: "btn btn-outline-secondary" %>
 <% end %>
+<%= link_to 'Back', clubs_path, class: "btn btn-outline-primary" %>
+
+
+
+<% if user_signed_in? %>
+  <% if @membership.nil? %>
+    <%= button_to "Unirme al club", join_club_path(@club), method: :post, class: "btn btn-primary" %>
+  <% elsif @membership.pending? %>
+    <p class="text-warning">Solicitud pendiente de aprobación</p>
+  <% elsif @membership.approved? %>
+    <p class="text-success">Ya eres miembro de este club</p>
+  <% end %>
+<% else %>
+  <%= link_to "Inicia sesión para unirte al club", new_user_session_path, class: "btn btn-outline-primary" %>
+<% end %>
+
+<hr>
+
+<h3>Miembros actuales:</h3>
+<ul>
+  <% @members.each do |member| %>
+    <li><%= member.firstname %> <%= member.lastname %></li>
+  <% end %>
+</ul>

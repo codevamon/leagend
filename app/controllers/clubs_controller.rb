@@ -8,6 +8,11 @@ class ClubsController < ApplicationController
 
   def show
     @members = @club.users
+
+    if user_signed_in?
+      @membership = @club.memberships.find_by(user: current_user)
+      @is_admin = @club.admins.exists?(user_id: current_user.id)
+    end
     # @pending_memberships = @club.memberships.pending
   end
 
@@ -65,7 +70,16 @@ class ClubsController < ApplicationController
     if @club.memberships.where(user: current_user).exists?
       redirect_to @club, alert: 'Ya eres miembro de este club.'
     else
-      Membership.create(user: current_user, club: @club, status: :pending)
+      membership = Membership.create(user: current_user, joinable: @club, status: :pending, role: :member)
+      @club.admins.each do |admin|
+        Notification.create!(
+          recipient: admin.user,
+          sender: current_user,
+          category: :club,
+          message: "#{current_user.slug} solicitó unirse a #{@club.name}",
+          notifiable: membership
+        )
+      end
       redirect_to @club, notice: 'Tu solicitud para unirte al club ha sido enviada.'
     end
   end

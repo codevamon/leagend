@@ -1,45 +1,46 @@
 class NotificationsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_notification, only: [:update]
+
   def index
-    @notifications = current_user.notifications.unread
-    render json: @notifications
+    @notifications = current_user.notifications.order(created_at: :desc)
   end
 
   def update
-    if @notification.category == "club"
-      process_membership_request
+    case
+    when params[:approve]
+      process_membership_request(approved: true)
+    when params[:reject]
+      process_membership_request(approved: false)
     else
       @notification.update!(status: :read)
-      render json: { message: "Notification marked as read" }, status: :ok
+      redirect_to notifications_path, notice: "Notificación marcada como leída"
     end
   end
 
-
-  
   private
 
   def set_notification
     @notification = current_user.notifications.find(params[:id])
   end
 
-  def process_membership_request
+  def process_membership_request(approved:)
     membership = Membership.find_by(id: @notification.notifiable_id)
 
     unless membership&.pending?
-      return render json: { message: "Request already processed" }, status: :unprocessable_entity
+      redirect_to notifications_path, alert: "La solicitud ya fue procesada" and return
     end
 
-    if params[:approve] == "true"
+    if approved
       membership.update!(status: :approved)
-      notify_user(membership.user, membership.joinable, "Your membership request was approved!", :membership_approved)
+      notify_user(membership.user, membership.joinable, "Tu solicitud fue aprobada", :club)
     else
-      membership.destroy
-      notify_user(membership.user, membership.joinable, "Your membership request was denied.", :membership_rejected)
+      membership.update!(status: :rejected)
+      notify_user(membership.user, membership.joinable, "Tu solicitud fue rechazada", :club)
     end
 
     @notification.update!(status: :read)
-    render json: { message: "Membership request processed" }, status: :ok
+    redirect_to notifications_path, notice: "Solicitud procesada correctamente"
   end
 
   def notify_user(user, joinable, message, category)
@@ -47,7 +48,8 @@ class NotificationsController < ApplicationController
       recipient: user,
       sender: joinable,
       category: category,
-      message: message
+      message: message,
+      notifiable: joinable
     )
   end
 end

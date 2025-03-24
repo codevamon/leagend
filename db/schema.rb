@@ -125,8 +125,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
     t.string "message", null: false
     t.integer "category", default: 0
     t.integer "status", default: 0
+    t.string "notifiable_type"
+    t.string "notifiable_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["notifiable_type", "notifiable_id"], name: "index_notifications_on_notifiable_type_and_notifiable_id"
     t.index ["recipient_type", "recipient_id"], name: "index_notifications_on_recipient_type_and_recipient_id"
     t.index ["sender_type", "sender_id"], name: "index_notifications_on_sender_type_and_sender_id"
   end

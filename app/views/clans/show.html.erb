@@ -1,20 +1,30 @@
+<% if @clan.avatar.attached? %>
+  <img src="<%= url_for(@clan.avatar) %>" alt="Logo de <%= @clan.name %>" class="img-fluid rounded" width="150">
+<% end %>
 
-  <h1><%= @clan.name %></h1>
-  <p>Admin: <%= @clan.admin.name %></p>
-  <%= link_to 'Edit', edit_clan_path(@clan) %> |
-  <%= link_to 'Back', clans_path %>
-
-
-  <h1><%= @clan.name %></h1>
+<h1><%= @clan.name %></h1>
 <p><%= @clan.description %></p>
 
-<% if current_user && !@clan.memberships.where(user: current_user).exists? %>
-  <%= button_to "Join Clan", clan_memberships_path(@clan), method: :post %>
+<% if user_signed_in? && @is_admin %>
+  <%= link_to 'Editar clan', edit_clan_path(@clan), class: "btn btn-outline-secondary" %>
+<% end %>
+<%= link_to 'Volver', clans_path, class: "btn btn-outline-primary" %>
+
+<% if user_signed_in? %>
+  <% if @membership.nil? %>
+    <%= button_to "Unirme al clan", join_clan_path(@clan), method: :post, class: "btn btn-primary" %>
+  <% elsif @membership.approved? %>
+    <p class="text-success">Ya eres miembro de este clan</p>
+  <% end %>
+<% else %>
+  <%= link_to "Inicia sesión para unirte al clan", new_user_session_path, class: "btn btn-outline-primary" %>
 <% end %>
 
-<h2>Members</h2>
-<% @memberships.each do |membership| %>
-  <div>
-    <%= membership.user.email %> - <%= membership.role %>
-  </div>
-<% end %>
+<hr>
+
+<h3>Miembros actuales:</h3>
+<ul>
+  <% @members.each do |member| %>
+    <li><%= member.firstname %> <%= member.lastname %></li>
+  <% end %>
+</ul>

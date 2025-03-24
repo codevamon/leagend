@@ -31,7 +31,7 @@ gem "solid_cable"
 # Funcionalidades adicionales
 gem "jbuilder"
 gem "devise"
-gem "friendly_id", "~> 5.4.0"
+gem "friendly_id", "~> 5.5.1"
 gem "geocoder", "~> 1.8"
 gem "will_paginate", "~> 3.1"
 gem "simple_form", "~> 5.0"

@@ -6,7 +6,7 @@ ruby "3.2.6"
 gem "rails", "~> 8.0.1"
 gem "puma", ">= 5.0"
 # gem "sqlite3", "~> 1.4", group: [:development, :test]
-gem 'sqlite3', '~> 2.1', group: [:development, :test]
+gem 'sqlite3', '~> 2.6', group: [:development, :test]
 gem "pg", "~> 1.1", group: :production
 gem "aws-sdk-s3", require: false
 

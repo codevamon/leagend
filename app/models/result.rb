@@ -1,6 +1,17 @@
 class Result < ApplicationRecord
   belongs_to :duel
-  belongs_to :team
+  belongs_to :referee, class_name: 'User', optional: true
 
-  enum outcome: { win: 'win', loss: 'loss', draw: 'draw' }
+  belongs_to :home_teamable, polymorphic: true
+  belongs_to :away_teamable, polymorphic: true
+
+  enum outcome: { win: 0, loss: 1, draw: 2 }
+
+  before_create :generate_uuid
+
+  private
+
+    def generate_uuid
+      self.id ||= SecureRandom.uuid
+    end
 end

@@ -8,13 +8,18 @@ class Notification < ApplicationRecord
   
     validates :message, presence: true
   
+    before_create :generate_uuid
     after_create :send_notification
   
     private
-  
-    def send_notification
-      # Aquí puedes agregar lógica para enviar notificaciones por correo electrónico, websockets, etc.
-      # Por ejemplo:
-      # NotificationMailer.notify_user(self).deliver_later
-    end
+
+      def generate_uuid
+        self.id ||= SecureRandom.uuid
+      end
+      
+      def send_notification
+        # Aquí puedes agregar lógica para enviar notificaciones por correo electrónico, websockets, etc.
+        # Por ejemplo:
+        # NotificationMailer.notify_user(self).deliver_later
+      end
 end

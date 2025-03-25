@@ -38,7 +38,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
 
 
 # Could not dump table "callups" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
+#   Unknown type 'uuid' for column 'duel_id'
 
 
 # Could not dump table "clans" because of following StandardError
@@ -50,53 +50,12 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
 
 
 # Could not dump table "duel_goals" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
+#   Unknown type 'uuid' for column 'duel_id'
 
 
-  create_table "duels", id: { type: :string, limit: 36 }, force: :cascade do |t|
-    t.integer "home_team_id", null: false
-    t.integer "away_team_id", null: false
-    t.integer "referee_id"
-    t.datetime "start_date"
-    t.datetime "end_date"
-    t.string "address"
-    t.string "neighborhood"
-    t.string "city"
-    t.string "country"
-    t.decimal "latitude", precision: 10, scale: 6
-    t.decimal "longitude", precision: 10, scale: 6
-    t.decimal "price", precision: 8, scale: 2, default: "0.0"
-    t.decimal "budget", precision: 8, scale: 2, default: "0.0"
-    t.decimal "budget_place", precision: 8, scale: 2, default: "0.0"
-    t.decimal "budget_equipment", precision: 8, scale: 2, default: "0.0"
-    t.decimal "referee_price", precision: 8, scale: 2, default: "0.0"
-    t.integer "status", default: 0
-    t.integer "duel_type", default: 0
-    t.decimal "duration", precision: 8, scale: 2
-    t.boolean "timing", default: false
-    t.boolean "referee_required", default: false
-    t.boolean "live", default: false
-    t.boolean "private", default: false
-    t.boolean "streaming", default: false
-    t.boolean "audience", default: false
-    t.boolean "parking", default: false
-    t.boolean "wifi", default: false
-    t.boolean "lockers", default: false
-    t.boolean "snacks", default: false
-    t.integer "home_goals", default: 0
-    t.integer "away_goals", default: 0
-    t.boolean "hunted", default: false
-    t.boolean "responsibility", default: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["away_team_id"], name: "index_duels_on_away_team_id"
-    t.index ["duel_type"], name: "index_duels_on_duel_type"
-    t.index ["end_date"], name: "index_duels_on_end_date"
-    t.index ["home_team_id"], name: "index_duels_on_home_team_id"
-    t.index ["referee_id"], name: "index_duels_on_referee_id"
-    t.index ["start_date"], name: "index_duels_on_start_date"
-    t.index ["status"], name: "index_duels_on_status"
-  end
+# Could not dump table "duels" because of following StandardError
+#   Unknown type '' for column 'referee_id'
+
 
   create_table "friendly_id_slugs", force: :cascade do |t|
     t.string "slug", null: false
@@ -110,23 +69,23 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
   end
 
 # Could not dump table "lineups" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
+#   Unknown type 'uuid' for column 'duel_id'
 
 
 # Could not dump table "memberships" because of following StandardError
 #   Unknown type 'uuid' for column 'user_id'
 
 
-  create_table "notifications", force: :cascade do |t|
+  create_table "notifications", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "recipient_type", null: false
-    t.string "recipient_id", null: false
+    t.string "recipient_id", limit: 36, null: false
     t.string "sender_type", null: false
-    t.string "sender_id", null: false
+    t.string "sender_id", limit: 36, null: false
     t.string "message", null: false
     t.integer "category", default: 0
     t.integer "status", default: 0
     t.string "notifiable_type"
-    t.string "notifiable_id"
+    t.string "notifiable_id", limit: 36
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["notifiable_type", "notifiable_id"], name: "index_notifications_on_notifiable_type_and_notifiable_id"
@@ -134,32 +93,38 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
     t.index ["sender_type", "sender_id"], name: "index_notifications_on_sender_type_and_sender_id"
   end
 
-  create_table "pages", force: :cascade do |t|
+  create_table "pages", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "title", null: false
+    t.string "slug", null: false
+    t.string "description"
+    t.text "content"
+    t.string "media"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["slug"], name: "index_pages_on_slug", unique: true
   end
 
 # Could not dump table "referees" because of following StandardError
 #   Unknown type 'uuid' for column 'user_id'
 
 
-  create_table "results", force: :cascade do |t|
-    t.integer "duel_id", null: false
-    t.integer "team_id", null: false
-    t.string "outcome"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["duel_id"], name: "index_results_on_duel_id"
-    t.index ["team_id"], name: "index_results_on_team_id"
-  end
+# Could not dump table "results" because of following StandardError
+#   Unknown type 'uuid' for column 'duel_id'
+
 
 # Could not dump table "team_memberships" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
+#   Unknown type '' for column 'user_id'
 
 
-# Could not dump table "teams" because of following StandardError
-#   Unknown type 'uuid' for column 'club_id'
-
+  create_table "teams", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "name"
+    t.string "club_id", limit: 36
+    t.string "clan_id", limit: 36
+    t.string "captain_id", limit: 36
+    t.integer "status"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
 
   create_table "users", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "slug", default: "", null: false
@@ -226,25 +191,25 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
   add_foreign_key "admins", "clubs"
   add_foreign_key "admins", "users"
   add_foreign_key "callups", "duels"
-  add_foreign_key "callups", "teams"
   add_foreign_key "callups", "users"
   add_foreign_key "clans", "users"
   add_foreign_key "clubs", "users"
   add_foreign_key "duel_goals", "duels"
   add_foreign_key "duel_goals", "teams"
   add_foreign_key "duel_goals", "users"
-  add_foreign_key "duels", "teams", column: "away_team_id"
-  add_foreign_key "duels", "teams", column: "home_team_id"
+  add_foreign_key "duels", "users", column: "best_player_id"
   add_foreign_key "duels", "users", column: "referee_id"
   add_foreign_key "lineups", "duels"
-  add_foreign_key "lineups", "teams"
   add_foreign_key "lineups", "users"
   add_foreign_key "memberships", "users"
   add_foreign_key "referees", "users"
   add_foreign_key "results", "duels"
-  add_foreign_key "results", "teams"
-  add_foreign_key "team_memberships", "teams"
+  add_foreign_key "results", "users", column: "referee_id"
+  add_foreign_key "team_memberships", "clans"
+  add_foreign_key "team_memberships", "clubs"
   add_foreign_key "team_memberships", "users"
+  add_foreign_key "team_memberships", "users", column: "captain_id"
   add_foreign_key "teams", "clans"
   add_foreign_key "teams", "clubs"
+  add_foreign_key "teams", "users", column: "captain_id"
 end

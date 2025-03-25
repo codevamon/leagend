@@ -1,15 +1,15 @@
 class CreateDuels < ActiveRecord::Migration[8.0]
   def change
     create_table :duels, id: false, force: true do |t|
-      # ID personalizado como varchar
       t.string :id, limit: 36, primary_key: true, null: false
 
-      # Relaciones con equipos
-      t.references :home_team, null: false, foreign_key: { to_table: :teams }
-      t.references :away_team, null: false, foreign_key: { to_table: :teams }
+      # Relaciones con equipos (uuid string para flexibilidad entre Team o TeamMembership)
+      t.string :home_team_id, limit: 36, null: false
+      t.string :away_team_id, limit: 36, null: false
 
-      # Relación con árbitro (opcional)
-      t.references :referee, foreign_key: { to_table: :users }, null: true
+      # Relación con árbitro y mejor jugador
+      t.references :referee, type: :uuid, foreign_key: { to_table: :users }, null: true
+      t.string :best_player_id, limit: 36, null: true
 
       # Fechas y ubicación
       t.datetime :start_date
@@ -29,38 +29,38 @@ class CreateDuels < ActiveRecord::Migration[8.0]
       t.decimal :referee_price, precision: 8, scale: 2, default: 0.0
 
       # Estado y tipo de duelo
-      t.integer :status, default: 0 # Por ejemplo: 0 = pendiente, 1 = en progreso, 2 = finalizado
-      t.integer :duel_type, default: 0 # Por ejemplo: 0 = amistoso, 1 = de apuesta
+      t.integer :status, default: 0
+      t.integer :duel_type, default: 0
 
       # Detalles del duelo
-      t.decimal :duration, precision: 8, scale: 2 # Duración en horas
-      t.boolean :timing, default: false # false = por tiempo, true = por goles
-      t.boolean :referee_required, default: false # Indica si el duelo requiere árbitro
-      t.boolean :live, default: false # Indica si el duelo se transmite en vivo
-      t.boolean :private, default: false # Indica si el duelo es privado
-      t.boolean :streaming, default: false # Indica si hay transmisión en vivo
-      t.boolean :audience, default: false # Indica si se permite público
-      t.boolean :parking, default: false # Indica si hay estacionamiento disponible
-      t.boolean :wifi, default: false # Indica si hay wifi disponible
-      t.boolean :lockers, default: false # Indica si hay lockers disponibles
-      t.boolean :snacks, default: false # Indica si hay snacks disponibles
+      t.decimal :duration, precision: 8, scale: 2
+      t.boolean :timing, default: false
+      t.boolean :referee_required, default: false
+      t.boolean :live, default: false
+      t.boolean :private, default: false
+      t.boolean :streaming, default: false
+      t.boolean :audience, default: false
+      t.boolean :parking, default: false
+      t.boolean :wifi, default: false
+      t.boolean :lockers, default: false
+      t.boolean :snacks, default: false
 
-      # Goles (totales, se pueden complementar con el modelo DuelGoal)
       t.integer :home_goals, default: 0
       t.integer :away_goals, default: 0
 
-      # Otros campos
-      t.boolean :hunted, default: false # Indica si el duelo es "cazado" (por ejemplo, para duelos rápidos)
-      t.boolean :responsibility, default: false # Indica si los líderes asumen responsabilidad
+      t.boolean :hunted, default: false
+      t.boolean :responsibility, default: false
 
       t.timestamps
     end
 
-    # Índices adicionales (opcional, para mejorar consultas)
+    # Índices
     add_index :duels, :start_date
     add_index :duels, :end_date
     add_index :duels, :status
     add_index :duels, :duel_type
-    # add_index :duels, :referee_id
+
+    # Foreign key manual para best_player
+    add_foreign_key :duels, :users, column: :best_player_id, primary_key: :id
   end
 end

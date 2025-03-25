@@ -15,6 +15,8 @@ class CreateClans < ActiveRecord::Migration[8.0]
       t.decimal :latitude, precision: 10, scale: 6
       t.decimal :longitude, precision: 10, scale: 6
       t.boolean :active, default: false
+      t.string  :main_color, default: '#000000'
+      t.string  :other_color, default: '#FFFFFF'
 
       t.timestamps
     end

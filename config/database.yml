@@ -18,20 +18,20 @@ test:
 production:
   primary: &primary_production
     <<: *default
-    database: one_league_production
-    username: one_league
-    password: <%= ENV["ONE_LEAGUE_DATABASE_PASSWORD"] %>
+    database: leagend_production
+    username: leagend
+    password: <%= ENV["LEAGEND_DATABASE_PASSWORD"] %>
   cache:
     <<: *primary_production
-    database: one_league_production_cache
+    database: leagend_production_cache
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_production
-    database: one_league_production_queue
+    database: leagend_production_queue
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_production
-    database: one_league_production_cable
+    database: leagend_production_cable
     migrations_paths: db/cable_migrate
 
 
@@ -60,13 +60,13 @@ production:
 
 # development:
 #   <<: *default
-#   database: one_league_development
+#   database: leagend_development
 
 #   # The specified database role being used to connect to PostgreSQL.
 #   # To create additional roles in PostgreSQL see `$ createuser --help`.
 #   # When left blank, PostgreSQL will use the default role. This is
 #   # the same name as the operating system user running Rails.
-#   #username: one_league
+#   #username: leagend
 
 #   # The password associated with the PostgreSQL role (username).
 #   #password:
@@ -94,7 +94,7 @@ production:
 # # Do not set this db to the same as development or production.
 # test:
 #   <<: *default
-#   database: one_league_test
+#   database: leagend_test
 
 # # As with config/credentials.yml, you never want to store sensitive information,
 # # like your database password, in your source code. If your source code is
@@ -119,18 +119,18 @@ production:
 # production:
 #   primary: &primary_production
 #     <<: *default
-#     database: one_league_production
-#     username: one_league
-#     password: <%= ENV["ONE_LEAGUE_DATABASE_PASSWORD"] %>
+#     database: leagend_production
+#     username: leagend
+#     password: <%= ENV["LEAGEND_DATABASE_PASSWORD"] %>
 #   cache:
 #     <<: *primary_production
-#     database: one_league_production_cache
+#     database: leagend_production_cache
 #     migrations_paths: db/cache_migrate
 #   queue:
 #     <<: *primary_production
-#     database: one_league_production_queue
+#     database: leagend_production_queue
 #     migrations_paths: db/queue_migrate
 #   cable:
 #     <<: *primary_production
-#     database: one_league_production_cable
+#     database: leagend_production_cable
 #     migrations_paths: db/cable_migrate

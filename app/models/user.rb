@@ -1,15 +1,14 @@
 require "open-uri"
-
 class User < ApplicationRecord
-  # Devise modules
+  # Devise
   attr_writer :login
   attr_accessor :image_url
 
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable,
-         :omniauthable, omniauth_providers: [ :google_oauth2 ]  # 👈 ESTA LÍNEA ES CLAVE
+         :omniauthable, omniauth_providers: [:google_oauth2]
 
-  # Friendly ID
+  # FriendlyId
   extend FriendlyId
   friendly_id :slug_candidates, use: :slugged
 
@@ -51,7 +50,7 @@ class User < ApplicationRecord
     teams.joins(:team_memberships).where(team_memberships: { leader: true })
   end
 
-  # Métodos de estadísticas
+  # Estadísticas
   def total_duels
     duels.count
   end
@@ -68,7 +67,7 @@ class User < ApplicationRecord
     duels.joins(:results).where(results: { team_id: teams.ids, outcome: "draw" }).count
   end
 
-  # URL del Avatar
+  # Avatar
   def avatar_url
     if avatar.attached?
       Rails.application.routes.url_helpers.rails_blob_url(avatar, only_path: true)
@@ -77,41 +76,30 @@ class User < ApplicationRecord
     end
   end
 
-  # ✅ MÉTODO MEJORADO PARA GOOGLE OAUTH
+  # Omniauth
   def self.from_omniauth(auth)
     where(provider: auth.provider, uid: auth.uid).first_or_initialize.tap do |user|
-      # Asignar datos básicos de Google
       user.email       = auth.info.email
       user.firstname   = auth.info.first_name || auth.info.name&.split&.first
       user.lastname    = auth.info.last_name  || auth.info.name&.split&.last
 
-      # Generar slug si está en blanco
       if user.slug.blank?
-        slug_candidate = [ user.firstname, user.lastname ].compact.join("-").parameterize
-        user.slug      = slug_candidate.presence || "google-#{SecureRandom.hex(4)}"
+        slug_candidate = [user.firstname, user.lastname].compact.join("-").parameterize
+        user.slug = slug_candidate.presence || "google-#{SecureRandom.hex(4)}"
       end
 
-      # Si el número de teléfono está vacío o ya existe, asigna uno temporal
       if user.phone_number.blank? || User.exists?(phone_number: user.phone_number)
         user.phone_number = "+000000#{rand(1000..9999)}"
       end
 
-      # Generar password si no existe
       user.password = Devise.friendly_token[0, 20] if user.encrypted_password.blank?
-
-      # **Guardar el usuario antes de asignar el avatar**
       user.save!
 
-      # **Manejar la imagen con Active Storage**
       if auth.info.image.present?
         downloaded_image = URI.open(auth.info.image)
-
-        # Detectar extensión del archivo
         extension = File.extname(auth.info.image).downcase
-
-        # Si no es válida, usa el content_type para definirla
         unless %w[.jpg .jpeg .png .gif].include?(extension)
-          mime_type = downloaded_image.content_type # Ejemplo: "image/jpeg"
+          mime_type = downloaded_image.content_type
           extension = ".jpg" if mime_type == "image/jpeg"
           extension = ".png" if mime_type == "image/png"
           extension = ".gif" if mime_type == "image/gif"
@@ -137,8 +125,8 @@ class User < ApplicationRecord
   def slug_candidates
     [
       :lastname,
-      [ :lastname, :firstname ],
-      [ :lastname, :firstname, SecureRandom.hex(4) ]
+      [:lastname, :firstname],
+      [:lastname, :firstname, SecureRandom.hex(4)]
     ]
   end
 

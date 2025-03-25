@@ -3,7 +3,11 @@ class DuelGoal < ApplicationRecord
   belongs_to :user
   belongs_to :team
 
-  
-  # Validaciones
-  validates :minute, numericality: { greater_than_or_equal_to: 0 }
+  before_create :generate_uuid
+
+  private
+
+  def generate_uuid
+    self.id ||= SecureRandom.uuid
+  end
 end

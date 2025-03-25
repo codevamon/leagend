@@ -42,9 +42,6 @@ Rails.application.routes.draw do
     end
   end
 
-  # Árbitros
-  resources :referees, only: [:index, :show, :new, :create, :edit, :update, :destroy]
-
   # Arenas y Propietarios
   resources :arenas do
     resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Arena' }
@@ -53,7 +50,7 @@ Rails.application.routes.draw do
 
   resources :referees do
     resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Referee' }
-  end
+  end  
 
   resources :owners, only: [:new, :create, :show]
   resources :reservations, only: [:index, :show]

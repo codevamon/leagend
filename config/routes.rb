@@ -47,9 +47,16 @@ Rails.application.routes.draw do
 
   # Arenas y Propietarios
   resources :arenas do
-    resources :arena_owners, only: [:index, :create]
+    resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Arena' }
     post :reserve, on: :member
   end
+
+  resources :referees do
+    resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Referee' }
+  end
+
+  resources :owners, only: [:new, :create, :show]
+  resources :reservations, only: [:index, :show]
 
   # Namespace para administración
   namespace :admin do

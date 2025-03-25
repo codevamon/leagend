@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
+ActiveRecord::Schema[8.0].define(version: 2025_03_25_013343) do
 # Could not dump table "active_storage_attachments" because of following StandardError
 #   Unknown type 'uuid' for column 'record_id'
 
@@ -36,6 +36,25 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
 # Could not dump table "admins" because of following StandardError
 #   Unknown type 'uuid' for column 'user_id'
 
+
+  create_table "arenas", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "owner_id", limit: 36, null: false
+    t.string "name"
+    t.string "slug"
+    t.string "address"
+    t.string "city"
+    t.string "country"
+    t.string "neighborhood"
+    t.decimal "latitude", precision: 10, scale: 6
+    t.decimal "longitude", precision: 10, scale: 6
+    t.decimal "prestige", precision: 10, scale: 2, default: "0.0"
+    t.boolean "private", default: false
+    t.boolean "rentable", default: false
+    t.decimal "price_per_hour", precision: 8, scale: 2, default: "0.0"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["slug"], name: "index_arenas_on_slug", unique: true
+  end
 
 # Could not dump table "callups" because of following StandardError
 #   Unknown type 'uuid' for column 'duel_id'
@@ -93,6 +112,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
     t.index ["sender_type", "sender_id"], name: "index_notifications_on_sender_type_and_sender_id"
   end
 
+# Could not dump table "owners" because of following StandardError
+#   Unknown type 'uuid' for column 'user_id'
+
+
   create_table "pages", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "title", null: false
     t.string "slug", null: false
@@ -107,6 +130,22 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
 # Could not dump table "referees" because of following StandardError
 #   Unknown type 'uuid' for column 'user_id'
 
+
+  create_table "reservations", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "reservable_type", null: false
+    t.string "reservable_id", limit: 36, null: false
+    t.string "payer_id", limit: 36, null: false
+    t.string "receiver_id", limit: 36, null: false
+    t.datetime "start_time"
+    t.datetime "end_time"
+    t.decimal "price_per_hour", precision: 8, scale: 2
+    t.decimal "total_price", precision: 10, scale: 2
+    t.boolean "confirmed", default: false
+    t.string "purpose"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["reservable_type", "reservable_id"], name: "index_reservations_on_reservable_type_and_reservable_id"
+  end
 
 # Could not dump table "results" because of following StandardError
 #   Unknown type 'uuid' for column 'duel_id'
@@ -190,6 +229,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
   add_foreign_key "admins", "clans"
   add_foreign_key "admins", "clubs"
   add_foreign_key "admins", "users"
+  add_foreign_key "arenas", "owners"
   add_foreign_key "callups", "duels"
   add_foreign_key "callups", "users"
   add_foreign_key "clans", "users"
@@ -202,7 +242,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_02_04_050510) do
   add_foreign_key "lineups", "duels"
   add_foreign_key "lineups", "users"
   add_foreign_key "memberships", "users"
+  add_foreign_key "owners", "users"
   add_foreign_key "referees", "users"
+  add_foreign_key "reservations", "users", column: "payer_id"
+  add_foreign_key "reservations", "users", column: "receiver_id"
   add_foreign_key "results", "duels"
   add_foreign_key "results", "users", column: "referee_id"
   add_foreign_key "team_memberships", "clans"

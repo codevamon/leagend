@@ -40,6 +40,9 @@ class User < ApplicationRecord
   has_many :notifications, as: :recipient
   has_many :owned_teams, class_name: "Team", foreign_key: "leader_id"
   has_many :stats
+  has_many :sent_reservations, class_name: "Reservation", foreign_key: :payer_id, dependent: :nullify
+  has_many :received_reservations, class_name: "Reservation", foreign_key: :receiver_id, dependent: :nullify
+
 
   # Métodos de líder
   def leader?

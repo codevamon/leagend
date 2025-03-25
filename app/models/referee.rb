@@ -1,7 +1,7 @@
 class Referee < ApplicationRecord
   belongs_to :user
   has_many :duels
-  # has_many :reservations, as: :reservable, dependent: :destroy
+  has_many :reservations, as: :reservable, dependent: :destroy
 
   validates :fee, numericality: { greater_than_or_equal_to: 0 }
   validates :user_id, uniqueness: true

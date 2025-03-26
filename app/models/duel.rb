@@ -3,6 +3,7 @@ class Duel < ApplicationRecord
   belongs_to :away_team, class_name: 'Team'
   belongs_to :referee, class_name: 'User', optional: true
   belongs_to :man_of_the_match, class_name: 'User', optional: true
+  belongs_to :arena, optional: true
 
   has_many :results
   has_many :lineups
@@ -28,12 +29,18 @@ class Duel < ApplicationRecord
   attribute :referee_fee, :decimal, default: 0.0
 
   # Validaciones
-  validates :start_date, :end_date, presence: true
+  validates :starts_at, :ends_at, presence: true
   validates :price, :budget, numericality: { greater_than_or_equal_to: 0 }
   validate :end_date_after_start_date
+  
+  validate :arena_availability, if: -> { arena.present? && starts_at.present? && ends_at.present? }
+
 
   # UUID
   before_create :generate_uuid
+
+
+  
 
   private
 
@@ -42,9 +49,9 @@ class Duel < ApplicationRecord
     end
 
     def end_date_after_start_date
-      return if end_date.blank? || start_date.blank?
-      if end_date <= start_date
-        errors.add(:end_date, "must be after the start date")
+      return if ends_at.blank? || starts_at.blank?
+      if ends_at <= starts_at
+        errors.add(:ends_at, "must be after the start time")
       end
     end
 
@@ -55,5 +62,11 @@ class Duel < ApplicationRecord
 
     def goals_by_team(team)
       duel_goals.where(team: team).count
+    end
+    
+    def arena_availability
+      unless arena.available_between?(starts_at, ends_at)
+        errors.add(:arena, "is not available in that time slot")
+      end
     end
 end

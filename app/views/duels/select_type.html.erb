@@ -1,0 +1,26 @@
+<h1>Detalles finales del duelo</h1>
+
+<%= form_with url: confirm_duels_path, method: :post do |f| %>
+  <%= hidden_field_tag :home_team_id, @duel.home_team_id %>
+  <%= hidden_field_tag :away_team_id, @duel.away_team_id %>
+  <%= hidden_field_tag :arena_id, @duel.arena_id %>
+  <%= hidden_field_tag :starts_at, @duel.starts_at %>
+  <%= hidden_field_tag :ends_at, @duel.ends_at %>
+
+  <div class="mb-3">
+    <%= label_tag :duel_type, "Tipo de duelo" %>
+    <%= select_tag :duel_type, options_for_select(Duel.duel_types.keys.map { |t| [t.titleize, t] }), class: "form-control" %>
+  </div>
+
+  <div class="form-check mb-3">
+    <%= check_box_tag :assign_referee, "1", false, class: "form-check-input" %>
+    <%= label_tag :assign_referee, "Asignar árbitro aleatorio (con costo)", class: "form-check-label" %>
+  </div>
+
+  <div class="form-check mb-4">
+    <%= check_box_tag :responsibility, "1", false, class: "form-check-input" %>
+    <%= label_tag :responsibility, "Acepto la responsabilidad del duelo", class: "form-check-label" %>
+  </div>
+
+  <%= f.submit "Crear duelo", class: "btn btn-success" %>
+<% end %>

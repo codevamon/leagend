@@ -14,11 +14,14 @@
           <% if notification.unread? %>
             <%= button_to "Marcar como leída", notification_path(notification), method: :put, class: "btn btn-sm btn-outline-secondary" %>
           <% end %>
-
-          <% if notification.category == "club" && notification.unread? %>
+          
+          <% if notification.category == "callup" && notification.notifiable.is_a?(Duel) %>
+            <%= link_to "Ver duelo", duel_path(notification.notifiable), class: "btn btn-sm btn-primary" %>
+          <% elsif notification.category == "club" && notification.unread? %>
             <%= button_to "Aceptar", notification_path(notification, approve: true), method: :put, class: "btn btn-sm btn-success" %>
             <%= button_to "Rechazar", notification_path(notification, reject: true), method: :put, class: "btn btn-sm btn-danger" %>
           <% end %>
+
         </div>
       </li>
     <% end %>

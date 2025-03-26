@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_03_25_013343) do
+ActiveRecord::Schema[8.0].define(version: 2025_03_25_012342) do
 # Could not dump table "active_storage_attachments" because of following StandardError
 #   Unknown type 'uuid' for column 'record_id'
 
@@ -148,7 +148,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_03_25_013343) do
   end
 
 # Could not dump table "results" because of following StandardError
-#   Unknown type 'uuid' for column 'duel_id'
+#   Unknown type '' for column 'duel_id'
 
 
 # Could not dump table "team_memberships" because of following StandardError
@@ -237,6 +237,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_03_25_013343) do
   add_foreign_key "duel_goals", "duels"
   add_foreign_key "duel_goals", "teams"
   add_foreign_key "duel_goals", "users"
+  add_foreign_key "duels", "arenas"
   add_foreign_key "duels", "users", column: "best_player_id"
   add_foreign_key "duels", "users", column: "referee_id"
   add_foreign_key "lineups", "duels"
@@ -247,6 +248,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_03_25_013343) do
   add_foreign_key "reservations", "users", column: "payer_id"
   add_foreign_key "reservations", "users", column: "receiver_id"
   add_foreign_key "results", "duels"
+  add_foreign_key "results", "users", column: "best_player_id"
   add_foreign_key "results", "users", column: "referee_id"
   add_foreign_key "team_memberships", "clans"
   add_foreign_key "team_memberships", "clubs"

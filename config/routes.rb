@@ -33,13 +33,25 @@ Rails.application.routes.draw do
   end
 
   resources :duels do
-    resources :lineups, only: [:index, :new, :create, :destroy]
-    resources :duel_goals, only: [:index, :new, :create, :destroy]
-    resources :results, only: [:new, :create, :edit, :update]
+    collection do
+      get :select_team      # Paso 1: escoger equipo válido
+      get :callup_players   # Paso 2: convocar jugadores
+      post :send_callup     # enviar una convocatoria
+      post :send_callups_to_all
+      get :select_arena     # Paso 3: escoger arena y mostrar mapa
+      get :open_duels       # Tab adicional con duelos abiertos
+      get :select_type      # Paso 4: tipo de duelo y referee
+      post :confirm         # Paso 5: confirmar duelo y crear
+    end
+  
     member do
       patch :start
       patch :complete
     end
+  
+    resources :lineups, only: [:index, :edit, :update, :destroy]
+    resources :duel_goals, only: [:index, :new, :create, :destroy]
+    resources :results, only: [:new, :create, :edit, :update]
   end
 
   # Arenas y Propietarios
@@ -51,6 +63,9 @@ Rails.application.routes.draw do
   resources :referees do
     resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Referee' }
   end  
+
+  post 'callups/accept', to: 'callups#accept', as: :accept_callup
+  post 'callups/reject', to: 'callups#reject', as: :reject_callup 
 
   resources :owners, only: [:new, :create, :show]
   resources :reservations, only: [:index, :show]

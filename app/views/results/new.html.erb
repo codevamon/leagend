@@ -1,0 +1,15 @@
+<h1>Registrar resultado del duelo</h1>
+
+<%= form_with model: [@duel, @result] do |f| %>
+  <div class="mb-3">
+    <%= f.label :outcome, "Resultado final" %>
+    <%= f.select :outcome, Result.outcomes.keys.map { |o| [o.titleize, o] }, {}, class: "form-control" %>
+  </div>
+
+  <div class="mb-3">
+    <%= f.label :best_player_id, "Jugador destacado" %>
+    <%= f.collection_select :best_player_id, @duel.lineups.includes(:user).map(&:user), :id, :name, { include_blank: true }, class: "form-control" %>
+  </div>
+
+  <%= f.submit "Guardar resultado", class: "btn btn-success" %>
+<% end %>

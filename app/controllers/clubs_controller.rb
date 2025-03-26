@@ -7,7 +7,7 @@ class ClubsController < ApplicationController
   end
 
   def show
-    @members = @club.users
+    @members = @club.memberships.includes(:user).where(status: :approved).map(&:user)
 
     if user_signed_in?
       @membership = @club.memberships.find_by(user: current_user)

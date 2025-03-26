@@ -1,0 +1,15 @@
+<h1>Editar alineación de <%= @lineup.user.name %></h1>
+
+<%= form_with model: [@duel, @lineup], method: :patch do |f| %>
+  <div class="mb-3">
+    <%= f.label :position, "Posición" %>
+    <%= f.text_field :position, class: "form-control" %>
+  </div>
+
+  <div class="mb-3">
+    <%= f.label :formation, "Formación (número)" %>
+    <%= f.number_field :formation, class: "form-control" %>
+  </div>
+
+  <%= f.submit "Guardar", class: "btn btn-success" %>
+<% end %>

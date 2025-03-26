@@ -1,0 +1,27 @@
+<h1>Alineación confirmada para el duelo</h1>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Jugador</th>
+      <th>Posición</th>
+      <th>Formación</th>
+      <th>Acción</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @lineups.each do |lineup| %>
+      <tr>
+        <td><%= lineup.user.name %></td>
+        <td><%= lineup.position.presence || '-' %></td>
+        <td><%= lineup.formation.presence || '-' %></td>
+        <td>
+          <% if lineup.teamable.try(:captain_id) == current_user.id %>
+            <%= link_to "Editar", edit_duel_lineup_path(@duel, lineup), class: "btn btn-sm btn-primary" %>
+
+          <% end %>
+        </td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

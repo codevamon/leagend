@@ -1,7 +1,7 @@
 class Team < ApplicationRecord
   belongs_to :club, optional: true
   belongs_to :clan, optional: true
-  belongs_to :captain, class_name: 'User', optional: true
+  belongs_to :captain, class_name: 'User', foreign_key: 'captain_id', optional: true
 
   has_many :team_memberships, dependent: :destroy
   has_many :users, through: :team_memberships

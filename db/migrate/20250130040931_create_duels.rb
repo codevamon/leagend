@@ -3,17 +3,20 @@ class CreateDuels < ActiveRecord::Migration[8.0]
     create_table :duels, id: false, force: true do |t|
       t.string :id, limit: 36, primary_key: true, null: false
 
-      # Relaciones con equipos (uuid string para flexibilidad entre Team o TeamMembership)
+      # Relaciones con equipos
       t.string :home_team_id, limit: 36, null: false
       t.string :away_team_id, limit: 36, null: false
 
-      # Relación con árbitro y mejor jugador
+      # Árbitro y mejor jugador
       t.references :referee, type: :uuid, foreign_key: { to_table: :users }, null: true
       t.string :best_player_id, limit: 36, null: true
 
+      # Relación con arena (uuid como string)
+      t.string :arena_id, limit: 36, null: true
+
       # Fechas y ubicación
-      t.datetime :start_date
-      t.datetime :end_date
+      t.datetime :starts_at
+      t.datetime :ends_at
       t.string :address
       t.string :neighborhood
       t.string :city
@@ -21,18 +24,18 @@ class CreateDuels < ActiveRecord::Migration[8.0]
       t.decimal :latitude, precision: 10, scale: 6
       t.decimal :longitude, precision: 10, scale: 6
 
-      # Presupuesto y precios
+      # Presupuesto
       t.decimal :price, precision: 8, scale: 2, default: 0.0
       t.decimal :budget, precision: 8, scale: 2, default: 0.0
       t.decimal :budget_place, precision: 8, scale: 2, default: 0.0
       t.decimal :budget_equipment, precision: 8, scale: 2, default: 0.0
       t.decimal :referee_price, precision: 8, scale: 2, default: 0.0
 
-      # Estado y tipo de duelo
+      # Estado y tipo
       t.integer :status, default: 0
       t.integer :duel_type, default: 0
 
-      # Detalles del duelo
+      # Detalles
       t.decimal :duration, precision: 8, scale: 2
       t.boolean :timing, default: false
       t.boolean :referee_required, default: false
@@ -54,13 +57,15 @@ class CreateDuels < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    # Índices
-    add_index :duels, :start_date
-    add_index :duels, :end_date
+    # Índices corregidos
+    add_index :duels, :starts_at
+    add_index :duels, :ends_at
     add_index :duels, :status
     add_index :duels, :duel_type
+    add_index :duels, :arena_id
 
-    # Foreign key manual para best_player
+    # Foreign keys
     add_foreign_key :duels, :users, column: :best_player_id, primary_key: :id
+    add_foreign_key :duels, :arenas, column: :arena_id, primary_key: :id
   end
 end

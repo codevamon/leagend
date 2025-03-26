@@ -7,7 +7,7 @@ class ClansController < ApplicationController
   end
 
   def show
-    @members = @clan.users
+    @members = @clan.memberships.includes(:user).where(status: :approved).map(&:user)
     @membership = @clan.memberships.find_by(user: current_user) if user_signed_in?
     @is_admin = @clan.admins.exists?(user_id: current_user.id)
   end
@@ -18,7 +18,7 @@ class ClansController < ApplicationController
 
   def create
     @clan = Clan.new(clan_params.except(:avatar))
-    @clan.creator = current_user
+    @clan.king = current_user
 
     if @clan.save
       @clan.avatar.attach(params[:clan][:avatar]) if params[:clan][:avatar].present?

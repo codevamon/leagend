@@ -5,6 +5,9 @@ class Result < ApplicationRecord
   belongs_to :home_teamable, polymorphic: true
   belongs_to :away_teamable, polymorphic: true
 
+  # Jugador destacado del duelo (opcional)
+  belongs_to :best_player, class_name: 'User', optional: true
+
   enum outcome: { win: 0, loss: 1, draw: 2 }
 
   before_create :generate_uuid

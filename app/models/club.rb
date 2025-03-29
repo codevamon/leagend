@@ -3,6 +3,7 @@ class Club < ApplicationRecord
     has_many :admins, dependent: :destroy
     has_many :users, through: :admins
     has_many :memberships, as: :joinable, dependent: :destroy
+    has_many :teams, as: :joinable, dependent: :destroy # ← 🔹 ESTA
     has_one_attached :avatar
   
     validates :name, presence: true

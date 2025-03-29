@@ -1,0 +1,50 @@
+<h1>¿Qué y cuándo?</h1>
+
+<%= form_with url: select_team_duels_path, method: :get, local: true do |f| %>
+  <div class="mb-3">
+    <%= label_tag :duel_type, "Tipo de duelo" %>
+    <%= select_tag :duel_type, options_for_select([["Entrenamiento", "training"], ["Parchar", "hobbie"]]), class: "form-control" %>
+  </div>
+
+  <div class="mb-3">
+    <%= label_tag :mode, "Modalidad" %><br>
+    <%= radio_button_tag :mode, "express", true %> Express<br>
+    <%= radio_button_tag :mode, "scheduled" %> Programado
+  </div>
+
+  <div class="mb-3 express-options">
+    <%= label_tag :express_minutes, "¿Cuándo jugarán? (minutos desde ahora)" %>
+    <%= select_tag :express_minutes, options_for_select([30, 60, 90, 120, 150, 180, 210, 240]), class: "form-control" %>
+  </div>
+
+  <div class="mb-3 scheduled-options" style="display: none;">
+    <%= label_tag :starts_at, "¿Cuándo empieza?" %>
+    <%= datetime_select :duel, :starts_at, default: Time.now + 1.hour %>
+  </div>
+
+  <div class="mb-3">
+    <%= label_tag :duration, "Duración del duelo" %>
+    <%= select_tag :duration, options_for_select([["60 minutos", 60], ["120 minutos", 120], ["Personalizado (máx. 240)", 240]]), class: "form-control" %>
+  </div>
+
+  <%= submit_tag "Siguiente", class: "btn btn-primary" %>
+<% end %>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const expressOptions = document.querySelector('.express-options');
+    const scheduledOptions = document.querySelector('.scheduled-options');
+
+    document.querySelectorAll('input[name="mode"]').forEach((radio) => {
+      radio.addEventListener('change', function () {
+        if (this.value === 'express') {
+          expressOptions.style.display = '';
+          scheduledOptions.style.display = 'none';
+        } else {
+          expressOptions.style.display = 'none';
+          scheduledOptions.style.display = '';
+        }
+      });
+    });
+  });
+</script>

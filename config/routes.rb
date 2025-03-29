@@ -34,10 +34,10 @@ Rails.application.routes.draw do
 
   resources :duels do
     collection do
+      get :when
       get :select_team      # Paso 1: escoger equipo válido
       get :callup_players   # Paso 2: convocar jugadores
       post :send_callup     # enviar una convocatoria
-      post :send_callups_to_all
       get :select_arena     # Paso 3: escoger arena y mostrar mapa
       get :open_duels       # Tab adicional con duelos abiertos
       get :select_type      # Paso 4: tipo de duelo y referee
@@ -66,6 +66,11 @@ Rails.application.routes.draw do
 
   post 'callups/accept', to: 'callups#accept', as: :accept_callup
   post 'callups/reject', to: 'callups#reject', as: :reject_callup 
+  post 'duels/create_team_and_callup', to: 'duels#create_team_and_callup', as: :create_team_and_callup_duels
+  post 'duels/send_callups_to_all', to: 'duels#send_callups_to_all', as: :send_callups_to_all_duels
+  
+
+
 
   resources :owners, only: [:new, :create, :show]
   resources :reservations, only: [:index, :show]

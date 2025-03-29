@@ -4,7 +4,7 @@ class Clan < ApplicationRecord
   has_many :users, through: :admins
 
   has_many :memberships, as: :joinable, dependent: :destroy
-  has_many :teams
+  has_many :teams, as: :joinable, dependent: :destroy # ← 🔹 ESTA
   has_many :team_memberships, through: :teams
 
   has_one_attached :avatar

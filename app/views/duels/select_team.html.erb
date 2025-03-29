@@ -3,14 +3,21 @@
 <% if @team_options.any? %>
   <ul>
     <% @team_options.each do |membership| %>
-      <% team = membership.team %>
+      <% joinable = membership.joinable %>
       <li>
-        <%= link_to team.name, callup_players_duels_path(team_id: team.id), class: "btn btn-primary" %>
-        <% if membership.clan.present? %>
-          <small>(Clan: <%= membership.clan.name %>)</small>
-        <% elsif membership.club.present? %>
-          <small>(Club: <%= membership.club.name %>)</small>
+        <% if joinable.teams.any? %>
+          <%= link_to joinable.name, callup_players_duels_path(team_id: joinable.teams.first.id, duel_id: params[:duel_id]), class: "btn btn-primary" %>
+        <% else %>
+          <%= button_to "Usar #{membership.joinable.class.name} #{membership.joinable.name}", create_team_and_callup_duels_path(
+            joinable_type: membership.joinable_type,
+            joinable_id: membership.joinable_id,
+            duel_type: @duel_type,
+            starts_at: @starts_at,
+            ends_at: @ends_at
+          ), method: :post, class: "btn btn-sm btn-success" %>
+
         <% end %>
+
       </li>
     <% end %>
   </ul>

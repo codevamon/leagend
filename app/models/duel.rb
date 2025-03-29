@@ -5,6 +5,7 @@ class Duel < ApplicationRecord
   belongs_to :man_of_the_match, class_name: 'User', optional: true
   belongs_to :arena, optional: true
 
+  has_many :callups
   has_many :results
   has_many :lineups
   has_many :duel_goals
@@ -20,8 +21,8 @@ class Duel < ApplicationRecord
   end
 
   # Enums
-  enum status: { pending: 0, in_progress: 1, completed: 2, cancelled: 3 }
-  enum duel_type: { friendly: 0, bet: 1, rematch: 2 }
+  enum :status, { pending: 0, in_progress: 1, completed: 2, cancelled: 3 }
+  enum :duel_type, { friendly: 0, bet: 1, rematch: 2 }
 
   # Defaults (útiles en caso de usar `attribute`)
   attribute :price, :decimal, default: 0.0

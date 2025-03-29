@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_03_25_012342) do
+ActiveRecord::Schema[8.0].define(version: 2025_03_28_085212) do
 # Could not dump table "active_storage_attachments" because of following StandardError
 #   Unknown type 'uuid' for column 'record_id'
 
@@ -57,7 +57,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_03_25_012342) do
   end
 
 # Could not dump table "callups" because of following StandardError
-#   Unknown type 'uuid' for column 'duel_id'
+#   Unknown type '' for column 'duel_id'
 
 
 # Could not dump table "clans" because of following StandardError
@@ -151,18 +151,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_03_25_012342) do
 #   Unknown type '' for column 'duel_id'
 
 
-# Could not dump table "team_memberships" because of following StandardError
-#   Unknown type '' for column 'user_id'
-
-
   create_table "teams", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "name"
     t.string "club_id", limit: 36
     t.string "clan_id", limit: 36
     t.string "captain_id", limit: 36
+    t.string "joinable_type"
+    t.string "joinable_id", limit: 36
     t.integer "status"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "temporary"
+    t.datetime "expires_at"
   end
 
   create_table "users", id: { type: :string, limit: 36 }, force: :cascade do |t|
@@ -250,10 +250,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_03_25_012342) do
   add_foreign_key "results", "duels"
   add_foreign_key "results", "users", column: "best_player_id"
   add_foreign_key "results", "users", column: "referee_id"
-  add_foreign_key "team_memberships", "clans"
-  add_foreign_key "team_memberships", "clubs"
-  add_foreign_key "team_memberships", "users"
-  add_foreign_key "team_memberships", "users", column: "captain_id"
   add_foreign_key "teams", "clans"
   add_foreign_key "teams", "clubs"
   add_foreign_key "teams", "users", column: "captain_id"

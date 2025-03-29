@@ -12,10 +12,19 @@ class Membership < ApplicationRecord
     message: "already has a membership for this entity" 
   }
 
+  # Métodos virtuales para compatibilidad con lógica antigua
+  def club_id
+    joinable_id if joinable_type == "Club"
+  end
+
+  def clan_id
+    joinable_id if joinable_type == "Clan"
+  end
 
   
   before_create :generate_uuid
   # after_create :notify_admins, if: -> { joinable.is_a?(Club) }
+
 
   private
 
@@ -39,4 +48,5 @@ class Membership < ApplicationRecord
         )
       end
     end
+    
 end

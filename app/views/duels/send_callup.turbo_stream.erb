@@ -1,8 +1,7 @@
-<turbo-stream target="user_<%= params[:user_id] %>" action="replace">
+<turbo-stream action="replace" target="user_<%= @user.id %>">
   <template>
-    <li id="user_<%= params[:user_id] %>">
-      <%= User.find(params[:user_id]).name %>
-      <span class="text-success">✔ Convocado</span>
+    <li id="user_<%= @user.id %>">
+      <%= @user.slug %> ✅ Convocado
     </li>
   </template>
 </turbo-stream>

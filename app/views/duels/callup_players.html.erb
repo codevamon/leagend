@@ -1,15 +1,27 @@
 <h1>Convocar jugadores del equipo <%= @team.name %></h1>
 
-<%= button_to 'Convocar a todos', send_callups_to_all_duels_path(team_id: @team.id, duel_id: params[:duel_id]), method: :post, class: "btn btn-success" %>
-
+<% if @members.present? %>
+  <%= button_to 'Convocar a todos', send_callups_to_all_duels_path(team_id: @team.id, user_ids: @users.map(&:id)), method: :post, form: { data: { turbo_stream: true } }, class: "btn btn-primary" %>
+<% end %>
 <ul>
   <% @users.each do |user| %>
     <li id="user_<%= user.id %>">
-      <%= user.name %>
-      <%= button_to 'Convocar', send_callup_duels_path(team_id: @team.id, user_id: user.id, duel_id: params[:duel_id]),
-                      method: :post,
-                      form: { data: { turbo_stream: true } },
-                      class: "btn btn-outline-primary btn-sm" %>
+      <%= user.slug %>
+
+      <% if @callups.any? { |c| c.user_id == user.id } %>
+        <span class="badge bg-secondary">Pendiente</span>
+      <% else %>
+        <%= button_to 'Convocar', send_callup_duels_path(team_id: @team.id, user_id: user.id, duel_id: params[:duel_id]),
+                        method: :post,
+                        form: { data: { turbo_stream: true } },
+                        class: "btn btn-outline-primary btn-sm" %>
+      <% end %>
     </li>
   <% end %>
 </ul>
+
+<% if @callups.any? %>
+  <%= link_to "Escoger arena", select_arena_duels_path(duel_type: params[:duel_type], starts_at: params[:starts_at], ends_at: params[:ends_at], team_id: @team.id), class: "btn btn-success" %>
+<% else %>
+  <%= link_to "Escoger arena", "#", class: "btn btn-secondary disabled", disabled: true %>
+<% end %>

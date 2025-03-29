@@ -1,9 +1,9 @@
 class Callup < ApplicationRecord
-  belongs_to :duel
+  belongs_to :duel, optional: true
   belongs_to :user
   belongs_to :teamable, polymorphic: true  # Team o TeamMembership
 
-  enum status: { pending: 0, accepted: 1, rejected: 2 }
+  enum :status, { pending: 0, accepted: 1, rejected: 2 }
 
   validates :user_id, uniqueness: {
     scope: [:duel_id, :teamable_id, :teamable_type],

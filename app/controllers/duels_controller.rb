@@ -26,36 +26,159 @@ class DuelsController < ApplicationController
   end
 
   # 🔹 Flujo personalizado paso a paso
+  def when
+    @duel = Duel.new
+  end
+
   def select_team
-    @memberships = current_user.memberships.includes(:club, :clan, :team)
-    @team_options = @memberships.select { |m| m.clan.present? || (m.club.present? && m.admin?) }
+
+    duel_type = params[:duel_type]
+    mode = params[:mode]
+    duration = params[:duration].to_i
+  
+    if mode == 'express'
+      express_minutes = params[:express_minutes].to_i
+      starts_at = Time.current + express_minutes.minutes - 20.minutes # 20 min antes para cambiarse
+    else
+      starts_at = Time.zone.local(
+        params["duel"]["starts_at(1i)"].to_i,
+        params["duel"]["starts_at(2i)"].to_i,
+        params["duel"]["starts_at(3i)"].to_i,
+        params["duel"]["starts_at(4i)"].to_i,
+        params["duel"]["starts_at(5i)"].to_i
+      )
+    end
+  
+    ends_at = starts_at + duration.minutes
+  
+    session[:duel_data] = {
+      duel_type: duel_type,
+      mode: mode,
+      starts_at: starts_at,
+      ends_at: ends_at,
+      duration: duration
+    }
+
+    @memberships = current_user.memberships.includes(:joinable)
+    @team_options = @memberships.select do |m|
+      joinable = m.joinable
+      joinable.is_a?(Clan) || (joinable.is_a?(Club) && (m.admin? || m.king?))
+    end
   end
 
   def callup_players
-    @team = Team.find(params[:team_id])
-    @users = @team.users
+    @duel_type = params[:duel_type]
+    @starts_at = params[:starts_at]
+    @ends_at = params[:ends_at]
+  
+    @team = Team.find(params[:team_id]) if params[:team_id].present?
+  
+    if @team
+      @club_or_clan = @team.joinable
+      @members = @club_or_clan.memberships.approved.includes(:user)
+      @users = @members.map(&:user)
+      @callups = Callup.where(teamable: @team)
+    else
+      redirect_to select_team_duels_path, alert: "No se pudo encontrar equipo"
+    end
   end
+  
+  def create_team_and_callup
+    
+    joinable = params[:joinable_type].constantize.find(params[:joinable_id])
+    duel = Duel.find_by(id: params[:duel_id])
 
+    team = joinable.teams.first || Team.create!(
+      name: "Equipo #{joinable.name}",
+      captain_id: current_user.id,
+      joinable_id: joinable.id,
+      joinable_type: joinable.class.name
+    )
+
+    redirect_to callup_players_duels_path(
+      team_id: team.id,
+      duel_type: params[:duel_type],
+      starts_at: params[:starts_at],
+      ends_at: params[:ends_at]
+    )
+    # joinable = params[:joinable_type].constantize.find(params[:joinable_id])
+    # if params[:duel_id].present?
+    #   duel = Duel.find(params[:duel_id])
+    # else
+    #   duel = nil
+    # end
+  
+    # existing_team = joinable.teams.first
+  
+    # if existing_team
+    #   team = existing_team
+    # else
+    #   team = Team.create!(
+    #     name: "Equipo #{joinable.name}",
+    #     captain_id: current_user.id,
+    #     joinable_id: joinable.id,
+    #     joinable_type: joinable.class.name
+    #   )
+    # end
+  
+    # if duel
+    #   redirect_to callup_players_duels_path(team_id: team.id, duel_id: duel.id)
+    # else
+    #   redirect_to callup_players_duels_path(team_id: team.id)
+    # end
+  end
+  
   def send_callup
-    Callup.create(team_id: params[:team_id], user_id: params[:user_id], duel_id: params[:duel_id])
-    Notification.create(user_id: params[:user_id], content: "Fuiste convocado a un duelo.")
+    @team = Team.find(params[:team_id])
+    @user = User.find(params[:user_id])
+  
+    callup = Callup.find_or_create_by!(
+      user: @user,
+      teamable: @team
+    )
+  
+    # Notificación (puedes ajustar esta parte si ya tienes lógica)
+    Notification.create!(
+      recipient: @user,
+      sender: current_user,
+      message: "Fuiste convocado a un duelo.",
+      category: :callup,
+      notifiable: callup
+    )
+  
+    respond_to do |format|
+      format.turbo_stream
+      format.html { redirect_back fallback_location: root_path }
+    end
+  end
+  
+  def send_callups_to_all
+    team = Team.find(params[:team_id])
+    user_ids = params[:user_ids] # array de UUIDs de users
+  
+    users = User.where(id: user_ids)
+  
+    users.each do |user|
+      Callup.find_or_create_by!(
+        user: user,
+        teamable: team
+      ) do |callup|
+        callup.status = :pending
+      end
+    end
+  
     respond_to do |format|
       format.turbo_stream
       format.html { redirect_back fallback_location: root_path }
     end
   end
 
-  def send_callups_to_all
-    @team = Team.find(params[:team_id])
-    @team.users.each do |user|
-      Callup.find_or_create_by(team_id: @team.id, user_id: user.id, duel_id: params[:duel_id])
-      Notification.create(user_id: user.id, content: "Fuiste convocado a un duelo.")
-    end
-    redirect_to callup_players_duels_path(team_id: @team.id), notice: 'Todos convocados.'
-  end
-
   def select_arena
-    @duel = Duel.find(params[:duel_id])
+    @team = Team.find(params[:team_id])
+    data = session[:duel_data]
+    
+    @starts_at = Time.parse(data["starts_at"].to_s)
+    @ends_at = Time.parse(data["ends_at"].to_s)
     @arenas = Arena.all.select { |a| a.available_between?(@duel.starts_at, @duel.ends_at) }
   end
 

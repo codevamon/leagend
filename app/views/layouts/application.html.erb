@@ -60,9 +60,10 @@
                   <%= current_user.firstname.presence || current_user.email %>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                  <li><%= link_to 'Nuevo evento', when_duels_path, class: 'dropdown-item' %></li>
+                  <li><%= link_to "Mis Duelos", my_duels_duels_path, class: "dropdown-item" %></li>
                   <li><%= link_to 'Mi perfil', user_path(current_user), class: 'dropdown-item' %></li>
                   <li><%= link_to 'Notificaciones', notifications_path, class: 'dropdown-item' %></li>
-                  <li><%= link_to 'Crear duelo', when_duels_path, class: 'dropdown-item' %></li>
                   <li><hr class="dropdown-divider"></li>
                   <li><%= link_to 'Cerrar sesión', destroy_user_session_path, method: :delete, class: 'dropdown-item text-danger' %></li>
                 </ul>

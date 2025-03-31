@@ -3,7 +3,11 @@ Rails.application.routes.draw do
 
   devise_for :users, controllers: { omniauth_callbacks: 'omniauth_callbacks' }
   resources :users, only: [:index, :show, :edit, :update, :destroy]
-  resources :notifications, only: [:index, :update]
+  resources :notifications, only: [:index, :update] do
+    collection do
+      put :mark_all_read
+    end
+  end
 
   # Clubs y Clans
   resources :clubs do
@@ -42,6 +46,9 @@ Rails.application.routes.draw do
       get :open_duels       # Tab adicional con duelos abiertos
       get :select_type      # Paso 4: tipo de duelo y referee
       post :confirm         # Paso 5: confirmar duelo y crear
+      get :responsibility
+      
+      get :my_duels
     end
   
     member do
@@ -64,10 +71,20 @@ Rails.application.routes.draw do
     resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Referee' }
   end  
 
-  post 'callups/accept', to: 'callups#accept', as: :accept_callup
-  post 'callups/reject', to: 'callups#reject', as: :reject_callup 
+  # post 'callups/accept', to: 'callups#accept', as: :accept_callup
+  # post 'callups/reject', to: 'callups#reject', as: :reject_callup 
+  resources :callups, only: [] do
+    collection do
+      post :accept
+      post :reject
+    end
+  end
+
   post 'duels/create_team_and_callup', to: 'duels#create_team_and_callup', as: :create_team_and_callup_duels
   post 'duels/send_callups_to_all', to: 'duels#send_callups_to_all', as: :send_callups_to_all_duels
+  post 'duels/finalize_creation', to: 'duels#finalize_creation', as: :finalize_creation_duels
+  post 'duels/:duel_id/accept', to: 'duels#accept_opponent', as: :accept_open_duel
+
   
 
 

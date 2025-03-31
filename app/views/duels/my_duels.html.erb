@@ -1,0 +1,19 @@
+<h1>Mis Duelos (clubs o clanes)</h1>
+
+<% if @duels.any? %>
+  <ul>
+    <% @duels.each do |duel| %>
+      <li>
+        <% if duel.starts_at.present? %>
+          <%= link_to "Duelo ##{duel.id} - #{duel.starts_at.strftime('%d %b %H:%M')}", duel_path(duel) %>
+        <% else %>
+          <%= link_to "Duelo ##{duel.id}", duel_path(duel) %>
+        <% end %>
+
+        (<%= duel.home_team.name %> vs <%= duel.away_team&.name || "???" %>)
+      </li>
+    <% end %>
+  </ul>
+<% else %>
+  <p>No estás vinculado a ningún duelo por ahora.</p>
+<% end %>

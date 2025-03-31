@@ -1,0 +1,18 @@
+<h1>Aceptar Responsabilidad</h1>
+
+<p>
+  Serás el responsable (capitán/admin) de este duelo, lo que implica:
+  - Confirmar alineaciones
+  - Administrar el resultado
+  - Etc.
+</p>
+
+<%= button_to "Sí, acepto",
+      finalize_creation_duels_path(
+        team_id: @team.id,
+        accept_responsibility: '1'
+      ),
+      method: :post,
+      class: "btn btn-primary" %>
+
+<%= link_to "No, cancelar", root_path, class: "btn btn-secondary" %>

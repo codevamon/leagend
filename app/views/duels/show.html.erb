@@ -7,31 +7,24 @@
     <strong>Resultado:</strong>
     <% case result.outcome %>
     <% when "win" %>
-      Victoria para <%= result.home_teamable.name %>
+      Victoria para <%= result.home_teamable&.name || "Equipo local" %>
     <% when "loss" %>
-      Victoria para <%= result.away_teamable.name %>
+      Victoria para <%= result.away_teamable&.name || "Equipo visitante" %>
     <% when "draw" %>
       Empate
     <% end %>
   </p>
 
-  <p>
-    <strong>Árbitro:</strong>
-    <%= result.referee&.name || "No asignado" %>
-  </p>
-
-  <p>
-    <strong>Jugador destacado:</strong>
-    <%= result.best_player&.name || "No definido" %>
-  </p>
+  <p><strong>Árbitro:</strong> <%= result.referee&.name || "No asignado" %></p>
+  <p><strong>Jugador destacado:</strong> <%= result.best_player&.name || "No definido" %></p>
 <% end %>
 
-
-<h1>Duelo: <%= @home_team.name %> vs <%= @away_team.name %></h1>
+<h1>Duelo: <%= @home_team&.name || "Equipo local" %> vs <%= @away_team&.name || "Por definir" %></h1>
 
 <p><strong>Fecha:</strong> <%= l @duel.starts_at, format: :long %> a <%= l @duel.ends_at, format: :long %></p>
-<p><strong>Tipo:</strong> <%= @duel.duel_type.titleize %></p>
-<p><strong>Estado:</strong> <%= @duel.status.titleize %></p>
+<p><strong>Tipo:</strong> <%= @duel.duel_type&.titleize || "Sin tipo" %></p>
+<p><strong>Estado:</strong> <%= @duel.status&.titleize || "Pendiente" %></p>
+
 <% if callup = current_user.callups.find_by(duel: @duel, status: :pending) %>
   <div class="alert alert-info mt-4">
     Has sido convocado a este duelo.
@@ -39,6 +32,7 @@
     <%= button_to "Rechazar convocatoria", reject_callup_path(duel_id: @duel.id), method: :post, class: "btn btn-danger btn-sm" %>
   </div>
 <% end %>
+
 <% if @duel.arena.present? %>
   <h3>Arena</h3>
   <p>
@@ -51,20 +45,26 @@
 <h3>Equipos</h3>
 <ul>
   <li>
-    <strong>Local:</strong> <%= @home_team.name %>
-    (<%= @home_team_users.count %> jugadores)
-    <% if @home_team.captain.present? %>
-      <br><em>Capitán:</em> <%= @home_team.captain.name %>
+    <strong>Local:</strong> <%= @home_team&.name || "No asignado" %>
+    (<%= @home_team_users&.count || 0 %> jugadores)
+    <% if @home_team&.captain.present? %>
+      <br><em>Capitán:</em> <%= [@home_team.captain.firstname, @home_team.captain.lastname].compact.join(' ') %>
+
     <% end %>
   </li>
 
-  <li>
-    <strong>Visitante:</strong> <%= @away_team.name %>
-    (<%= @away_team_users.count %> jugadores)
-    <% if @away_team.captain.present? %>
-      <br><em>Capitán:</em> <%= @away_team.captain.name %>
-    <% end %>
-  </li>
+  <% if @away_team.present? %>
+    <li>
+      <strong>Visitante:</strong> <%= @away_team.name %>
+      (<%= @away_team_users&.count || 0 %> jugadores)
+      <% if @away_team.captain.present? %>
+        <br><em>Capitán:</em> <%= [@away_team.captain.firstname, @home_team.captain.lastname].compact.join(' ') %>
+
+      <% end %>
+    </li>
+  <% else %>
+    <li><strong>Visitante:</strong> Aún no definido</li>
+  <% end %>
 </ul>
 
 <% if @duel.referee.present? %>
@@ -73,12 +73,26 @@
   <p><em>Sin árbitro asignado</em></p>
 <% end %>
 
-<% if @duel.away_team.blank? %>
-  <%= link_to "Desafiar a otro equipo", new_team_duel_path(team_id: @duel.home_team.id, duel_id: @duel.id), class: "btn btn-warning" %>
-<% end %>
-
-<% if @duel.private == false && @duel.away_team_id.blank? %>
+<% if !@duel.private && @duel.away_team_id.blank? %>
   <div class="alert alert-info mt-4">
     Este duelo está abierto. Otros equipos pueden desafiarlo.
   </div>
+<% end %>
+
+<% if @duel.away_team.blank? %>
+  <% memberships = current_user.memberships.approved.includes(:joinable) %>
+
+  <% can_challenge = memberships.any? do |m| %>
+    <% if m.joinable_type == "Clan" %>
+      true
+    <% elsif m.joinable_type == "Club" %>
+      m.admin? || m.king?
+    <% else %>
+      false
+    <% end %>
+  <% end %>
+
+  <% if can_challenge %>
+    <%= link_to "Desafiar a otro equipo", new_team_duel_path(team_id: @duel.home_team.id, duel_id: @duel.id), class: "btn btn-warning" %>
+  <% end %>
 <% end %>

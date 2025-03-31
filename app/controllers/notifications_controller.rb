@@ -18,6 +18,16 @@ class NotificationsController < ApplicationController
     end
   end
 
+  def mark_all_read
+    current_user.notifications.each do |notification|
+      if notification.ready_to_be_marked_read?
+        notification.update!(status: :read)
+      end
+    end
+
+    redirect_to notifications_path, notice: "Notificaciones actualizadas"
+  end
+
   private
 
   def set_notification

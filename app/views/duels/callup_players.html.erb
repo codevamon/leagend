@@ -1,27 +1,44 @@
 <h1>Convocar jugadores del equipo <%= @team.name %></h1>
 
 <% if @members.present? %>
-  <%= button_to 'Convocar a todos', send_callups_to_all_duels_path(team_id: @team.id, user_ids: @users.map(&:id)), method: :post, form: { data: { turbo_stream: true } }, class: "btn btn-primary" %>
+  <%= button_to 'Convocar a todos',
+        send_callups_to_all_duels_path(team_id: @team.id, user_ids: @users.map(&:id)),
+        method: :post,
+        form: { data: { turbo_stream: true } },
+        class: "btn btn-primary mb-3" %>
 <% end %>
+
 <ul>
   <% @users.each do |user| %>
     <li id="user_<%= user.id %>">
       <%= user.slug %>
 
-      <% if @callups.any? { |c| c.user_id == user.id } %>
-        <span class="badge bg-secondary">Pendiente</span>
+      <% callup = @callups.find { |c| c.user_id == user.id } %>
+
+      <% if callup.present? %>
+        <% if callup.accepted? %>
+          <span class="badge bg-success">✅ Aceptado</span>
+        <% elsif callup.rejected? %>
+          <span class="badge bg-danger">❌ Rechazado</span>
+        <% else %>
+          <span class="badge bg-warning text-dark">⏳ Pendiente</span>
+        <% end %>
       <% else %>
-        <%= button_to 'Convocar', send_callup_duels_path(team_id: @team.id, user_id: user.id, duel_id: params[:duel_id]),
-                        method: :post,
-                        form: { data: { turbo_stream: true } },
-                        class: "btn btn-outline-primary btn-sm" %>
+        <%= button_to 'Convocar',
+              send_callup_duels_path(team_id: @team.id, user_id: user.id, duel_id: params[:duel_id]),
+              method: :post,
+              form: { data: { turbo_stream: true } },
+              class: "btn btn-outline-primary btn-sm" %>
       <% end %>
     </li>
   <% end %>
 </ul>
 
 <% if @callups.any? %>
-  <%= link_to "Escoger arena", select_arena_duels_path(duel_type: params[:duel_type], starts_at: params[:starts_at], ends_at: params[:ends_at], team_id: @team.id), class: "btn btn-success" %>
+  <%= link_to "Continuar a Aceptar Responsabilidad",
+        responsibility_duels_path(team_id: @team.id),
+        class: "btn btn-success mt-4" %>
 <% else %>
-  <%= link_to "Escoger arena", "#", class: "btn btn-secondary disabled", disabled: true %>
+  <%= link_to "Continuar a Aceptar Responsabilidad", "#",
+        class: "btn btn-secondary disabled", disabled: true %>
 <% end %>

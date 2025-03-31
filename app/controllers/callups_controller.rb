@@ -23,7 +23,7 @@ class CallupsController < ApplicationController
         sender: @team,
         category: :callup,
         message: "Fuiste convocado al duelo por el equipo #{@team.name}.",
-        notifiable: @duel
+        notifiable: callup
       )
       redirect_to @team, notice: 'Usuario convocado exitosamente.'
     else
@@ -31,9 +31,8 @@ class CallupsController < ApplicationController
     end
   end
 
-  
   def accept
-    callup = current_user.callups.find_by(duel_id: params[:duel_id])
+    callup = current_user.callups.find_by(id: params[:callup_id])
     if callup&.pending?
       callup.update!(status: :accepted)
       Lineup.create!(
@@ -42,17 +41,38 @@ class CallupsController < ApplicationController
         teamable_id: callup.teamable_id,
         teamable_type: callup.teamable_type
       )
+  
+      Notification.create!(
+        recipient: callup.teamable.captain,
+        sender: current_user,
+        category: :callup,
+        message: "#{current_user.slug} ha aceptado la convocatoria para el duelo.",
+        notifiable: callup.duel
+      )
+  
       flash[:notice] = "Has aceptado la convocatoria."
     end
-    redirect_to duel_path(params[:duel_id])
+    redirect_to duel_path(callup.duel_id)
   end
-
+  
   def reject
-    callup = current_user.callups.find_by(duel_id: params[:duel_id])
-    callup&.update!(status: :rejected)
-    flash[:alert] = "Has rechazado la convocatoria."
-    redirect_to root_path
+    callup = current_user.callups.find_by(id: params[:callup_id])
+    if callup&.pending?
+      callup.update!(status: :rejected)
+  
+      Notification.create!(
+        recipient: callup.teamable.captain,
+        sender: current_user,
+        category: :callup,
+        message: "#{current_user.slug} ha rechazado la convocatoria.",
+        notifiable: callup.duel
+      )
+  
+      flash[:alert] = "Has rechazado la convocatoria."
+    end
+    redirect_to notifications_path
   end
+  
 
   private
 

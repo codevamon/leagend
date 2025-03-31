@@ -1,6 +1,8 @@
 <h1>Notificaciones</h1>
 
 <% if @notifications.any? %>
+  <%= button_to "Marcar todas como leídas", mark_all_read_notifications_path,
+        method: :put, class: "btn btn-outline-dark mb-3" %>
   <ul class="list-group">
     <% @notifications.each do |notification| %>
       <li class="list-group-item d-flex justify-content-between align-items-center <%= "opacity-50" if notification.read? %>">
@@ -9,20 +11,63 @@
           <%= notification.message %>
           <small class="text-muted d-block"><%= time_ago_in_words(notification.created_at) %> atrás</small>
         </div>
-
         <div class="d-flex gap-2">
-          <% if notification.unread? %>
-            <%= button_to "Marcar como leída", notification_path(notification), method: :put, class: "btn btn-sm btn-outline-secondary" %>
+          <% if notification.actionable_by?(current_user) %>
+            <% if notification.category == "club" && notification.notifiable.is_a?(Membership) %>
+              <%= button_to "Aceptar", notification_path(notification, approve: true),
+                    method: :put, class: "btn btn-sm btn-success" %>
+              <%= button_to "Rechazar", notification_path(notification, reject: true),
+                    method: :put, class: "btn btn-sm btn-danger" %>
+            <% elsif notification.category == "callup" && notification.notifiable.is_a?(Callup) %>
+              <%= button_to "Aceptar convocatoria", accept_callups_path(callup_id: notification.notifiable.id),
+                    method: :post, class: "btn btn-sm btn-success" %>
+
+              <%= button_to "Rechazar convocatoria", reject_callups_path(callup_id: notification.notifiable.id),
+                    method: :post, class: "btn btn-sm btn-danger" %>
+            <% end %>
+
+          <% elsif notification.read? && notification.category == "callup" %>
+            <% callup = Callup.find_by(id: notification.notifiable_id) %>
+            <% if callup.present? %>
+              <% if callup.accepted? %>
+                <span class="text-success">✅ Has aceptado la convocatoria. ¡Ahora ve y haz historia!</span>
+              <% elsif callup.rejected? %>
+                <span class="text-danger">❌ Has rechazado la convocatoria. Tal vez la próxima.</span>
+              <% else %>
+                <span class="text-muted">Convocatoria pendiente.</span>
+              <% end %>
+            <% else %>
+              <span class="text-muted">Notificación procesada.</span>
+            <% end %>
+
+          <% elsif notification.read? && notification.category == "club" %>
+            <% membership = Membership.find_by(id: notification.notifiable_id) %>
+            <% if membership.present? %>
+              <% if membership.approved? %>
+                <span class="text-success">
+                  ✅ Has aceptado a <%= membership.user.slug %> en <%= membership.joinable.name %>. ¡Ponlo a prueba!
+                </span>
+              <% elsif membership.rejected? %>
+                <span class="text-danger">
+                  ❌ Has rechazado a <%= membership.user.slug %> en <%= membership.joinable.name %>.
+                </span>
+              <% else %>
+                <span class="text-muted">Solicitud aún pendiente.</span>
+              <% end %>
+            <% else %>
+              <span class="text-muted">Notificación procesada.</span>
+            <% end %>
           <% end %>
-          
-          <% if notification.category == "callup" && notification.notifiable.is_a?(Duel) %>
-            <%= link_to "Ver duelo", duel_path(notification.notifiable), class: "btn btn-sm btn-primary" %>
-          <% elsif notification.category == "club" && notification.unread? %>
-            <%= button_to "Aceptar", notification_path(notification, approve: true), method: :put, class: "btn btn-sm btn-success" %>
-            <%= button_to "Rechazar", notification_path(notification, reject: true), method: :put, class: "btn btn-sm btn-danger" %>
+          <% if notification.unread? && notification.ready_to_be_marked_read? %>
+            <%= button_to "Marcar como leída", notification_path(notification),
+                  method: :put, class: "btn btn-sm btn-outline-secondary" %>
           <% end %>
 
         </div>
+
+
+
+
       </li>
     <% end %>
   </ul>

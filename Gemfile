@@ -45,7 +45,7 @@ gem 'activeadmin', '~> 3.2' # Para el panel de administración
 gem 'sidekiq', '~> 7.0' # Para tareas en segundo plano
 gem 'rack-cors', '~> 2.0' # Para manejar CORS en la API
 gem 'kaminari', '~> 1.2' # Para paginación
-gem 'ransack', '~> 4.0' # Para búsquedas
+gem 'ransack', '~> 4.3' # Para búsquedas
 
 # Frontend
 gem "sassc-rails", ">= 2.1.0"

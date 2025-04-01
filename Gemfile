@@ -13,7 +13,7 @@ gem "aws-sdk-s3", require: false
 
 # Active Storage y procesamiento de imágenes
 # gem "image_processing", "~> 1.2"
-gem 'image_processing', '~> 1.2', require: false
+gem 'image_processing', '~> 1.14', require: false
 gem 'mini_magick'
 
 # Modern Asset Pipeline

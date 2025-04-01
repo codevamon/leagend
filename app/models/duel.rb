@@ -9,7 +9,10 @@ class Duel < ApplicationRecord
   has_many :results
   has_many :lineups
   has_many :duel_goals
-  has_many :scorers, through: :duel_goals, source: :user
+  has_many :scorers, through: :duel_goals, source: :User
+  has_many :challenges_as_challenger, class_name: "Challenge", foreign_key: :challenger_duel_id
+  has_many :challenges_as_challengee, class_name: "Challenge", foreign_key: :challengee_duel_id
+
 
   # Relación filtrada manualmente (condiciones en métodos, no en `has_many`)
   def home_players
@@ -23,6 +26,7 @@ class Duel < ApplicationRecord
   # Enums
   enum :status, { pending: 0, in_progress: 1, completed: 2, cancelled: 3 }
   enum :duel_type, { friendly: 0, bet: 1, rematch: 2, training: 3 }
+  enum :challenge, { challengee: 0, challenger: 1, challenged: 2 }
 
   # Defaults (útiles en caso de usar `attribute`)
   attribute :price, :decimal, default: 0.0

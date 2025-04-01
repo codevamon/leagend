@@ -3,7 +3,7 @@ class Notification < ApplicationRecord
   belongs_to :sender, polymorphic: true
   belongs_to :notifiable, polymorphic: true, optional: true
 
-  enum :category, { callup: 0, duel: 1, club: 2, team: 3, general: 4 }
+  enum :category, { callup: 0, duel: 1, club: 2, team: 3, general: 4, challenge: 5 }
   enum :status, { unread: 0, read: 1 }
 
   validates :message, presence: true
@@ -22,7 +22,8 @@ class Notification < ApplicationRecord
 
   def actionable_type?
     (category == "club" && notifiable.is_a?(Membership)) ||
-    (category == "callup" && notifiable.is_a?(Callup))
+    (category == "callup" && notifiable.is_a?(Callup))   ||
+    (category == "challenge" && notifiable.is_a?(Challenge))
   end
 
   def responded?
@@ -31,6 +32,8 @@ class Notification < ApplicationRecord
       notifiable.is_a?(Membership) && !notifiable.pending?
     when "callup"
       notifiable.is_a?(Callup) && !notifiable.pending?
+    when "challenge"
+      notifiable.is_a?(Challenge) && !notifiable.pending?
     else
       false
     end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_03_31_020246) do
+ActiveRecord::Schema[8.0].define(version: 2025_04_01_044111) do
 # Could not dump table "active_storage_attachments" because of following StandardError
 #   Unknown type 'uuid' for column 'record_id'
 
@@ -57,8 +57,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_03_31_020246) do
   end
 
 # Could not dump table "callups" because of following StandardError
-#   Unknown type '' for column 'duel_id'
+#   Unknown type 'uuid' for column 'duel_id'
 
+
+  create_table "challenges", force: :cascade do |t|
+    t.string "challenger_duel_id", null: false
+    t.string "challengee_duel_id", null: false
+    t.string "status", default: "pending"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["challengee_duel_id"], name: "index_challenges_on_challengee_duel_id"
+    t.index ["challenger_duel_id"], name: "index_challenges_on_challenger_duel_id"
+  end
 
 # Could not dump table "clans" because of following StandardError
 #   Unknown type 'uuid' for column 'user_id'
@@ -159,10 +169,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_03_31_020246) do
     t.string "joinable_type"
     t.string "joinable_id", limit: 36
     t.integer "status"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
     t.boolean "temporary"
     t.datetime "expires_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "users", id: { type: :string, limit: 36 }, force: :cascade do |t|

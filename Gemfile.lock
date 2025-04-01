@@ -573,6 +573,7 @@ DEPENDENCIES
   jquery-rails (~> 4.5)
   kamal
   kaminari (~> 1.2)
+  mini_magick
   noticed (~> 1.6)
   omniauth (~> 2.0)
   omniauth-google-oauth2

@@ -23,6 +23,15 @@ class DuelsController < ApplicationController
     @away_team = @duel.away_team
     @home_team_users = @duel.callups.where(teamable: @home_team).map(&:user)
     @away_team_users = @duel.callups.where(teamable: @away_team).map(&:user)
+    @challenger_duel = Duel
+    .where(
+      home_team_id: Team.where(captain_id: current_user.id).pluck(:id),
+      away_team_id: nil
+    )
+    .where.not(arena_id: nil)
+    .where(temporary: true)
+    .order(created_at: :desc)
+    .first
   end
 
   def my_duels

@@ -17,6 +17,10 @@ class CreateTeams < ActiveRecord::Migration[8.0]
 
       # Estado del equipo (enum opcional)
       t.integer :status
+      
+      # Campos nuevos
+      t.boolean :temporary
+      t.datetime :expires_at
 
       t.timestamps
     end

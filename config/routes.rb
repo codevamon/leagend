@@ -71,8 +71,6 @@ Rails.application.routes.draw do
     resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Referee' }
   end  
 
-  # post 'callups/accept', to: 'callups#accept', as: :accept_callup
-  # post 'callups/reject', to: 'callups#reject', as: :reject_callup 
   resources :callups, only: [] do
     collection do
       post :accept
@@ -85,12 +83,15 @@ Rails.application.routes.draw do
   post 'duels/finalize_creation', to: 'duels#finalize_creation', as: :finalize_creation_duels
   post 'duels/:duel_id/accept', to: 'duels#accept_opponent', as: :accept_open_duel
 
-  
-
-
-
   resources :owners, only: [:new, :create, :show]
   resources :reservations, only: [:index, :show]
+
+  resources :challenges, only: [:create, :show] do
+    member do
+      patch :accept
+      patch :reject
+    end
+  end
 
   # Namespace para administración
   namespace :admin do

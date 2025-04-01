@@ -91,8 +91,35 @@
       false
     <% end %>
   <% end %>
-
-  <% if can_challenge %>
-    <%= link_to "Desafiar a otro equipo", new_team_duel_path(team_id: @duel.home_team.id, duel_id: @duel.id), class: "btn btn-warning" %>
+  
+  <% if @challenger_duel.present? %>
+    <%= button_to "Retar a este duelo",
+      challenges_path(
+        challenger_duel_id: @challenger_duel.id,
+        challengee_duel_id: @duel.id
+      ),
+      method: :post,
+      class: "btn btn-primary" %>
+  <% else %>
+    <p>No tienes un duelo con arena disponible para retar.</p>
   <% end %>
+    
+
+
+    <% if @duel.challenges_as_challengee.pending.any? %>
+    <% @duel.challenges_as_challengee.pending.each do |challenge| %>
+      <p>Has sido retado por el duelo <%= link_to challenge.challenger_duel.id, challenge.challenger_duel %></p>
+      <%= button_to "Aceptar Reto",
+          accept_challenge_path(challenge),
+          method: :patch,
+          class: "btn btn-success" %>
+      <%= button_to "Rechazar",
+          reject_challenge_path(challenge),
+          method: :patch,
+          class: "btn btn-danger" %>
+    <% end %>
+  <% end %>
+
 <% end %>
+
+

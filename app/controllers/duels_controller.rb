@@ -260,9 +260,12 @@ class DuelsController < ApplicationController
     callups.each { |c| c.update!(duel_id: duel.id) }
   
     # Crear un lineup para el creador si ya se había autoconvocado
-    callup = callups.find { |c| c.user_id == current_user.id && c.accepted? }
-    if callup
-      Lineup.create!(duel: duel, user: current_user, teamable: team)
+    callups.select(&:accepted?).each do |c|
+      Lineup.find_or_create_by!(
+        duel: duel,
+        user: c.user,
+        teamable: c.teamable
+      )
     end
   
     redirect_to duel_path(duel), notice: "Duelo creado con éxito."

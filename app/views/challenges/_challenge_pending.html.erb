@@ -1,0 +1,20 @@
+<% duel.challenges_as_challengee.pending.each do |challenge| %>
+  <div class="card mt-3">
+    <div class="card-body">
+      <p>
+        Has sido retado por el duelo
+        <%= link_to "##{challenge.challenger_duel.id}", duel_path(challenge.challenger_duel) %>
+      </p>
+
+      <%= button_to "Aceptar reto",
+          accept_challenge_path(challenge),
+          method: :patch,
+          class: "btn btn-success btn-sm" %>
+
+      <%= button_to "Rechazar",
+          reject_challenge_path(challenge),
+          method: :patch,
+          class: "btn btn-danger btn-sm" %>
+    </div>
+  </div>
+<% end %>

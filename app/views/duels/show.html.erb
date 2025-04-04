@@ -120,6 +120,9 @@
     <% end %>
   <% end %>
 
+  <%= render partial: 'challenges/challenge_pending', locals: { duel: @duel } if @duel.challenges_as_challengee.pending.any? %>
+
+
 <% end %>
 
 

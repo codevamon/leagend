@@ -1,0 +1,16 @@
+<% if @desafiables.present? %>
+  <h5>Retar a un duelo abierto</h5>
+  <% @desafiables.each do |d| %>
+    <div class="card mb-2">
+      <div class="card-body">
+        <p><b><%= d.home_team.joinable.name %> -</b> <%= d.duel_type.capitalize %> Duel — inicia <%= l(d.starts_at, format: :short) %></p>
+        <%= button_to "Desafiar a #{d.home_team.joinable.name}",
+            challenges_path(challenger_duel_id: @duel.id, challengee_duel_id: d.id),
+            method: :post,
+            class: "btn btn-outline-primary btn-sm" %>
+      </div>
+    </div>
+  <% end %>
+<% else %>
+  <p class="text-muted">No hay duelos disponibles para retar en este momento.</p>
+<% end %>

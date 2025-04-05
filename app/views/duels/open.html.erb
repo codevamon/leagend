@@ -1,0 +1,33 @@
+<h3>Duelos disponibles</h3>
+
+<div class="mb-4">
+  <%= link_to "Crear nuevo duelo", new_duel_path, class: "btn btn-primary" %>
+</div>
+
+<h5>Duelos desafiables (sin arena)</h5>
+<% if @desafiables.any? %>
+  <ul class="list-group mb-4">
+    <% @desafiables.each do |duel| %>
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        Duelo #<%= duel.id %> - inicia <%= l(duel.starts_at, format: :short) %>
+        <%= link_to "Ver", duel_path(duel), class: "btn btn-outline-secondary btn-sm" %>
+      </li>
+    <% end %>
+  </ul>
+<% else %>
+  <p class="text-muted">No hay duelos desafiables por ahora.</p>
+<% end %>
+
+<h5>Duelos desafiantes (con arena, esperando rival)</h5>
+<% if @desafiantes.any? %>
+  <ul class="list-group">
+    <% @desafiantes.each do |duel| %>
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        Duelo #<%= duel.id %> - inicia <%= l(duel.starts_at, format: :short) %>
+        <%= link_to "Ver", duel_path(duel), class: "btn btn-outline-secondary btn-sm" %>
+      </li>
+    <% end %>
+  </ul>
+<% else %>
+  <p class="text-muted">No hay duelos desafiantes por ahora.</p>
+<% end %>

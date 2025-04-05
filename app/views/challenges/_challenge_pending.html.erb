@@ -3,7 +3,7 @@
     <div class="card-body">
       <p>
         Has sido retado por el duelo
-        <%= link_to "##{challenge.challenger_duel.id}", duel_path(challenge.challenger_duel) %>
+        <%= link_to "##{challenge.challenger_duel.name}", duel_path(challenge.challenger_duel) %>
       </p>
 
       <%= button_to "Aceptar reto",

@@ -8,12 +8,28 @@
       <strong><%= arena.name %></strong><br>
       <%= arena.address %> - <%= arena.city %>
       <%= button_to 'Seleccionar esta arena',
-          select_type_duels_path(duel_id: @duel.id, arena_id: arena.id),
-          method: :get,
+          duel_path(@duel, arena_id: arena.id),
+          method: :patch,
           class: "btn btn-sm btn-primary mt-2" %>
     </li>
   <% end %>
 </ul>
+
+<hr>
+
+<h2>Duelos compatibles</h2>
+
+<% if @duelos_compatibles.any? %>
+  <ul>
+    <% @duelos_compatibles.each do |duelo| %>
+      <li>
+        <%= link_to "Duelo ##{duelo.id} - #{duelo.starts_at.strftime("%d/%m %H:%M")}", duel_path(duelo) %>
+      </li>
+    <% end %>
+  </ul>
+<% else %>
+  <p>No hay duelos compatibles disponibles.</p>
+<% end %>
 
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
@@ -21,14 +37,10 @@
 <script>
   mapboxgl.accessToken = '<%= Rails.application.credentials.dig(:mapbox, :public_token) %>';
 
-
-  const defaultLat = <%= current_user.latitude || 4.7110 %>;
-  const defaultLng = <%= current_user.longitude || -74.0721 %>; // Bogotá
-
   const map = new mapboxgl.Map({
     container: 'map',
     style: 'mapbox://styles/mapbox/streets-v11',
-    center: [defaultLng, defaultLat],
+    center: [<%= current_user.longitude || -74.0721 %>, <%= current_user.latitude || 4.7110 %>],
     zoom: 12
   });
 

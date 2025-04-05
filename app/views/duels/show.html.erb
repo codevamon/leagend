@@ -18,7 +18,11 @@
   <p><strong>Árbitro:</strong> <%= result.referee&.name || "No asignado" %></p>
   <p><strong>Jugador destacado:</strong> <%= result.best_player&.name || "No definido" %></p>
 <% end %>
-
+<% if @challenge.present? &&
+   @challenge.challenger_duel.challenge == "challenger" &&
+   current_user == @challenge.challengee_duel.home_team&.captain %>
+  <%= button_to "Aceptar desafío", accept_challenge_path(@challenge), method: :patch, class: "btn btn-success" %>
+<% end %>
 <h1>Duelo: <%= @home_team&.name || "Equipo local" %> vs <%= @away_team&.name || "Por definir" %></h1>
 
 <p><strong>Fecha:</strong> <%= l @duel.starts_at, format: :long %> a <%= l @duel.ends_at, format: :long %></p>
@@ -28,8 +32,8 @@
 <% if callup = current_user.callups.find_by(duel: @duel, status: :pending) %>
   <div class="alert alert-info mt-4">
     Has sido convocado a este duelo.
-    <%= button_to "Aceptar convocatoria", accept_callup_path(duel_id: @duel.id), method: :post, class: "btn btn-success btn-sm" %>
-    <%= button_to "Rechazar convocatoria", reject_callup_path(duel_id: @duel.id), method: :post, class: "btn btn-danger btn-sm" %>
+    <%= button_to "Aceptar convocatoria", accept_callups_path(duel_id: @duel.id), method: :post, class: "btn btn-success btn-sm" %>
+    <%= button_to "Rechazar convocatoria", reject_callups_path(duel_id: @duel.id), method: :post, class: "btn btn-danger btn-sm" %>
   </div>
 <% end %>
 
@@ -84,24 +88,10 @@
 
   <% can_challenge = memberships.any? do |m| %>
     <% if m.joinable_type == "Clan" %>
-      true
+      Membership Clan
     <% elsif m.joinable_type == "Club" %>
-      m.admin? || m.king?
-    <% else %>
-      false
+      Membership Club
     <% end %>
-  <% end %>
-  
-  <% if @challenger_duel.present? %>
-    <%= button_to "Retar a este duelo",
-      challenges_path(
-        challenger_duel_id: @challenger_duel.id,
-        challengee_duel_id: @duel.id
-      ),
-      method: :post,
-      class: "btn btn-primary" %>
-  <% else %>
-    <p>No tienes un duelo con arena disponible para retar.</p>
   <% end %>
     
 
@@ -122,7 +112,10 @@
 
   <%= render partial: 'challenges/challenge_pending', locals: { duel: @duel } if @duel.challenges_as_challengee.pending.any? %>
 
-
+  <%= render "challenges/challenge_candidates" if @desafiables %>
+  <% if current_user == @home_team&.captain && @duel.arena.nil? %>
+    <%= link_to "Seleccionar arena", select_arena_duels_path(duel_id: @duel.id), class: "btn btn-outline-primary mt-3" %>
+  <% end %>
 <% end %>
 
 

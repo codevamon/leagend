@@ -18,11 +18,13 @@ class DuelsController < ApplicationController
   end
 
   def show
-    @duel = Duel.includes(results: [:referee, :best_player]).find(params[:id])
+    
+    @duel = Duel.includes(result: [:referee, :best_player]).find(params[:id])
     @home_team = @duel.home_team
     @away_team = @duel.away_team
     @home_team_users = @duel.callups.where(teamable: @home_team).map(&:user)
     @away_team_users = @duel.callups.where(teamable: @away_team).map(&:user)
+    @challenge = Challenge.find_by(challenger_duel_id: @duel.id) || Challenge.find_by(challengee_duel_id: @duel.id)
     @challenger_duel = Duel
     .where(
       home_team_id: Team.where(captain_id: current_user.id).pluck(:id),
@@ -32,6 +34,15 @@ class DuelsController < ApplicationController
     .where(temporary: true)
     .order(created_at: :desc)
     .first
+
+                        
+    # Solo si este duelo es desafiante (tiene arena y no tiene rival aún)
+    if @duel.arena.present? && @duel.away_team_id.nil? && @duel.status == "open"
+      @desafiables = Duel.where(arena: nil, away_team_id: nil, status: "open")
+                        .where.not(id: @duel.id)
+                        .where("ABS(strftime('%s', duels.starts_at) - strftime('%s', ?)) <= ?", @duel.starts_at, 24.hours.to_i)
+
+    end
   end
 
   def my_duels
@@ -42,7 +53,19 @@ class DuelsController < ApplicationController
     @duels = Duel.where("home_team_id IN (:ids) OR away_team_id IN (:ids)", ids: team_ids)
                  .order(starts_at: :desc)
   end
+ 
+
+  def update
+    @duel = Duel.friendly.find(params[:id])
+    if params[:arena_id].present?
+      @duel.update(arena_id: params[:arena_id], challenge: :challenger)
+      redirect_to @duel, notice: "Arena asignada exitosamente."
+    else
+      redirect_to @duel, alert: "No se seleccionó ninguna arena."
+    end
+  end
   
+
 
   # 🔹 Flujo personalizado paso a paso
   def when
@@ -176,8 +199,6 @@ class DuelsController < ApplicationController
     end
   end
   
-  
-  
   def send_callups_to_all
     team = Team.find(params[:team_id])
     user_ids = params[:user_ids] # array de UUIDs de users
@@ -200,12 +221,26 @@ class DuelsController < ApplicationController
   end
 
   def select_arena
-    @team = Team.find(params[:team_id])
-    data = session[:duel_data]
-    
-    @starts_at = Time.parse(data["starts_at"].to_s)
-    @ends_at = Time.parse(data["ends_at"].to_s)
+    @duel = Duel.find(params[:duel_id])
+    @team = Team.find(params[:team_id]) if params[:team_id].present?
+
+    if @duel.challenger?
+      @duelos_compatibles = Duel.where(challenge: :challengee, away_team_id: nil, status: :open)
+                                 .where.not(id: @duel.id)
+                                 .where("ABS(strftime('%s', starts_at) - strftime('%s', ?)) <= ?", @duel.starts_at, 24.hours.to_i)
+    else
+      @duelos_compatibles = Duel.where(challenge: :challenger, away_team_id: nil, status: :open)
+                                 .where.not(id: @duel.id)
+                                 .where("ABS(strftime('%s', starts_at) - strftime('%s', ?)) <= ?", @duel.starts_at, 24.hours.to_i)
+    end
+
     @arenas = Arena.all.select { |a| a.available_between?(@duel.starts_at, @duel.ends_at) }
+
+    if session[:duel_data].present?
+      data = session[:duel_data]
+      @starts_at = Time.parse(data["starts_at"].to_s)
+      @ends_at = Time.parse(data["ends_at"].to_s)
+    end
   end
 
   def open_duels
@@ -271,6 +306,9 @@ class DuelsController < ApplicationController
     redirect_to duel_path(duel), notice: "Duelo creado con éxito."
   end
   
+
+
+
   
   
   def accept_opponent
@@ -291,6 +329,8 @@ class DuelsController < ApplicationController
   
     redirect_to duel, notice: "Ahora participas en este duelo como visitante."
   end
+
+  
   
 
   # 🔹 Funciones complementarias
@@ -307,6 +347,11 @@ class DuelsController < ApplicationController
 
     GoalRegistrar.new(duel, user, team, minute).register_goal
     redirect_to duel, notice: 'Gol registrado exitosamente.'
+  end
+
+  def open
+    @desafiables = Duel.where(arena: nil, away_team_id: nil, status: "open").where("starts_at > ?", Time.current)
+    @desafiantes = Duel.where.not(arena: nil).where(away_team_id: nil, status: "open").where("starts_at > ?", Time.current)
   end
 
   private

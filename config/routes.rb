@@ -1,6 +1,14 @@
 Rails.application.routes.draw do
   root to: 'pages#home'
 
+
+  post 'duels/create_team_and_callup', to: 'duels#create_team_and_callup', as: :create_team_and_callup_duels
+  post 'duels/send_callups_to_all', to: 'duels#send_callups_to_all', as: :send_callups_to_all_duels
+  post 'duels/finalize_creation', to: 'duels#finalize_creation', as: :finalize_creation_duels
+  post 'duels/:duel_id/accept', to: 'duels#accept_opponent', as: :accept_open_duel
+  get "duels/open", to: "duels#open", as: :open_duels
+
+
   devise_for :users, controllers: { omniauth_callbacks: 'omniauth_callbacks' }
   resources :users, only: [:index, :show, :edit, :update, :destroy]
   resources :notifications, only: [:index, :update] do
@@ -8,6 +16,8 @@ Rails.application.routes.draw do
       put :mark_all_read
     end
   end
+
+
 
   # Clubs y Clans
   resources :clubs do
@@ -43,11 +53,11 @@ Rails.application.routes.draw do
       get :callup_players   # Paso 2: convocar jugadores
       post :send_callup     # enviar una convocatoria
       get :select_arena     # Paso 3: escoger arena y mostrar mapa
-      get :open_duels       # Tab adicional con duelos abiertos
+      # get :open_duels       # Tab adicional con duelos abiertos
       get :select_type      # Paso 4: tipo de duelo y referee
       post :confirm         # Paso 5: confirmar duelo y crear
       get :responsibility
-      
+      get :select_arena
       get :my_duels
     end
   
@@ -62,10 +72,10 @@ Rails.application.routes.draw do
   end
 
   # Arenas y Propietarios
-  resources :arenas do
-    resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Arena' }
-    post :reserve, on: :member
-  end
+    resources :arenas do
+      resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Arena' }
+      post :reserve, on: :member
+    end
 
   resources :referees do
     resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Referee' }
@@ -77,11 +87,6 @@ Rails.application.routes.draw do
       post :reject
     end
   end
-
-  post 'duels/create_team_and_callup', to: 'duels#create_team_and_callup', as: :create_team_and_callup_duels
-  post 'duels/send_callups_to_all', to: 'duels#send_callups_to_all', as: :send_callups_to_all_duels
-  post 'duels/finalize_creation', to: 'duels#finalize_creation', as: :finalize_creation_duels
-  post 'duels/:duel_id/accept', to: 'duels#accept_opponent', as: :accept_open_duel
 
   resources :owners, only: [:new, :create, :show]
   resources :reservations, only: [:index, :show]

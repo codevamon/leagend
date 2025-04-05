@@ -1,0 +1,23 @@
+<h3><%= @duel ? "Selecciona una arena para tu duelo" : "Explorar arenas disponibles" %></h3>
+
+<% if @arenas.any? %>
+  <div class="row">
+    <% @arenas.each do |arena| %>
+      <div class="col-md-6 mb-3">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title"><%= arena.name %></h5>
+            <p class="card-text"><%= arena.address %>, <%= arena.city %></p>
+            <% if @duel %>
+              <%= button_to "Usar esta arena", duel_path(@duel, arena_id: arena.id), method: :patch, class: "btn btn-success" %>
+            <% else %>
+              <%= link_to "Ver detalles", arena_path(arena), class: "btn btn-outline-primary" %>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% else %>
+  <p>No hay arenas disponibles en este momento.</p>
+<% end %>

@@ -1,5 +1,5 @@
 class Arena < ApplicationRecord
-  belongs_to :owner
+  belongs_to :owner, class_name: "Owner", foreign_key: :owner_id
   has_many :reservations, as: :reservable, dependent: :destroy
   has_many :duels
 

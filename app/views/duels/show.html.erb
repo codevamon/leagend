@@ -18,24 +18,14 @@
   <p><strong>Árbitro:</strong> <%= result.referee&.name || "No asignado" %></p>
   <p><strong>Jugador destacado:</strong> <%= result.best_player&.name || "No definido" %></p>
 <% end %>
-<% if @challenge.present? &&
-   @challenge.challenger_duel.challenge == "challenger" &&
-   current_user == @challenge.challengee_duel.home_team&.captain %>
-  <%= button_to "Aceptar desafío", accept_challenge_path(@challenge), method: :patch, class: "btn btn-success" %>
-<% end %>
+
 <h1>Duelo: <%= @home_team&.name || "Equipo local" %> vs <%= @away_team&.name || "Por definir" %></h1>
 
 <p><strong>Fecha:</strong> <%= l @duel.starts_at, format: :long %> a <%= l @duel.ends_at, format: :long %></p>
 <p><strong>Tipo:</strong> <%= @duel.duel_type&.titleize || "Sin tipo" %></p>
 <p><strong>Estado:</strong> <%= @duel.status&.titleize || "Pendiente" %></p>
 
-<% if callup = current_user.callups.find_by(duel: @duel, status: :pending) %>
-  <div class="alert alert-info mt-4">
-    Has sido convocado a este duelo.
-    <%= button_to "Aceptar convocatoria", accept_callups_path(duel_id: @duel.id), method: :post, class: "btn btn-success btn-sm" %>
-    <%= button_to "Rechazar convocatoria", reject_callups_path(duel_id: @duel.id), method: :post, class: "btn btn-danger btn-sm" %>
-  </div>
-<% end %>
+
 
 <% if @duel.arena.present? %>
   <h3>Arena</h3>
@@ -71,10 +61,20 @@
   <% end %>
 </ul>
 
-<% if @duel.referee.present? %>
-  <p><strong>Árbitro:</strong> <%= @duel.referee.name %></p>
-<% else %>
-  <p><em>Sin árbitro asignado</em></p>
+<h3>Jugadores convocados</h3>
+<ul class="callup-list">
+  <% @home_team_users.each do |user| %>
+    <li class="user-avatar-entry">
+      <%= image_tag user.avatar.variant(resize_to_fill: [40, 40]), class: "rounded-circle" if user.avatar.attached? %>
+      <%= user.slug %>
+    </li>
+  <% end %>
+</ul>
+
+<% if @challenge.present? &&
+   @challenge.challenger_duel.challenge == "challenger" &&
+   current_user == @challenge.challengee_duel.home_team&.captain %>
+  <%= button_to "Aceptar desafío", accept_challenge_path(@challenge), method: :patch, class: "btn btn-success" %>
 <% end %>
 
 <% if !@duel.private && @duel.away_team_id.blank? %>
@@ -116,6 +116,22 @@
   <% if current_user == @home_team&.captain && @duel.arena.nil? %>
     <%= link_to "Seleccionar arena", select_arena_duels_path(duel_id: @duel.id), class: "btn btn-outline-primary mt-3" %>
   <% end %>
+
+
+  <% if callup = current_user.callups.find_by(duel: @duel) %>
+    <% if callup.rejected? %>
+      <div class="alert alert-warning mt-4">
+        Rechazaste esta convocatoria automáticamente por haber aceptado otra del mismo duelo.
+      </div>
+    <% elsif callup.pending? %>
+      <div class="alert alert-info mt-4">
+        Has sido convocado a este duelo.
+        <%= button_to "Aceptar convocatoria", accept_callups_path(duel_id: @duel.id), method: :post, class: "btn btn-success btn-sm" %>
+        <%= button_to "Rechazar convocatoria", reject_callups_path(duel_id: @duel.id), method: :post, class: "btn btn-danger btn-sm" %>
+      </div>
+    <% end %>
+  <% end %>
+
 <% end %>
 
 

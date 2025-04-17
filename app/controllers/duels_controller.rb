@@ -134,7 +134,10 @@ class DuelsController < ApplicationController
       name: "Equipo #{joinable.name}",
       captain_id: current_user.id,
       joinable_id: joinable.id,
-      joinable_type: joinable.class.name
+      joinable_type: joinable.class.name,
+      temporary: true,
+      expires_at: (Time.zone.parse(params[:starts_at]) rescue 24.hours.from_now),
+      status: :pending
     )
 
     redirect_to callup_players_duels_path(
@@ -171,20 +174,29 @@ class DuelsController < ApplicationController
   end
   
   def send_callup
-    @team = Team.find(params[:team_id])
-    @user = User.find(params[:user_id])
-    @duel = Duel.find_by(home_team: @team) # puede ser nil (aún no creado)
+    team = Team.find(params[:team_id])
+    user = User.find(params[:user_id])
+    duel = Duel.find_by(home_team: team) # puede ser nil si aún no se crea
   
-    callup = Callup.find_or_initialize_by(user: @user, teamable: @team)
-    callup.duel = @duel if @duel.present?
-    callup.status = (current_user == @user) ? :accepted : :pending
+    callup = Callup.find_or_initialize_by(user: user, teamable: team)
+    callup.duel = duel if duel.present?
+    callup.status = (current_user == user) ? :accepted : :pending
     callup.save!
   
-    # Solo crear notificación si no es autoconvocatoria
-    if current_user != @user
-      unless Notification.exists?(recipient: @user, notifiable: callup, category: :callup)
+    # Crear Lineup si es autoconvocatoria
+    if current_user == user && duel.present?
+      Lineup.find_or_create_by!(
+        duel: duel,
+        user: user,
+        teamable: team
+      )
+    end
+  
+    # Crear notificación solo si no es autoconvocatoria
+    if current_user != user
+      unless Notification.exists?(recipient: user, notifiable: callup, category: :callup)
         Notification.create!(
-          recipient: @user,
+          recipient: user,
           sender: current_user,
           message: "Fuiste convocado a un duelo.",
           category: :callup,
@@ -201,16 +213,37 @@ class DuelsController < ApplicationController
   
   def send_callups_to_all
     team = Team.find(params[:team_id])
+    duel = Duel.find_by(home_team: team)
     user_ids = params[:user_ids] # array de UUIDs de users
   
     users = User.where(id: user_ids)
   
     users.each do |user|
-      Callup.find_or_create_by!(
-        user: user,
-        teamable: team
-      ) do |callup|
-        callup.status = :pending
+      callup = Callup.find_or_initialize_by(user: user, teamable: team)
+      callup.duel = duel if duel.present?
+      callup.status = (current_user == user) ? :accepted : :pending
+      callup.save!
+  
+      # Crear Lineup solo si el duelo ya existe y es autoconvocatoria
+      if duel.present? && current_user == user
+        Lineup.find_or_create_by!(
+          duel: duel,
+          user: user,
+          teamable: team
+        )
+      end
+  
+      # Notificar solo si no es autoconvocatoria
+      if current_user != user
+        unless Notification.exists?(recipient: user, notifiable: callup, category: :callup)
+          Notification.create!(
+            recipient: user,
+            sender: current_user,
+            message: "Fuiste convocado a un duelo.",
+            category: :callup,
+            notifiable: callup
+          )
+        end
       end
     end
   
@@ -219,6 +252,8 @@ class DuelsController < ApplicationController
       format.html { redirect_back fallback_location: root_path }
     end
   end
+  
+  
 
   def select_arena
     @duel = Duel.find(params[:duel_id])
@@ -353,6 +388,55 @@ class DuelsController < ApplicationController
     @desafiables = Duel.where(arena: nil, away_team_id: nil, status: "open").where("starts_at > ?", Time.current)
     @desafiantes = Duel.where.not(arena: nil).where(away_team_id: nil, status: "open").where("starts_at > ?", Time.current)
   end
+
+
+  def manage
+    @duel = Duel.find(params[:id])
+    @home_team = @duel.home_team
+  
+    @home_lineups = Lineup.where(duel: @duel, teamable: @home_team).includes(:user)
+    @pending_callups = Callup.where(duel: @duel, status: :pending, teamable: @home_team).includes(:user)
+  
+    # Jugadores no convocados ni alineados
+    used_user_ids = Callup.where(duel: @duel).pluck(:user_id) + Lineup.where(duel: @duel).pluck(:user_id)
+    @freeplayers = User.where.not(id: used_user_ids.uniq).where.not(id: current_user.id)
+  
+    @duel_needs_attention = @pending_callups.any? && @duel.starts_at < 2.hours.from_now
+  
+    # Tipos de duelo posibles según jugadores convocables
+    @possible_duel_types = [1, 2, 5, 6, 7, 8, 9, 10, 11].select { |n| @freeplayers.count + @home_lineups.count >= n * 2 }
+  end
+
+  def randomize_teams
+    @duel = Duel.find(params[:id])
+    duel_type = params[:duel_type].to_i
+  
+    # Obtener jugadores disponibles
+    used_ids = @duel.lineups.pluck(:user_id)
+    pool = User.where.not(id: used_ids + [current_user.id]).limit(duel_type * 2)
+  
+    return redirect_to manage_duel_path(@duel), alert: "No hay suficientes jugadores disponibles." if pool.count < duel_type * 2
+  
+    home_team = @duel.home_team
+    away_team = @duel.away_team || Team.create!(
+      name: "Reto #{duel_type}v#{duel_type}",
+      captain_id: current_user.id
+    )
+    @duel.update!(away_team: away_team)
+  
+    players = pool.shuffle
+    home_players = players.shift(duel_type)
+    away_players = players.shift(duel_type)
+  
+    (home_players + away_players).each do |user|
+      team = home_players.include?(user) ? home_team : away_team
+      Lineup.find_or_create_by!(duel: @duel, user: user, teamable: team)
+    end
+  
+    @duel.update!(temporary: false)
+    redirect_to duel_path(@duel), notice: "Equipos asignados aleatoriamente."
+  end
+  
 
   private
 

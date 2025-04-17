@@ -33,29 +33,46 @@ class CallupsController < ApplicationController
   def accept
     callup = current_user.callups.find_by(id: params[:callup_id])
     return redirect_to root_path, alert: "Convocatoria no encontrada." unless callup&.pending?
-
-    callup.update!(status: :accepted)
-
-    unless callup.duel.present?
-      flash[:notice] = "Te uniste correctamente. El duelo aún no ha sido creado."
-      return redirect_back fallback_location: root_path
+  
+    ActiveRecord::Base.transaction do
+      # ✅ Aceptar la convocatoria actual
+      callup.update!(status: :accepted)
+  
+      # 🚫 Rechazar otras convocatorias del mismo duelo
+      current_user.callups
+                  .where(duel_id: callup.duel_id, status: :pending)
+                  .where.not(id: callup.id)
+                  .update_all(status: :rejected)
+  
+      # ✅ Crear lineup
+      Lineup.find_or_create_by!(
+        duel: callup.duel,
+        user: current_user,
+        teamable: callup.teamable
+      )
+  
+      # 🔔 Notificar al capitán del equipo
+      Notification.create!(
+        recipient: callup.teamable.captain,
+        sender: current_user,
+        category: :callup,
+        message: "#{current_user.slug} ha aceptado la convocatoria para el duelo.",
+        notifiable: callup.duel
+      )
     end
-
-    Lineup.find_or_create_by!(
-      duel: callup.duel,
-      user: current_user,
-      teamable: callup.teamable
-    )
-
-    Notification.create!(
-      recipient: callup.teamable.captain,
-      sender: current_user,
-      category: :callup,
-      message: "#{current_user.slug} ha aceptado la convocatoria para el duelo.",
-      notifiable: callup.duel
-    )
-
+  
     redirect_to duel_path(callup.duel_id), notice: "Has aceptado la convocatoria."
+
+    team = callup.teamable
+    duel = callup.duel
+
+    # Verifica si todos los callups están aceptados
+    accepted_count = Lineup.where(duel: duel, teamable: team).count
+    expected_count = Callup.where(duel: duel, teamable: team).count
+
+    if accepted_count > 0 && accepted_count == expected_count
+      team.update!(temporary: false, status: :confirmed)
+    end
   end
 
   def reject

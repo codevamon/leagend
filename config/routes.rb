@@ -64,6 +64,8 @@ Rails.application.routes.draw do
     member do
       patch :start
       patch :complete
+      get :manage
+      patch :randomize_teams
     end
   
     resources :lineups, only: [:index, :edit, :update, :destroy]
@@ -82,6 +84,7 @@ Rails.application.routes.draw do
   end  
 
   resources :callups, only: [] do
+    post :send_callup, on: :collection
     collection do
       post :accept
       post :reject

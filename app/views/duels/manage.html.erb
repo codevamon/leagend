@@ -1,0 +1,45 @@
+<h2>Panel de administración del duelo</h2>
+
+<% if @duel_needs_attention %>
+  <div class="alert alert-warning">Este duelo está por comenzar y aún tiene convocatorias pendientes.</div>
+<% end %>
+
+<h3>Alineación actual</h3>
+<ul>
+  <% @home_lineups.each do |lineup| %>
+    <li><%= [lineup.user.firstname, lineup.user.lastname].compact.join(" ") %></li>
+  <% end %>
+</ul>
+
+<h3>Convocatorias pendientes</h3>
+<ul>
+  <% @pending_callups.each do |c| %>
+    <li><%= [c.user.firstname, c.user.lastname].compact.join(" ") %> (pendiente)</li>
+  <% end %>
+</ul>
+
+<h3>Jugadores libres disponibles</h3>
+<ul>
+  <% @freeplayers.each do |f| %>
+    <li>
+      <%= [f.firstname, f.lastname].compact.join(" ") %>
+      <%= button_to "Invitar", url_for(controller: "duels", action: "send_callup", user_id: f.id, team_id: @duel.home_team.id), method: :post %>
+
+    </li>
+  <% end %>
+</ul>
+
+
+<h3>Tipo de duelo y llenar cupo</h3>
+
+<%= form_with url: randomize_teams_duel_path(@duel), method: :patch do %>
+  <div class="mb-2">
+    <label for="duel_type">Tipo de duelo:</label>
+    <select name="duel_type" id="duel_type" class="form-select">
+      <% @possible_duel_types.each do |n| %>
+        <option value="<%= n %>"><%= "#{n} vs #{n}" %></option>
+      <% end %>
+    </select>
+  </div>
+  <%= submit_tag "Llenar cupo con jugadores libres", class: "btn btn-primary" %>
+<% end %>

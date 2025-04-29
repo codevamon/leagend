@@ -57,7 +57,7 @@ gem "gmaps4rails", "~> 2.1"
 gem "country_select"
 
 # Notificaciones y breadcrumbs
-gem "noticed", "~> 1.6"
+gem "noticed", "~> 2.6"
 gem "breadcrumbs_on_rails", "~> 3.0"
 
 # Tareas y procesamiento en segundo plano

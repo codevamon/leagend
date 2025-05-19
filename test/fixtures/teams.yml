@@ -9,3 +9,28 @@ two:
   name: MyString
   club: two
   clan: two
+
+home:
+  name: Home Team
+  captain: captain
+  status: active
+  temporary: false
+  joinable_type: Team
+  joinable_id: 1
+
+away:
+  name: Away Team
+  captain: player1
+  status: active
+  temporary: false
+  joinable_type: Team
+  joinable_id: 2
+
+temporary:
+  name: Temporary Team
+  captain: player2
+  status: pending
+  temporary: true
+  joinable_type: Team
+  joinable_id: 3
+  expires_at: <%= 24.hours.from_now %>

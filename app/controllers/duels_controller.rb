@@ -1,5 +1,7 @@
 class DuelsController < ApplicationController
   before_action :set_teams, only: [:new, :create]
+  before_action :set_duel, only: [:show, :update, :manage, :start, :add_goal, :randomize_teams]
+  before_action :authorize_duel_management, only: [:manage, :start, :add_goal, :randomize_teams]
 
   # 🔹 Clásicos
   def new
@@ -8,8 +10,10 @@ class DuelsController < ApplicationController
 
   def create
     @duel = Duel.new(duel_params)
+    
     if @duel.save
       RefereeAssigner.assign_to_duel(@duel)
+      NotificationService.notify_duel_created(@duel)
       redirect_to @duel, notice: 'Duelo creado exitosamente.'
     else
       flash.now[:alert] = @duel.errors.full_messages.to_sentence
@@ -18,54 +22,33 @@ class DuelsController < ApplicationController
   end
 
   def show
-    
-    @duel = Duel.includes(result: [:referee, :best_player]).find(params[:id])
     @home_team = @duel.home_team
     @away_team = @duel.away_team
     @home_team_users = @duel.callups.where(teamable: @home_team).map(&:user)
     @away_team_users = @duel.callups.where(teamable: @away_team).map(&:user)
     @challenge = Challenge.find_by(challenger_duel_id: @duel.id) || Challenge.find_by(challengee_duel_id: @duel.id)
-    @challenger_duel = Duel
-    .where(
-      home_team_id: Team.where(captain_id: current_user.id).pluck(:id),
-      away_team_id: nil
-    )
-    .where.not(arena_id: nil)
-    .where(temporary: true)
-    .order(created_at: :desc)
-    .first
-
-                        
-    # Solo si este duelo es desafiante (tiene arena y no tiene rival aún)
-    if @duel.arena.present? && @duel.away_team_id.nil? && @duel.status == "open"
+    
+    if @duel.can_be_challenged?
       @desafiables = Duel.where(arena: nil, away_team_id: nil, status: "open")
                         .where.not(id: @duel.id)
                         .where("ABS(strftime('%s', duels.starts_at) - strftime('%s', ?)) <= ?", @duel.starts_at, 24.hours.to_i)
-
     end
   end
 
   def my_duels
-    joinables = current_user.memberships.approved.map(&:joinable)
-  
-    team_ids = joinables.flat_map(&:teams).map(&:id)
-  
-    @duels = Duel.where("home_team_id IN (:ids) OR away_team_id IN (:ids)", ids: team_ids)
-                 .order(starts_at: :desc)
+    @duels = DuelService.fetch_user_duels(current_user)
+                        .order(starts_at: :desc)
   end
- 
 
   def update
-    @duel = Duel.friendly.find(params[:id])
-    if params[:arena_id].present?
-      @duel.update(arena_id: params[:arena_id], challenge: :challenger)
-      redirect_to @duel, notice: "Arena asignada exitosamente."
+    if @duel.update(duel_params)
+      NotificationService.notify_duel_updated(@duel)
+      redirect_to @duel, notice: "Duelo actualizado exitosamente."
     else
-      redirect_to @duel, alert: "No se seleccionó ninguna arena."
+      flash.now[:alert] = @duel.errors.full_messages.to_sentence
+      render :edit
     end
   end
-  
-
 
   # 🔹 Flujo personalizado paso a paso
   def when
@@ -73,33 +56,8 @@ class DuelsController < ApplicationController
   end
 
   def select_team
-
-    duel_type = params[:duel_type]
-    mode = params[:mode]
-    duration = params[:duration].to_i
-  
-    if mode == 'express'
-      express_minutes = params[:express_minutes].to_i
-      starts_at = Time.current + express_minutes.minutes - 20.minutes # 20 min antes para cambiarse
-    else
-      starts_at = Time.zone.local(
-        params["duel"]["starts_at(1i)"].to_i,
-        params["duel"]["starts_at(2i)"].to_i,
-        params["duel"]["starts_at(3i)"].to_i,
-        params["duel"]["starts_at(4i)"].to_i,
-        params["duel"]["starts_at(5i)"].to_i
-      )
-    end
-  
-    ends_at = starts_at + duration.minutes
-  
-    session[:duel_data] = {
-      duel_type: duel_type,
-      mode: mode,
-      starts_at: starts_at,
-      ends_at: ends_at,
-      duration: duration
-    }
+    duel_data = DuelService.prepare_duel_data(params)
+    session[:duel_data] = duel_data
 
     @memberships = current_user.memberships.includes(:joinable)
     @team_options = @memberships.select do |m|
@@ -126,336 +84,142 @@ class DuelsController < ApplicationController
   end
   
   def create_team_and_callup
+    result = DuelService.create_team_and_callup(params, current_user)
     
-    joinable = params[:joinable_type].constantize.find(params[:joinable_id])
-    duel = Duel.find_by(id: params[:duel_id])
-
-    team = joinable.teams.first || Team.create!(
-      name: "Equipo #{joinable.name}",
-      captain_id: current_user.id,
-      joinable_id: joinable.id,
-      joinable_type: joinable.class.name,
-      temporary: true,
-      expires_at: (Time.zone.parse(params[:starts_at]) rescue 24.hours.from_now),
-      status: :pending
-    )
-
-    redirect_to callup_players_duels_path(
-      team_id: team.id,
-      duel_type: params[:duel_type],
-      starts_at: params[:starts_at],
-      ends_at: params[:ends_at]
-    )
-    # joinable = params[:joinable_type].constantize.find(params[:joinable_id])
-    # if params[:duel_id].present?
-    #   duel = Duel.find(params[:duel_id])
-    # else
-    #   duel = nil
-    # end
-  
-    # existing_team = joinable.teams.first
-  
-    # if existing_team
-    #   team = existing_team
-    # else
-    #   team = Team.create!(
-    #     name: "Equipo #{joinable.name}",
-    #     captain_id: current_user.id,
-    #     joinable_id: joinable.id,
-    #     joinable_type: joinable.class.name
-    #   )
-    # end
-  
-    # if duel
-    #   redirect_to callup_players_duels_path(team_id: team.id, duel_id: duel.id)
-    # else
-    #   redirect_to callup_players_duels_path(team_id: team.id)
-    # end
+    if result.success?
+      redirect_to callup_players_duels_path(
+        team_id: result.data[:team].id,
+        duel_type: params[:duel_type],
+        starts_at: params[:starts_at],
+        ends_at: params[:ends_at]
+      )
+    else
+      redirect_to select_team_duels_path, alert: result.error
+    end
   end
   
   def send_callup
-    team = Team.find(params[:team_id])
-    user = User.find(params[:user_id])
-    duel = Duel.find_by(home_team: team) # puede ser nil si aún no se crea
-  
-    callup = Callup.find_or_initialize_by(user: user, teamable: team)
-    callup.duel = duel if duel.present?
-    callup.status = (current_user == user) ? :accepted : :pending
-    callup.save!
-  
-    # Crear Lineup si es autoconvocatoria
-    if current_user == user && duel.present?
-      Lineup.find_or_create_by!(
-        duel: duel,
-        user: user,
-        teamable: team
-      )
-    end
-  
-    # Crear notificación solo si no es autoconvocatoria
-    if current_user != user
-      unless Notification.exists?(recipient: user, notifiable: callup, category: :callup)
-        Notification.create!(
-          recipient: user,
-          sender: current_user,
-          message: "Fuiste convocado a un duelo.",
-          category: :callup,
-          notifiable: callup
-        )
-      end
-    end
-  
+    result = DuelService.send_callup(params, current_user)
+    
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_back fallback_location: root_path }
+      format.html { redirect_back fallback_location: root_path, notice: (result.success? ? result.message : result.error) }
     end
   end
   
   def send_callups_to_all
-    team = Team.find(params[:team_id])
-    duel = Duel.find_by(home_team: team)
-    user_ids = params[:user_ids] # array de UUIDs de users
-  
-    users = User.where(id: user_ids)
-  
-    users.each do |user|
-      callup = Callup.find_or_initialize_by(user: user, teamable: team)
-      callup.duel = duel if duel.present?
-      callup.status = (current_user == user) ? :accepted : :pending
-      callup.save!
-  
-      # Crear Lineup solo si el duelo ya existe y es autoconvocatoria
-      if duel.present? && current_user == user
-        Lineup.find_or_create_by!(
-          duel: duel,
-          user: user,
-          teamable: team
-        )
-      end
-  
-      # Notificar solo si no es autoconvocatoria
-      if current_user != user
-        unless Notification.exists?(recipient: user, notifiable: callup, category: :callup)
-          Notification.create!(
-            recipient: user,
-            sender: current_user,
-            message: "Fuiste convocado a un duelo.",
-            category: :callup,
-            notifiable: callup
-          )
-        end
-      end
-    end
-  
+    result = DuelService.send_callups_to_all(params, current_user)
+    
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_back fallback_location: root_path }
+      format.html { redirect_back fallback_location: root_path, notice: (result.success? ? result.message : result.error) }
     end
   end
-  
-  
 
-  def select_arena
-    @duel = Duel.find(params[:duel_id])
-    @team = Team.find(params[:team_id]) if params[:team_id].present?
+  def manage
+    @duel = Duel.includes(:home_team, :away_team, :arena, :callups, :lineups).find(params[:id])
+    @home_team_users = @duel.callups.where(teamable: @duel.home_team).map(&:user)
+    @away_team_users = @duel.callups.where(teamable: @duel.away_team).map(&:user)
 
-    if @duel.challenger?
-      @duelos_compatibles = Duel.where(challenge: :challengee, away_team_id: nil, status: :open)
-                                 .where.not(id: @duel.id)
-                                 .where("ABS(strftime('%s', starts_at) - strftime('%s', ?)) <= ?", @duel.starts_at, 24.hours.to_i)
+    # Flags para la vista
+    @expired = @duel.expired?
+    @desafiable = @duel.desafiable?
+    @desafiante = @duel.desafiante?
+    @allows_freeplayers = @duel.allows_freeplayers?
+  end
+
+  def start
+    if @duel.can_start?
+      @duel.start!
+      NotificationService.notify_duel_started(@duel)
+      redirect_to @duel, notice: "El duelo ha comenzado."
     else
-      @duelos_compatibles = Duel.where(challenge: :challenger, away_team_id: nil, status: :open)
-                                 .where.not(id: @duel.id)
-                                 .where("ABS(strftime('%s', starts_at) - strftime('%s', ?)) <= ?", @duel.starts_at, 24.hours.to_i)
-    end
-
-    @arenas = Arena.all.select { |a| a.available_between?(@duel.starts_at, @duel.ends_at) }
-
-    if session[:duel_data].present?
-      data = session[:duel_data]
-      @starts_at = Time.parse(data["starts_at"].to_s)
-      @ends_at = Time.parse(data["ends_at"].to_s)
+      redirect_to manage_duel_path(@duel), alert: "No se puede iniciar el duelo: #{@duel.errors.full_messages.to_sentence}"
     end
   end
 
-  def open_duels
-    @duels = Duel.where(status: :pending, private: false, opponent_id: nil)
-  end
-
-  def select_type
-    @duel = Duel.find(params[:duel_id])
-  end
-
-  def confirm
-    @duel = Duel.new(duel_params)
-    RefereeAssigner.assign_to_duel(@duel) if params[:assign_referee] == '1'
-
-    if @duel.save
-      redirect_to @duel, notice: "Duelo creado con éxito."
+  def add_goal
+    result = DuelService.add_goal(@duel, params[:team_id], params[:user_id])
+    
+    if result.success?
+      redirect_to manage_duel_path(@duel), notice: "Gol registrado exitosamente."
     else
-      flash.now[:alert] = @duel.errors.full_messages.to_sentence
-      render :select_type
+      redirect_to manage_duel_path(@duel), alert: result.error
+    end
+  end
+
+  def randomize_teams
+    if @duel.can_randomize_teams?
+      result = DuelService.randomize_teams(@duel)
+      redirect_to manage_duel_path(@duel), notice: "Equipos aleatorizados exitosamente."
+    else
+      redirect_to manage_duel_path(@duel), alert: "No se pueden aleatorizar los equipos en este momento."
     end
   end
 
   def responsibility
-    @team = Team.find(params[:team_id])
-    # Solo muestra la vista con el mensaje de responsabilidad.
+    @team = Team.find(params[:team_id]) if params[:team_id].present?
   end
 
   def finalize_creation
-    # Si no aceptó la responsabilidad, lo regresamos
-    unless params[:accept_responsibility] == '1'
-      redirect_to responsibility_duels_path(team_id: params[:team_id]),
-                  alert: "Debes aceptar la responsabilidad antes de continuar."
-      return
-    end
-  
     team = Team.find(params[:team_id])
-    data = session[:duel_data]
-  
+    duel_data = session[:duel_data] || {}
+
+    # Crear el duelo
     duel = Duel.create!(
       home_team: team,
-      duel_type: data["duel_type"],
-      starts_at: Time.parse(data["starts_at"].to_s),
-      ends_at: Time.parse(data["ends_at"].to_s),
-      duration: data["duration"].to_i,
-      temporary: true,
-      expires_at: Time.parse(data["starts_at"].to_s) + 24.hours,
-      responsibility: true  # Marcamos que el creador aceptó la responsabilidad
+      duel_type: duel_data[:duel_type] || :friendly,
+      starts_at: duel_data[:starts_at] || 1.hour.from_now,
+      ends_at: duel_data[:ends_at] || 2.hours.from_now,
+      status: :pending
     )
-  
-    # Vincular los callups existentes al Duel recién creado
-    callups = Callup.where(teamable: team, duel_id: nil)
-    callups.each { |c| c.update!(duel_id: duel.id) }
-  
-    # Crear un lineup para el creador si ya se había autoconvocado
-    callups.select(&:accepted?).each do |c|
-      Lineup.find_or_create_by!(
-        duel: duel,
-        user: c.user,
-        teamable: c.teamable
-      )
+
+    # Crear lineups para los usuarios convocados y aceptados
+    accepted_callups = Callup.where(teamable: team, status: :accepted)
+    accepted_callups.each do |callup|
+      Lineup.find_or_create_by!(duel: duel, user: callup.user, teamable: team)
     end
-  
-    redirect_to duel_path(duel), notice: "Duelo creado con éxito."
-  end
-  
 
+    # Limpiar los datos de la sesión
+    session.delete(:duel_data)
 
-
-  
-  
-  def accept_opponent
-    duel = Duel.find(params[:duel_id])
-  
-    # Crear el equipo del contrincante
-    joinable = current_user.memberships.approved.first&.joinable
-    team = joinable.teams.first || Team.create!(
-      name: "Equipo #{joinable.name}",
-      captain_id: current_user.id,
-      joinable: joinable
-    )
-  
-    duel.update!(
-      away_team: team,
-      temporary: false
-    )
-  
-    redirect_to duel, notice: "Ahora participas en este duelo como visitante."
+    redirect_to duel_path(duel), notice: "Duelo creado y responsabilidad aceptada para el equipo #{team.name}."
   end
 
-  
-  
-
-  # 🔹 Funciones complementarias
-  def start
+  # Acción para publicar el duelo en Explore (jugadores libres)
+  def publish_for_freeplayers
     @duel = Duel.find(params[:id])
-    @duel.update(status: 'started', managed_by_leaders: @duel.referee.nil?)
+    # Aquí podrías cambiar un flag o estado si lo necesitas
+    # Por ejemplo: @duel.update!(published_for_freeplayers: true)
+    redirect_to manage_duel_path(@duel), notice: "Duelo publicado para jugadores libres."
   end
 
-  def add_goal
-    duel = Duel.find(params[:id])
+  # Acción para aceptar a un jugador libre
+  def accept_freeplayer
+    @duel = Duel.find(params[:id])
     user = User.find(params[:user_id])
-    team = Team.find(params[:team_id])
-    minute = params[:minute]
-
-    GoalRegistrar.new(duel, user, team, minute).register_goal
-    redirect_to duel, notice: 'Gol registrado exitosamente.'
+    team = @duel.home_team
+    callup = Callup.create!(user: user, teamable: team, duel: @duel, status: :accepted)
+    Lineup.create!(duel: @duel, user: user, teamable: team)
+    redirect_to manage_duel_path(@duel), notice: "Jugador libre aceptado y alineado."
   end
-
-  def open
-    @desafiables = Duel.where(arena: nil, away_team_id: nil, status: "open").where("starts_at > ?", Time.current)
-    @desafiantes = Duel.where.not(arena: nil).where(away_team_id: nil, status: "open").where("starts_at > ?", Time.current)
-  end
-
-
-  def manage
-    @duel = Duel.find(params[:id])
-    @home_team = @duel.home_team
-  
-    @home_lineups = Lineup.where(duel: @duel, teamable: @home_team).includes(:user)
-    @pending_callups = Callup.where(duel: @duel, status: :pending, teamable: @home_team).includes(:user)
-  
-    # Jugadores no convocados ni alineados
-    used_user_ids = Callup.where(duel: @duel).pluck(:user_id) + Lineup.where(duel: @duel).pluck(:user_id)
-    @freeplayers = User.where.not(id: used_user_ids.uniq).where.not(id: current_user.id)
-  
-    @duel_needs_attention = @pending_callups.any? && @duel.starts_at < 2.hours.from_now
-  
-    # Tipos de duelo posibles según jugadores convocables
-    @possible_duel_types = [1, 2, 5, 6, 7, 8, 9, 10, 11].select { |n| @freeplayers.count + @home_lineups.count >= n * 2 }
-  end
-
-  def randomize_teams
-    @duel = Duel.find(params[:id])
-    duel_type = params[:duel_type].to_i
-  
-    # Obtener jugadores disponibles
-    used_ids = @duel.lineups.pluck(:user_id)
-    pool = User.where.not(id: used_ids + [current_user.id]).limit(duel_type * 2)
-  
-    return redirect_to manage_duel_path(@duel), alert: "No hay suficientes jugadores disponibles." if pool.count < duel_type * 2
-  
-    home_team = @duel.home_team
-    away_team = @duel.away_team || Team.create!(
-      name: "Reto #{duel_type}v#{duel_type}",
-      captain_id: current_user.id
-    )
-    @duel.update!(away_team: away_team)
-  
-    players = pool.shuffle
-    home_players = players.shift(duel_type)
-    away_players = players.shift(duel_type)
-  
-    (home_players + away_players).each do |user|
-      team = home_players.include?(user) ? home_team : away_team
-      Lineup.find_or_create_by!(duel: @duel, user: user, teamable: team)
-    end
-  
-    @duel.update!(temporary: false)
-    redirect_to duel_path(@duel), notice: "Equipos asignados aleatoriamente."
-  end
-  
 
   private
 
-    def set_teams
-      @teams = Team.all
-    end
+  def set_duel
+    @duel = Duel.friendly.find(params[:id])
+  end
 
-    def duel_params
-      params.require(:duel).permit(
-        :home_team_id, :away_team_id,
-        :referee_id, :best_player_id,
-        :arena_id, :starts_at, :ends_at,
-        :address, :neighborhood, :city, :country,
-        :latitude, :longitude,
-        :price, :budget, :budget_place, :budget_equipment, :referee_price,
-        :status, :duel_type, :duration,
-        :timing, :referee_required, :live, :private, :streaming,
-        :audience, :parking, :wifi, :lockers, :snacks,
-        :home_goals, :away_goals, :hunted, :responsibility
-      )
+  def authorize_duel_management
+    unless @duel.can_be_managed_by?(current_user)
+      redirect_to root_path, alert: "No tienes permiso para gestionar este duelo."
     end
+  end
+
+  def duel_params
+    params.require(:duel).permit(
+      :home_team_id, :away_team_id, :arena_id, :starts_at, :ends_at,
+      :duel_type, :mode, :duration, :private, :status, :challenge_type
+    )
+  end
 end

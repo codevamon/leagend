@@ -44,6 +44,12 @@ class CallupsController < ApplicationController
                   .where.not(id: callup.id)
                   .update_all(status: :rejected)
   
+      # ✅ Asegurar que el callup tenga duelo
+      if callup.duel.nil?
+        duel = Duel.find_by(home_team: callup.teamable)
+        callup.update!(duel: duel) if duel
+      end
+  
       # ✅ Crear lineup
       Lineup.find_or_create_by!(
         duel: callup.duel,

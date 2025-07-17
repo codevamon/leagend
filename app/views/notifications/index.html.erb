@@ -19,10 +19,10 @@
               <%= button_to "Rechazar", notification_path(notification, reject: true),
                     method: :put, class: "btn btn-sm btn-danger" %>
             <% elsif notification.category == "callup" && notification.notifiable.is_a?(Callup) %>
-              <%= button_to "Aceptar convocatoria", accept_callups_path(callup_id: notification.notifiable.id),
+              <%= button_to "Aceptar convocatoria", accept_callup_path(notification.notifiable),
                     method: :post, class: "btn btn-sm btn-success" %>
 
-              <%= button_to "Rechazar convocatoria", reject_callups_path(callup_id: notification.notifiable.id),
+              <%= button_to "Rechazar convocatoria", reject_callup_path(notification.notifiable),
                     method: :post, class: "btn btn-sm btn-danger" %>
             <% elsif notification.category == "challenge" && notification.notifiable.is_a?(Challenge) %>
               <% challenger_duel = notification.notifiable.challenger_duel %>

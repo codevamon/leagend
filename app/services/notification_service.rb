@@ -44,13 +44,14 @@ class NotificationService
     return if callup.user == sender
 
     unless Notification.exists?(recipient: callup.user, notifiable: callup, category: :callup)
-      Notification.create!(
+      notification = Notification.create!(
         recipient: callup.user,
         sender: sender,
         message: "Fuiste convocado a un duelo",
         category: :callup,
         notifiable: callup
       )
+      Rails.logger.info "Notificación creada para #{callup.user.slug}"
     end
   end
 

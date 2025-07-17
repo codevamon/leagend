@@ -99,6 +99,46 @@
         </div>
       </div>
 
+      <%# Gestión de convocatorias %>
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="fas fa-users me-2"></i>Gestión de Jugadores
+          </h5>
+          <div>
+            <%= link_to callup_users_team_path(@duel.home_team), class: "btn btn-primary btn-sm" do %>
+              <i class="fas fa-plus me-1"></i>Convocar Jugadores
+            <% end %>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-4 text-center">
+              <div class="border-end">
+                <div class="fw-bold text-success fs-4">
+                  <%= @duel.home_players.count %>
+                </div>
+                <small class="text-muted">Confirmados</small>
+              </div>
+            </div>
+            <div class="col-md-4 text-center">
+              <div class="border-end">
+                <div class="fw-bold text-warning fs-4">
+                  <%= @duel.pending_callups.count %>
+                </div>
+                <small class="text-muted">Pendientes</small>
+              </div>
+            </div>
+            <div class="col-md-4 text-center">
+              <div class="fw-bold text-info fs-4">
+                <%= @duel.duel_type %>
+              </div>
+              <small class="text-muted">Requeridos</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <%# Equipos y jugadores %>
       <div class="row">
         <%# Equipo Local %>
@@ -109,22 +149,33 @@
               <span class="badge bg-primary"><%= @duel.home_players.count %>/<%= @duel.duel_type %> jugadores</span>
             </div>
             <div class="card-body">
-              <div class="list-group">
-                <% @duel.home_players.each do |player| %>
-                  <div class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                      <%= player.firstname%>
-                      <% if player == @duel.home_team.captain %>
-                        <span class="badge bg-info">Capitán</span>
+              <% if @duel.home_players.any? %>
+                <div class="list-group">
+                  <% @duel.home_players.each do |player| %>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                      <div>
+                        <%= player.firstname%>
+                        <% if player == @duel.home_team.captain %>
+                          <span class="badge bg-info">Capitán</span>
+                        <% end %>
+                      </div>
+                      <% if @duel.ongoing? %>
+                        <%= button_to "Gol", add_goal_duel_path(@duel, team_id: @duel.home_team.id, user_id: player.id), 
+                            method: :post, class: "btn btn-sm btn-success" %>
                       <% end %>
                     </div>
-                    <% if @duel.ongoing? %>
-                      <%= button_to "Gol", add_goal_duel_path(@duel, team_id: @duel.home_team.id, user_id: player.id), 
-                          method: :post, class: "btn btn-sm btn-success" %>
-                    <% end %>
-                  </div>
-                <% end %>
-              </div>
+                  <% end %>
+                </div>
+              <% else %>
+                <div class="text-center py-4">
+                  <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                  <h6 class="text-muted">No hay jugadores confirmados</h6>
+                  <p class="text-muted small">Convocar jugadores para llenar el equipo</p>
+                  <%= link_to callup_users_team_path(@duel.home_team), class: "btn btn-primary btn-sm" do %>
+                    <i class="fas fa-plus me-1"></i>Convocar Jugadores
+                  <% end %>
+                </div>
+              <% end %>
             </div>
           </div>
         </div>
@@ -184,8 +235,8 @@
                     <small class="text-muted d-block">Convocado hace <%= time_ago_in_words(callup.created_at) %></small>
                   </div>
                   <div class="btn-group">
-                    <%= button_to "Aceptar", accept_callup_path(callup), method: :patch, class: "btn btn-sm btn-success" %>
-                    <%= button_to "Rechazar", reject_callup_path(callup), method: :patch, class: "btn btn-sm btn-danger" %>
+                    <%= button_to "Aceptar", accept_callup_path(callup), method: :post, class: "btn btn-sm btn-success" %>
+                    <%= button_to "Rechazar", reject_callup_path(callup), method: :post, class: "btn btn-sm btn-danger" %>
                   </div>
                 </div>
               <% end %>
@@ -216,6 +267,29 @@
     </div>
   </div>
 </div>
+
+<style>
+.border-end {
+  border-right: 1px solid #dee2e6 !important;
+}
+
+@media (max-width: 768px) {
+  .border-end {
+    border-right: none !important;
+    border-bottom: 1px solid #dee2e6 !important;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .col-md-4 {
+    margin-bottom: 1rem;
+  }
+}
+
+.fs-4 {
+  font-size: 1.5rem !important;
+}
+</style>
 
 <%# Modal para llenar cupo %>
 <div class="modal fade" id="randomizeModal" tabindex="-1">

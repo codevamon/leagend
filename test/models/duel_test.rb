@@ -103,7 +103,7 @@ class DuelTest < ActiveSupport::TestCase
       firstname: "Pending",
       lastname: "User"
     )
-    duel.callups.create!(user: user, status: :pending)
+    duel.callups.create!(user: user, teamable: @home_team, status: :pending)
 
     assert duel.needs_attention?
   end

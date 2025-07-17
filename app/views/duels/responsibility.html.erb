@@ -1,15 +1,290 @@
-<h1>Aceptar Responsabilidad</h1>
+  <div class="container mt-4">
+    <div class="row justify-content-center">
+      <div class="col-md-10 col-lg-8">
+        <!-- Header con progreso -->
+        <div class="text-center mb-4">
+          <h2 class="fw-bold text-primary">✅ Confirmar Duelo</h2>
+          <p class="text-muted">Paso 3 de 3: Revisar y confirmar el duelo</p>
+          
+          <!-- Barra de progreso -->
+          <div class="progress mb-3" style="height: 8px;">
+            <div class="progress-bar bg-primary" role="progressbar" style="width: 100%"></div>
+          </div>
+        </div>
 
-<p>
-  Serás el responsable (capitán/admin) de este duelo, lo que implica:
-  - Confirmar alineaciones
-  - Administrar el resultado
-  - Etc.
-</p>
+        <!-- Resumen del duelo -->
+        <div class="card mb-4">
+          <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+              <i class="fas fa-info-circle me-2"></i>Resumen del Duelo
+            </h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-6">
+                <h6 class="fw-bold mb-3">Configuración</h6>
+                <ul class="list-unstyled">
+                  <li class="mb-2">
+                    <i class="fas fa-trophy me-2 text-warning"></i>
+                    <strong>Tipo:</strong> 
+                    <%= session[:duel_data]&.dig("duel_type") == 'training' ? 'Entrenamiento' : 'Parchar' %>
+                  </li>
+                  <li class="mb-2">
+                    <i class="fas fa-clock me-2 text-info"></i>
+                    <strong>Modalidad:</strong> 
+                    <%= session[:duel_data]&.dig("mode") == 'express' ? 'Express' : 'Programado' %>
+                  </li>
+                  <li class="mb-2">
+                    <i class="fas fa-stopwatch me-2 text-success"></i>
+                    <strong>Duración:</strong> 
+                    <%= session[:duel_data]&.dig("duration") %> minutos
+                  </li>
+                  <li class="mb-2">
+                    <i class="fas fa-calendar me-2 text-primary"></i>
+                    <strong>Inicio:</strong> 
+                    <%= l(parse_time_from_session(session[:duel_data]&.dig("starts_at")), format: :long) if session[:duel_data]&.dig("starts_at") %>
+                  </li>
+                </ul>
+              </div>
+              <div class="col-md-6">
+                <h6 class="fw-bold mb-3">Equipo</h6>
+                <ul class="list-unstyled">
+                  <li class="mb-2">
+                    <i class="fas fa-users me-2 text-primary"></i>
+                    <strong>Equipo:</strong> <%= @team.name %>
+                  </li>
+                  <li class="mb-2">
+                    <i class="fas fa-building me-2 text-success"></i>
+                    <strong>Club/Clan:</strong> <%= @team.joinable.name %>
+                  </li>
+                  <li class="mb-2">
+                    <i class="fas fa-user me-2 text-warning"></i>
+                    <strong>Capitán:</strong> <%= @team.captain&.slug || 'No asignado' %>
+                  </li>
+                  <li class="mb-2">
+                    <i class="fas fa-check-circle me-2 text-success"></i>
+                    <strong>Estado:</strong> 
+                    <span class="badge bg-success">Temporal</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
 
-<%= button_to "Sí, acepto", finalize_creation_duels_path(
-  team_id: params[:team_id],
-  accept_responsibility: '1'
-), method: :post, class: "btn btn-primary" %>
+        <!-- Estado de jugadores (opcional) -->
+        <% callups = @team.callups %>
+        <% if callups.any? %>
+          <div class="card mb-4">
+            <div class="card-header">
+              <h6 class="mb-0">
+                <i class="fas fa-user-friends me-2"></i>Jugadores Convocados (Opcional)
+              </h6>
+            </div>
+            <div class="card-body">
+              <div class="row text-center mb-3">
+                <div class="col-4">
+                  <div class="border-end">
+                    <div class="fw-bold text-success fs-4">
+                      <%= callups.accepted.count %>
+                    </div>
+                    <small class="text-muted">Confirmados</small>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="border-end">
+                    <div class="fw-bold text-warning fs-4">
+                      <%= callups.pending.count %>
+                    </div>
+                    <small class="text-muted">Pendientes</small>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="fw-bold text-danger fs-4">
+                    <%= callups.rejected.count %>
+                  </div>
+                  <small class="text-muted">Rechazados</small>
+                </div>
+              </div>
 
-<%= link_to "No, cancelar", root_path, class: "btn btn-secondary" %>
+              <!-- Lista de jugadores -->
+              <div class="table-responsive">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Jugador</th>
+                      <th>Estado</th>
+                      <th>Posición</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% callups.includes(:user).each do |callup| %>
+                      <tr>
+                        <td>
+                          <div class="d-flex align-items-center">
+                            <% if callup.user.avatar.attached? %>
+                              <%= image_tag callup.user.avatar, class: "rounded-circle me-2", style: "width: 30px; height: 30px; object-fit: cover;" %>
+                            <% else %>
+                              <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px;">
+                                <i class="fas fa-user text-muted" style="font-size: 12px;"></i>
+                              </div>
+                            <% end %>
+                            <%= callup.user.slug %>
+                          </div>
+                        </td>
+                        <td>
+                          <% if callup.accepted? %>
+                            <span class="badge bg-success">
+                              <i class="fas fa-check me-1"></i>Confirmado
+                            </span>
+                          <% elsif callup.rejected? %>
+                            <span class="badge bg-danger">
+                              <i class="fas fa-times me-1"></i>Rechazado
+                            </span>
+                          <% else %>
+                            <span class="badge bg-warning text-dark">
+                              <i class="fas fa-clock me-1"></i>Pendiente
+                            </span>
+                          <% end %>
+                        </td>
+                        <td>
+                          <% if callup.user.position.present? %>
+                            <small class="text-muted">
+                              <i class="fas fa-futbol me-1"></i><%= callup.user.position %>
+                            </small>
+                          <% else %>
+                            <small class="text-muted">No especificada</small>
+                          <% end %>
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <!-- Información importante -->
+        <div class="alert alert-warning">
+          <div class="d-flex align-items-start">
+            <i class="fas fa-exclamation-triangle me-3 mt-1"></i>
+            <div>
+              <strong>Información importante:</strong><br>
+              <small>
+                • Al confirmar, aceptas la responsabilidad de organizar este duelo<br>
+                • El equipo será temporal hasta que se confirme un rival<br>
+                • Podrás convocar jugadores desde el panel de gestión del duelo<br>
+                • Los jugadores confirmados recibirán notificaciones automáticas
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Próximos pasos -->
+        <div class="alert alert-info">
+          <div class="d-flex align-items-start">
+            <i class="fas fa-lightbulb me-3 mt-1"></i>
+            <div>
+              <strong>Próximos pasos después de confirmar:</strong><br>
+              <small>
+                1. <strong>Convocar jugadores:</strong> Invitar jugadores desde el panel de gestión<br>
+                2. <strong>Publicar duelo:</strong> Hacer público para encontrar rivales<br>
+                3. <strong>Seleccionar arena:</strong> Elegir cancha y horario específico<br>
+                4. <strong>Iniciar partido:</strong> Comenzar el duelo cuando esté todo listo
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones de acción -->
+        <div class="d-grid gap-3 d-md-flex justify-content-md-end mt-4">
+          <%= link_to "← Volver", select_team_duels_path, class: "btn btn-outline-secondary btn-lg" %>
+          
+          <%= button_to finalize_creation_duels_path(team_id: @team.id), 
+                method: :post, 
+                class: "btn btn-success btn-lg",
+                form: { id: "finalize-form" } do %>
+            <i class="fas fa-check me-2"></i>Confirmar y Crear Duelo
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+  .border-end {
+    border-right: 1px solid #dee2e6 !important;
+  }
+
+  .progress {
+    border-radius: 10px;
+  }
+
+  .progress-bar {
+    border-radius: 10px;
+  }
+
+  .table th {
+    border-top: none;
+    font-weight: 600;
+    color: #6c757d;
+  }
+
+  .table td {
+    vertical-align: middle;
+  }
+
+  @media (max-width: 768px) {
+    .border-end {
+      border-right: none !important;
+      border-bottom: 1px solid #dee2e6 !important;
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .col-4 {
+      margin-bottom: 1rem;
+    }
+  }
+  </style>
+
+  <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Manejar formulario de finalización
+    const finalizeForm = document.getElementById('finalize-form');
+    if (finalizeForm) {
+      finalizeForm.addEventListener('submit', function() {
+        const button = this.querySelector('button');
+        if (button) {
+          button.disabled = true;
+          button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creando duelo...';
+        }
+      });
+    }
+
+    // Animación de contadores
+    function animateCounter(element, target) {
+      let current = 0;
+      const increment = target / 20;
+      const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+          current = target;
+          clearInterval(timer);
+        }
+        element.textContent = Math.floor(current);
+      }, 50);
+    }
+
+    // Animar contadores al cargar
+    const counters = document.querySelectorAll('.fw-bold.fs-4');
+    counters.forEach(counter => {
+      const target = parseInt(counter.textContent);
+      if (target > 0) {
+        counter.textContent = '0';
+        animateCounter(counter, target);
+      }
+    });
+  });
+  </script>

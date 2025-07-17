@@ -10,7 +10,7 @@ class DuelMerger
     challengee.callups.each do |callup|
       Callup.create!(
         user: callup.user,
-        team: challenger.away_team,
+        teamable: challenger.away_team,
         duel: challenger
       )
     end
@@ -19,7 +19,7 @@ class DuelMerger
     challengee.lineups.each do |lineup|
       Lineup.create!(
         user: lineup.user,
-        team: challenger.away_team,
+        teamable: challenger.away_team,
         duel: challenger
       )
     end

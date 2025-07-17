@@ -1,0 +1,25 @@
+<turbo-stream action="update" target="callup-feedback">
+  <template>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+      <i class="fas fa-check-circle me-2"></i>
+      Has aceptado la convocatoria exitosamente
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  </template>
+</turbo-stream>
+
+<turbo-stream action="replace" target="callup-status-<%= @callup.user.id %>">
+  <template>
+    <span class="badge bg-success fs-6">
+      <i class="fas fa-check me-1"></i>Aceptado
+    </span>
+  </template>
+</turbo-stream>
+
+<turbo-stream action="replace" target="callup-btn-<%= @callup.user.id %>">
+  <template>
+    <button class="btn btn-sm btn-success" disabled>
+      <i class="fas fa-check me-1"></i>Confirmado
+    </button>
+  </template>
+</turbo-stream> 

@@ -36,7 +36,7 @@ class User < ApplicationRecord
   has_many :teams, through: :team_memberships
   has_many :duels, through: :teams
   has_many :callups, dependent: :destroy
-  has_many :called_up_teams, through: :callups, source: :team
+  has_many :called_up_teams, through: :callups, source: :teamable
   has_many :notifications, as: :recipient
   has_many :owned_teams, class_name: "Team", foreign_key: "leader_id"
   has_many :stats
@@ -58,7 +58,7 @@ class User < ApplicationRecord
     duels.count
   end
 
-  def wins
+  def wins 
     duels.joins(:results).where(results: { team_id: teams.ids, outcome: "win" }).count
   end
 

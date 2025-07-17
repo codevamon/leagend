@@ -4,18 +4,21 @@ class Team < ApplicationRecord
   belongs_to :joinable, polymorphic: true
   belongs_to :captain, class_name: 'User', foreign_key: 'captain_id', optional: true
 
-  has_many :callups, dependent: :destroy
-  has_many :users, through: :callups 
+  has_many :callups, as: :teamable, dependent: :destroy
+  has_many :called_up_users, through: :callups, source: :user
 
   has_many :home_duels, class_name: 'Duel', foreign_key: 'home_team_id'
   has_many :away_duels, class_name: 'Duel', foreign_key: 'away_team_id'
 
-  has_many :callups, dependent: :destroy
-  has_many :called_up_users, through: :callups, source: :user
-
   has_many :results, ->(team) {
     unscope(where: :team_id).where("home_team_id = :id OR away_team_id = :id", id: team.id)
   }, class_name: 'Result'
+
+  # Scopes
+  scope :active, -> { where(temporary: false) }
+  scope :temporary, -> { where(temporary: true) }
+  scope :expired, -> { where('expires_at < ?', Time.current) }
+  scope :not_expired, -> { where('expires_at > ? OR expires_at IS NULL', Time.current) }
 
   before_create :generate_uuid
   before_create :set_expiration_if_temporary

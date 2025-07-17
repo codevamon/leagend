@@ -1,44 +1,352 @@
-<h1>Convocar jugadores del equipo <%= @team.name %></h1>
+<div class="container mt-4">
+  <div class="row justify-content-center">
+    <div class="col-md-10 col-lg-8">
+      <!-- Header con progreso -->
+      <div class="text-center mb-4">
+        <h2 class="fw-bold text-primary">📢 Convocar Jugadores</h2>
+        <p class="text-muted">Paso 3 de 4: Invitar jugadores al duelo</p>
+        
+        <!-- Barra de progreso -->
+        <div class="progress mb-3" style="height: 8px;">
+          <div class="progress-bar bg-primary" role="progressbar" style="width: 75%"></div>
+        </div>
 
-<% if @members.present? %>
-  <%= button_to 'Convocar a todos',
-        send_callups_to_all_duels_path(team_id: @team.id, user_ids: @users.map(&:id)),
-        method: :post,
-        form: { data: { turbo_stream: true } },
-        class: "btn btn-primary mb-3" %>
-<% end %>
+        <!-- Información del equipo -->
+        <div class="alert alert-light border">
+          <div class="row align-items-center">
+            <div class="col-md-8">
+              <h6 class="mb-1">
+                <i class="fas fa-users me-2"></i><%= @team.name %>
+              </h6>
+              <small class="text-muted">
+                <%= @club_or_clan.name %> • <%= @members.count %> miembros disponibles
+              </small>
+            </div>
+            <div class="col-md-4 text-end">
+              <div class="d-flex justify-content-end align-items-center gap-3">
+                <div class="text-center">
+                  <div class="fw-bold text-success" id="accepted-count"><%= @callups.accepted.count %></div>
+                  <small class="text-muted">Aceptados</small>
+                </div>
+                <div class="text-center">
+                  <div class="fw-bold text-warning" id="pending-count"><%= @callups.pending.count %></div>
+                  <small class="text-muted">Pendientes</small>
+                </div>
+                <div class="text-center">
+                  <div class="fw-bold text-danger" id="rejected-count"><%= @callups.rejected.count %></div>
+                  <small class="text-muted">Rechazados</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-<ul>
-  <% @users.each do |user| %>
-    <li id="user_<%= user.id %>">
-      <%= user.slug %>
-
-      <% callup = @callups.find { |c| c.user_id == user.id } %>
-
-      <% if callup.present? %>
-        <% if callup.accepted? %>
-          <span class="badge bg-success">✅ Aceptado</span>
-        <% elsif callup.rejected? %>
-          <span class="badge bg-danger">❌ Rechazado</span>
-        <% else %>
-          <span class="badge bg-warning text-dark">⏳ Pendiente</span>
-        <% end %>
-      <% else %>
-        <%= button_to 'Convocar',
-              send_callup_duels_path(team_id: @team.id, user_id: user.id, duel_id: params[:duel_id]),
-              method: :post,
-              form: { data: { turbo_stream: true } },
-              class: "btn btn-outline-primary btn-sm" %>
+      <!-- Acciones rápidas -->
+      <% if @members.present? %>
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-md-8">
+                <h6 class="mb-1">
+                  <i class="fas fa-bolt me-2 text-warning"></i>Acciones Rápidas
+                </h6>
+                <small class="text-muted">
+                  Convocar a todos los miembros disponibles de una vez
+                </small>
+              </div>
+              <div class="col-md-4 text-end">
+                <%= button_to send_callups_to_all_duels_path(
+                  team_id: @team.id, 
+                  user_ids: @users.map(&:id)
+                ), method: :post, 
+                   form: { data: { turbo_stream: true } },
+                   class: "btn btn-warning",
+                   id: "callup-all-btn" do %>
+                  <i class="fas fa-users me-2"></i>Convocar a Todos
+                <% end %>
+              </div>
+            </div>
+          </div>
+        </div>
       <% end %>
-    </li>
-  <% end %>
-</ul>
 
-<% if @callups.any? %>
-  <%= link_to "Continuar a Aceptar Responsabilidad",
-        responsibility_duels_path(team_id: @team.id),
-        class: "btn btn-success mt-4" %>
-<% else %>
-  <%= link_to "Continuar a Aceptar Responsabilidad", "#",
-        class: "btn btn-secondary disabled", disabled: true %>
-<% end %>
+      <!-- Área de feedback -->
+      <div id="callup-feedback"></div>
+
+      <!-- Lista de jugadores -->
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0">
+            <i class="fas fa-user-friends me-2"></i>Jugadores Disponibles
+          </h6>
+        </div>
+        <div class="card-body p-0">
+          <% if @users.present? %>
+            <div class="list-group list-group-flush">
+              <% @users.each do |user| %>
+                <% callup = @callups.find { |c| c.user_id == user.id } %>
+                <div class="list-group-item p-3" id="user_<%= user.id %>">
+                  <div class="row align-items-center">
+                    <!-- Avatar y nombre -->
+                    <div class="col-md-6">
+                      <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                          <% if user.avatar.attached? %>
+                            <%= image_tag user.avatar, class: "rounded-circle", style: "width: 40px; height: 40px; object-fit: cover;" %>
+                          <% else %>
+                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                              <i class="fas fa-user text-muted"></i>
+                            </div>
+                          <% end %>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                          <h6 class="mb-1"><%= user.slug %></h6>
+                          <small class="text-muted">
+                            <% if user.position.present? %>
+                              <i class="fas fa-futbol me-1"></i><%= user.position %>
+                            <% end %>
+                            <% if user.rate.present? %>
+                              <span class="ms-2">
+                                <i class="fas fa-star text-warning me-1"></i><%= user.rate %>
+                              </span>
+                            <% end %>
+                          </small>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Estado de convocatoria -->
+                    <div class="col-md-3 text-center">
+                      <% if callup.present? %>
+                        <% if callup.accepted? %>
+                          <span class="badge bg-success fs-6" id="callup-status-<%= user.id %>">
+                            <i class="fas fa-check me-1"></i>Aceptado
+                          </span>
+                        <% elsif callup.rejected? %>
+                          <span class="badge bg-danger fs-6" id="callup-status-<%= user.id %>">
+                            <i class="fas fa-times me-1"></i>Rechazado
+                          </span>
+                        <% else %>
+                          <span class="badge bg-warning text-dark fs-6" id="callup-status-<%= user.id %>">
+                            <i class="fas fa-clock me-1"></i>Pendiente
+                          </span>
+                        <% end %>
+                      <% else %>
+                        <span class="badge bg-light text-muted fs-6" id="callup-status-<%= user.id %>">
+                          <i class="fas fa-user-plus me-1"></i>No convocado
+                        </span>
+                      <% end %>
+                    </div>
+
+                    <!-- Acciones -->
+                    <div class="col-md-3 text-end">
+                      <% if callup.present? %>
+                        <% if callup.accepted? %>
+                          <button class="btn btn-sm btn-success" disabled>
+                            <i class="fas fa-check me-1"></i>Confirmado
+                          </button>
+                        <% elsif callup.rejected? %>
+                          <button class="btn btn-sm btn-outline-primary" disabled>
+                            <i class="fas fa-redo me-1"></i>Reenviar
+                          </button>
+                        <% else %>
+                          <button class="btn btn-sm btn-outline-warning" disabled>
+                            <i class="fas fa-clock me-1"></i>Esperando
+                          </button>
+                        <% end %>
+                      <% else %>
+                        <!-- Botón de convocatoria clásico para probar creación directa de Callup -->
+                        <form action="/teams/<%= @team.id %>/callups" method="post">
+                          <input type="hidden" name="user_id" value="<%= user.id %>">
+                          <input type="hidden" name="duel_id" value="<%= @duel&.id %>">
+                          <button type="submit"
+                                  class="btn btn-sm btn-outline-primary callup-btn"
+                                  id="callup-btn-<%= user.id %>"
+                                  data-user-id="<%= user.id %>">
+                            <i class="fas fa-bell me-1"></i>Convocar (clásico)
+                          </button>
+                        </form>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% else %>
+            <div class="text-center py-5">
+              <i class="fas fa-users fa-3x text-muted mb-3"></i>
+              <h5 class="text-muted">No hay jugadores disponibles</h5>
+              <p class="text-muted">Este equipo no tiene miembros aprobados para convocar.</p>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <!-- Información y próximos pasos -->
+      <div class="alert alert-info mt-4">
+        <div class="d-flex align-items-start">
+          <i class="fas fa-info-circle me-3 mt-1"></i>
+          <div>
+            <strong>¿Qué sigue?</strong><br>
+            <small>
+              • Los jugadores recibirán notificaciones de convocatoria<br>
+              • Puedes continuar cuando tengas al menos <%= @required_players %> jugadores confirmados<br>
+              • Los jugadores pueden aceptar o rechazar las convocatorias desde sus notificaciones
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón de continuar -->
+      <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+        <%= link_to "← Volver", select_team_duels_path, class: "btn btn-outline-secondary" %>
+        <% if @callups.any? %>
+          <%= link_to responsibility_duels_path(team_id: @team.id), class: "btn btn-success btn-lg" do %>
+            Continuar → Aceptar Responsabilidad
+            <i class="fas fa-arrow-right ms-2"></i>
+          <% end %>
+        <% else %>
+          <button class="btn btn-secondary btn-lg" disabled>
+            Continuar → Aceptar Responsabilidad
+            <i class="fas fa-arrow-right ms-2"></i>
+          </button>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.list-group-item {
+  transition: all 0.2s ease;
+}
+
+.list-group-item:hover {
+  background-color: #f8f9fa;
+}
+
+.badge {
+  font-size: 0.75rem !important;
+}
+
+.callup-btn {
+  transition: all 0.2s ease;
+}
+
+.callup-btn:hover {
+  transform: scale(1.05);
+}
+
+.progress {
+  border-radius: 10px;
+}
+
+.progress-bar {
+  border-radius: 10px;
+}
+
+@media (max-width: 768px) {
+  .col-md-3.text-center {
+    margin: 0.5rem 0;
+  }
+  
+  .col-md-3.text-end {
+    text-align: center !important;
+  }
+}
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Manejar botones de convocatoria individual
+    const callupButtons = document.querySelectorAll('.callup-btn');
+    callupButtons.forEach(button => {
+      button.addEventListener('click', function(e) {
+        // No prevenir el envío del formulario, dejar que Turbo lo maneje
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Enviando...';
+        this.disabled = true;
+        
+        // Restaurar el botón después de 10 segundos como fallback
+        setTimeout(() => {
+          if (this.disabled) {
+            this.innerHTML = originalText;
+            this.disabled = false;
+          }
+        }, 10000);
+      });
+    });
+
+    // Manejar botón de convocar a todos
+    const callupAllBtn = document.getElementById('callup-all-btn');
+    if (callupAllBtn) {
+      callupAllBtn.addEventListener('click', function() {
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Enviando convocatorias...';
+        this.disabled = true;
+        
+        // Restaurar el botón después de 10 segundos como fallback
+        setTimeout(() => {
+          if (this.disabled) {
+            this.innerHTML = originalText;
+            this.disabled = false;
+          }
+        }, 10000);
+      });
+    }
+
+    // Escuchar eventos de Turbo para restaurar botones si hay errores
+    document.addEventListener('turbo:render', function() {
+      // Restaurar botones que puedan haberse quedado en estado loading
+      const loadingButtons = document.querySelectorAll('.callup-btn[disabled]');
+      loadingButtons.forEach(button => {
+        if (button.innerHTML.includes('spinner')) {
+          button.innerHTML = '<i class="fas fa-bell me-1"></i>Convocar';
+          button.disabled = false;
+        }
+      });
+      
+      const loadingAllBtn = document.getElementById('callup-all-btn');
+      if (loadingAllBtn && loadingAllBtn.disabled && loadingAllBtn.innerHTML.includes('spinner')) {
+        loadingAllBtn.innerHTML = '<i class="fas fa-users me-2"></i>Convocar a Todos';
+        loadingAllBtn.disabled = false;
+      }
+    });
+
+    // Función para actualizar el estado de un botón después de la convocatoria
+    window.updateCallupButton = function(userId, status) {
+      const button = document.querySelector(`[data-user-id="${userId}"]`);
+      if (button) {
+        button.disabled = true;
+        button.classList.remove('btn-outline-primary', 'btn-success', 'btn-danger');
+        
+        switch(status) {
+          case 'accepted':
+            button.innerHTML = '<i class="fas fa-check me-1"></i>Aceptado';
+            button.classList.add('btn-success');
+            break;
+          case 'rejected':
+            button.innerHTML = '<i class="fas fa-times me-1"></i>Rechazado';
+            button.classList.add('btn-danger');
+            break;
+          case 'pending':
+            button.innerHTML = '<i class="fas fa-clock me-1"></i>Pendiente';
+            button.classList.add('btn-warning');
+            break;
+        }
+      }
+    };
+
+    // Función para actualizar contadores
+    window.updateCallupCounters = function(accepted, pending, rejected) {
+      const acceptedEl = document.getElementById('accepted-count');
+      const pendingEl = document.getElementById('pending-count');
+      const rejectedEl = document.getElementById('rejected-count');
+      
+      if (acceptedEl) acceptedEl.textContent = accepted;
+      if (pendingEl) pendingEl.textContent = pending;
+      if (rejectedEl) rejectedEl.textContent = rejected;
+    };
+  });
+</script>

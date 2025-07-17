@@ -31,7 +31,7 @@ class CallupsController < ApplicationController
   end
 
   def accept
-    callup = current_user.callups.find_by(id: params[:callup_id])
+    callup = current_user.callups.find_by(id: params[:id])
     return redirect_to root_path, alert: "Convocatoria no encontrada." unless callup&.pending?
   
     ActiveRecord::Base.transaction do
@@ -51,51 +51,69 @@ class CallupsController < ApplicationController
       end
   
       # ✅ Crear lineup
-      Lineup.find_or_create_by!(
-        duel: callup.duel,
-        user: current_user,
-        teamable: callup.teamable
-      )
+      if callup.duel.present?
+        Lineup.find_or_create_by!(
+          duel: callup.duel,
+          user: current_user,
+          teamable: callup.teamable
+        )
+      end
   
       # 🔔 Notificar al capitán del equipo
-      Notification.create!(
-        recipient: callup.teamable.captain,
-        sender: current_user,
-        category: :callup,
-        message: "#{current_user.slug} ha aceptado la convocatoria para el duelo.",
-        notifiable: callup.duel
-      )
+      if callup.teamable.respond_to?(:captain) && callup.teamable.captain
+        Notification.create!(
+          recipient: callup.teamable.captain,
+          sender: current_user,
+          category: :callup,
+          message: "#{current_user.slug} ha aceptado la convocatoria para el duelo.",
+          notifiable: callup.duel || callup.teamable
+        )
+      end
     end
-  
-    redirect_to duel_path(callup.duel_id), notice: "Has aceptado la convocatoria."
 
     team = callup.teamable
     duel = callup.duel
 
-    # Verifica si todos los callups están aceptados
-    accepted_count = Lineup.where(duel: duel, teamable: team).count
-    expected_count = Callup.where(duel: duel, teamable: team).count
+          # Verifica si todos los callups están aceptados
+      if duel.present?
+        accepted_count = Lineup.where(duel: duel, teamable: team).count
+        expected_count = team.callups.where(duel: duel).count
 
-    if accepted_count > 0 && accepted_count == expected_count
-      team.update!(temporary: false, status: :confirmed)
+        if accepted_count > 0 && accepted_count == expected_count
+          team.update!(temporary: false, status: :confirmed)
+        end
+      end
+
+    @callup = callup
+    
+    respond_to do |format|
+      format.turbo_stream
+      format.html { redirect_to duel_path(callup.duel_id), notice: "Has aceptado la convocatoria." }
     end
   end
 
   def reject
-    callup = current_user.callups.find_by(id: params[:callup_id])
+    callup = current_user.callups.find_by(id: params[:id])
     return redirect_to notifications_path, alert: "Convocatoria no encontrada." unless callup&.pending?
 
     callup.update!(status: :rejected)
 
-    Notification.create!(
-      recipient: callup.teamable.captain,
-      sender: current_user,
-      category: :callup,
-      message: "#{current_user.slug} ha rechazado la convocatoria.",
-      notifiable: callup.duel
-    )
+    if callup.teamable.respond_to?(:captain) && callup.teamable.captain
+      Notification.create!(
+        recipient: callup.teamable.captain,
+        sender: current_user,
+        category: :callup,
+        message: "#{current_user.slug} ha rechazado la convocatoria.",
+        notifiable: callup.duel || callup.teamable
+      )
+    end
 
-    redirect_to notifications_path, alert: "Has rechazado la convocatoria."
+    @callup = callup
+
+    respond_to do |format|
+      format.turbo_stream
+      format.html { redirect_to notifications_path, alert: "Has rechazado la convocatoria." }
+    end
   end
 
   private

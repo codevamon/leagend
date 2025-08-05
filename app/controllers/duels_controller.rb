@@ -1,4 +1,5 @@
 class DuelsController < ApplicationController
+  before_action :authenticate_user!
   before_action :set_duel, only: [:show, :update, :manage, :start, :randomize_teams]
   before_action :authorize_duel_management, only: [:manage, :start, :randomize_teams]
 
@@ -12,9 +13,9 @@ class DuelsController < ApplicationController
     end
   end
 
-  def create
+    def create
     ActiveRecord::Base.transaction do
-      # Buscar o crear el Team correspondiente al Club/Clan seleccionado
+      # Buscar o crear el Team correspondiente al Club/Clan seleccionado (opcional)
       team = nil
       if params[:duel][:home_team_id].present?
         joinable = Club.find_by(id: params[:duel][:home_team_id]) || Clan.find_by(id: params[:duel][:home_team_id])
@@ -25,20 +26,20 @@ class DuelsController < ApplicationController
             # Crear nuevo Team si no existe
             team = Team.create!(
               name: "#{joinable.name} Team",
-              joinable: joinable,
-              captain: current_user
+              joinable: joinable
+              # Removed captain assignment - will be assigned later in management
             )
           end
         end
       end
       
-             # Crear duelo con el Team ya asignado
-       duel_attributes = duel_params.except(:home_team_id)
-       # Limpiar arena_id si está vacío
-       duel_attributes[:arena_id] = nil if duel_attributes[:arena_id].blank?
-       @duel = Duel.new(duel_attributes)
-       @duel.home_team = team
-       @duel.status = 'open' # Por defecto abierto para desafíos
+      # Crear duelo (con o sin home_team)
+      duel_attributes = duel_params.except(:home_team_id)
+      # Limpiar arena_id si está vacío
+      duel_attributes[:arena_id] = nil if duel_attributes[:arena_id].blank?
+      @duel = Duel.new(duel_attributes)
+      @duel.home_team = team if team.present?
+      @duel.status = 'open' # Por defecto abierto para desafíos
       
       # Calcular ends_at si se proporciona duration
       if params[:duel][:duration].present? && @duel.starts_at.present?
@@ -50,7 +51,8 @@ class DuelsController < ApplicationController
         # Asignar árbitro si se solicita
         RefereeAssigner.assign_to_duel(@duel) if params[:assign_referee] == '1'
         
-        NotificationService.notify_duel_created(@duel)
+        # Notificar solo si hay equipo asignado
+        NotificationService.notify_duel_created(@duel) if @duel.home_team.present?
         redirect_to @duel, notice: 'Duelo creado exitosamente. Ahora puedes convocar jugadores.'
       end
     end
@@ -171,6 +173,41 @@ class DuelsController < ApplicationController
     redirect_to manage_duel_path(@duel), notice: "Jugador libre aceptado y alineado."
   end
 
+  # Acción para crear equipo temporal
+  def create_temporary_team
+    @duel = Duel.find(params[:id])
+    
+    ActiveRecord::Base.transaction do
+      team = Team.create!(
+        name: "Equipo Temporal #{@duel.id.last(4)}",
+        captain: current_user,
+        temporary: true,
+        expires_at: @duel.starts_at + 24.hours
+      )
+      
+      @duel.update!(home_team: team)
+      
+      respond_to do |format|
+        format.turbo_stream { 
+          render turbo_stream: turbo_stream.replace(
+            "team_assignment_section",
+            partial: "duels/team_assignment_section",
+            locals: { duel: @duel }
+          )
+        }
+        format.html { redirect_to manage_duel_path(@duel), notice: "Equipo temporal creado exitosamente." }
+      end
+    end
+  rescue => e
+    respond_to do |format|
+      format.turbo_stream { 
+        render turbo_stream: turbo_stream.update("flash_messages", 
+          partial: "shared/flash", locals: { alert: "Error al crear equipo: #{e.message}" })
+      }
+      format.html { redirect_to manage_duel_path(@duel), alert: "Error al crear equipo: #{e.message}" }
+    end
+  end
+
   private
 
   def set_duel
@@ -178,7 +215,7 @@ class DuelsController < ApplicationController
   end
 
   def authorize_duel_management
-    unless @duel.can_be_managed_by?(current_user)
+    unless current_user.present? && @duel.can_be_managed_by?(current_user)
       redirect_to root_path, alert: "No tienes permiso para gestionar este duelo."
     end
   end

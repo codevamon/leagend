@@ -2,11 +2,11 @@ class NotificationService
   def self.notify_duel_created(duel)
     return unless duel.persisted?
 
-    # Notificar al capitán del equipo local
-    notify_team_captain(duel.home_team, duel, "Has creado un nuevo duelo")
+    # Notificar al capitán del equipo local (solo si existe)
+    notify_team_captain(duel.home_team, duel, "Has creado un nuevo duelo") if duel.home_team&.captain
     
-    # Notificar a los jugadores convocados
-    notify_team_players(duel.home_team, duel, "Has sido convocado a un nuevo duelo")
+    # Notificar a los jugadores convocados (solo si hay equipo)
+    notify_team_players(duel.home_team, duel, "Has sido convocado a un nuevo duelo") if duel.home_team
   end
 
   def self.notify_duel_updated(duel)
@@ -73,11 +73,11 @@ class NotificationService
     return unless team
 
     team.callups.includes(:user).each do |callup|
-      next if callup.user == team.captain
+      next if team.captain && callup.user == team.captain
 
       Notification.create!(
         recipient: callup.user,
-        sender: team.captain,
+        sender: team.captain || callup.user, # Fallback si no hay captain
         message: message,
         category: :duel,
         notifiable: duel

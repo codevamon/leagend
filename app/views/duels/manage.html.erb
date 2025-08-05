@@ -143,40 +143,8 @@
       <div class="row">
         <%# Equipo Local %>
         <div class="col-md-6">
-          <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h5 class="mb-0"><%= @duel.home_team.name %></h5>
-              <span class="badge bg-primary"><%= @duel.home_players.count %>/<%= @duel.duel_type %> jugadores</span>
-            </div>
-            <div class="card-body">
-              <% if @duel.home_players.any? %>
-                <div class="list-group">
-                  <% @duel.home_players.each do |player| %>
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                      <div>
-                        <%= player.firstname%>
-                        <% if player == @duel.home_team.captain %>
-                          <span class="badge bg-info">Capitán</span>
-                        <% end %>
-                      </div>
-                      <% if @duel.ongoing? %>
-                        <%= button_to "Gol", add_goal_duel_path(@duel, team_id: @duel.home_team.id, user_id: player.id), 
-                            method: :post, class: "btn btn-sm btn-success" %>
-                      <% end %>
-                    </div>
-                  <% end %>
-                </div>
-              <% else %>
-                <div class="text-center py-4">
-                  <i class="fas fa-users fa-3x text-muted mb-3"></i>
-                  <h6 class="text-muted">No hay jugadores confirmados</h6>
-                  <p class="text-muted small">Convocar jugadores para llenar el equipo</p>
-                  <%= link_to callup_users_team_path(@duel.home_team), class: "btn btn-primary btn-sm" do %>
-                    <i class="fas fa-plus me-1"></i>Convocar Jugadores
-                  <% end %>
-                </div>
-              <% end %>
-            </div>
+          <div id="team_assignment_section">
+            <%= render partial: "duels/team_assignment_section", locals: { duel: @duel } %>
           </div>
         </div>
 
@@ -196,7 +164,7 @@
                     <div class="list-group-item d-flex justify-content-between align-items-center">
                       <div>
                         <%= player.firstname%>
-                        <% if player == @duel.away_team.captain %>
+                        <% if @duel.away_team&.captain && player == @duel.away_team.captain %>
                           <span class="badge bg-info">Capitán</span>
                         <% end %>
                       </div>
@@ -265,6 +233,22 @@
         </div>
       <% end %>
     </div>
+  </div>
+  
+  <!-- Flash messages para Turbo -->
+  <div id="flash_messages">
+    <% if flash[:notice] %>
+      <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <%= flash[:notice] %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% end %>
+    <% if flash[:alert] %>
+      <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <%= flash[:alert] %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% end %>
   </div>
 </div>
 

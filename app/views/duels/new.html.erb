@@ -22,8 +22,8 @@
               <% if @team_options.any? %>
                 <%= f.select :home_team_id, 
                     options_from_collection_for_select(@team_options.map(&:joinable), 'id', 'name'),
-                    { prompt: "Selecciona tu equipo" },
-                    { class: "form-select", required: true } %>
+                    { prompt: "Selecciona tu equipo (opcional)" },
+                    { class: "form-select" } %>
               <% else %>
                 <div class="alert alert-info">
                   <i class="fas fa-info-circle me-2"></i>

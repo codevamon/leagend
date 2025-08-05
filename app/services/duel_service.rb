@@ -192,7 +192,7 @@ class DuelService
       home_team = duel.home_team
       away_team = duel.away_team || Team.create!(
         name: "Reto #{duel_type}v#{duel_type}",
-        captain_id: duel.home_team.captain_id
+        captain_id: duel.home_team&.captain_id
       )
 
       duel.update!(away_team: away_team)

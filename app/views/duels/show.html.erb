@@ -120,16 +120,24 @@
                 <h6 class="fw-bold text-primary mb-3">
                   <i class="fas fa-home me-2"></i>Local
                 </h6>
-                <h5 class="mb-2"><%= @home_team&.name || "No asignado" %></h5>
-                <div class="mb-2">
-                  <span class="badge bg-primary">
-                    <%= @home_team_users&.count || 0 %> jugadores
-                  </span>
-                </div>
-                <% if @home_team&.captain.present? %>
-                  <small class="text-muted">
-                    <i class="fas fa-crown me-1"></i>Capitán: <%= @home_team.captain.slug %>
-                  </small>
+                <% if @home_team.present? %>
+                  <h5 class="mb-2"><%= @home_team.name %></h5>
+                  <div class="mb-2">
+                    <span class="badge bg-primary">
+                      <%= @home_team_users&.count || 0 %> jugadores
+                    </span>
+                  </div>
+                  <% if @home_team&.captain.present? %>
+                    <small class="text-muted">
+                      <i class="fas fa-crown me-1"></i>Capitán: <%= @home_team.captain.slug %>
+                    </small>
+                  <% end %>
+                <% else %>
+                  <h5 class="mb-2 text-muted">Equipo no asignado</h5>
+                  <div class="mb-2">
+                    <span class="badge bg-secondary">Sin equipo</span>
+                  </div>
+                  <small class="text-muted">Asigna un equipo desde el panel de gestión</small>
                 <% end %>
               </div>
             </div>
@@ -147,7 +155,7 @@
                       <%= @away_team_users&.count || 0 %> jugadores
                     </span>
                   </div>
-                  <% if @away_team.captain.present? %>
+                  <% if @away_team&.captain.present? %>
                     <small class="text-muted">
                       <i class="fas fa-crown me-1"></i>Capitán: <%= @away_team.captain.slug %>
                     </small>
@@ -166,7 +174,7 @@
       </div>
 
       <!-- Jugadores convocados -->
-      <% if @home_team_users.any? %>
+      <% if @home_team.present? && @home_team_users.any? %>
         <div class="card mb-4">
           <div class="card-header">
             <h5 class="mb-0">

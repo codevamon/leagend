@@ -1,5 +1,5 @@
 class Duel < ApplicationRecord
-  belongs_to :home_team, class_name: 'Team'
+  belongs_to :home_team, class_name: 'Team', optional: true
   belongs_to :away_team, class_name: 'Team', optional: true
   belongs_to :referee, class_name: 'User', optional: true
   belongs_to :man_of_the_match, class_name: 'User', optional: true
@@ -17,11 +17,13 @@ class Duel < ApplicationRecord
 
   # Relación filtrada manualmente (condiciones en métodos, no en `has_many`)
   def home_players
+    return [] unless home_team.present?
     lineups.where(teamable: home_team).includes(:user).map(&:user)
   end
 
   def away_players
-    away_team ? lineups.where(teamable: away_team).includes(:user).map(&:user) : []
+    return [] unless away_team.present?
+    lineups.where(teamable: away_team).includes(:user).map(&:user)
   end
 
   # Enums
@@ -69,7 +71,7 @@ class Duel < ApplicationRecord
   # UUID
   before_create :generate_uuid
   before_save :set_expires_at, if: :temporary?
-  after_save :notify_status_change, if: :saved_change_to_status?
+  after_save :notify_status_change, if: -> { saved_change_to_status? && (home_team.present? || away_team.present?) }
 
   # Scopes
   scope :active, -> { where(status: [:pending, :open, :ongoing]) }
@@ -98,6 +100,7 @@ class Duel < ApplicationRecord
   def can_randomize_teams?
     return false unless status.in?(['pending', 'open'])
     return false if starts_at < Time.current
+    return false unless home_team.present?
     return false if home_players.count >= required_players
     true
   end
@@ -134,11 +137,13 @@ class Duel < ApplicationRecord
 
   # Métodos de Jugadores
   def home_players
+    return [] unless home_team.present?
     lineups.where(teamable: home_team).includes(:user).map(&:user)
   end
 
   def away_players
-    away_team ? lineups.where(teamable: away_team).includes(:user).map(&:user) : []
+    return [] unless away_team.present?
+    lineups.where(teamable: away_team).includes(:user).map(&:user)
   end
 
   def pending_callups
@@ -146,9 +151,13 @@ class Duel < ApplicationRecord
   end
 
   def free_players
-    User.where.not(id: home_players.pluck(:id))
-        .where.not(id: away_players.pluck(:id))
-        .where.not(id: pending_callups.pluck(:user_id))
+    home_player_ids = home_players.pluck(:id)
+    away_player_ids = away_players.pluck(:id)
+    pending_user_ids = pending_callups.pluck(:user_id)
+    
+    User.where.not(id: home_player_ids)
+        .where.not(id: away_player_ids)
+        .where.not(id: pending_user_ids)
   end
 
   def possible_duel_types
@@ -165,6 +174,7 @@ class Duel < ApplicationRecord
   end
 
   def has_minimum_players?
+    return false unless home_team.present?
     home_players.count >= required_players && 
     (away_team.nil? || away_players.count >= required_players)
   end
@@ -195,7 +205,12 @@ class Duel < ApplicationRecord
   scope :open_for_freeplayers, -> { where(status: [:pending, :open], temporary: true).where('expires_at > ?', Time.current) }
 
   def can_be_managed_by?(user)
-    home_team&.captain == user || away_team&.captain == user
+    return false unless user.present?
+    # Permitir gestión si es captain de algún equipo
+    return true if home_team&.captain == user || away_team&.captain == user
+    # Permitir gestión si no hay equipos asignados (duelo recién creado)
+    return true if home_team.nil? && away_team.nil?
+    false
   end
 
   private
@@ -227,7 +242,8 @@ class Duel < ApplicationRecord
     end
 
     def validate_team_sizes
-      if home_players.count > required_players || (away_team && away_players.count > required_players)
+      return unless home_team.present? && away_team.present?
+      if home_players.count > required_players || away_players.count > required_players
         errors.add(:base, "Los equipos exceden el número máximo de jugadores")
       end
     end
@@ -239,10 +255,12 @@ class Duel < ApplicationRecord
     end
 
     def set_expires_at
-      self.expires_at = starts_at + 24.hours if expires_at.nil?
+      self.expires_at = starts_at + 24.hours if expires_at.nil? && starts_at.present?
     end
 
     def notify_status_change
+      # Solo notificar si el duelo tiene un equipo asignado
+      return unless home_team.present? || away_team.present?
       NotificationService.notify_duel_updated(self)
     end
 end

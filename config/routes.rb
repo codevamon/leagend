@@ -71,6 +71,7 @@ Rails.application.routes.draw do
       patch :cancel
       patch :accept_challenge
       patch :challenge_team
+      post :create_temporary_team
     end
   
     resources :lineups, only: [:index, :edit, :update, :destroy]

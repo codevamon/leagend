@@ -284,7 +284,7 @@
 
       <!-- Desafíos pendientes -->
       <% if @duel.challenges_as_challengee.pending.any? %>
-        <div class="card mb-4">
+        <div class="card mb-4 border-warning">
           <div class="card-header bg-warning text-dark">
             <h6 class="mb-0">
               <i class="fas fa-exclamation-triangle me-2"></i>Desafíos Pendientes
@@ -292,21 +292,76 @@
           </div>
           <div class="card-body">
             <% @duel.challenges_as_challengee.pending.each do |challenge| %>
-              <div class="mb-3 p-2 border rounded">
-                <small class="text-muted">Desafiado por:</small><br>
-                <strong><%= challenge.challenger_duel.home_team.name %></strong>
-                <div class="mt-2">
+              <div class="mb-3 p-3 border border-warning rounded bg-light">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <small class="text-muted">Desafiado por:</small><br>
+                    <strong class="text-primary"><%= challenge.challenger_duel.home_team.name %></strong>
+                    <br>
+                    <small class="text-muted">
+                      <i class="fas fa-calendar me-1"></i>
+                      <%= l(challenge.challenger_duel.starts_at, format: :short) %>
+                    </small>
+                  </div>
+                  <span class="badge bg-warning text-dark">
+                    <%= challenge.challenger_duel.duel_type.titleize %>
+                  </span>
+                </div>
+                <div class="d-grid gap-2">
                   <%= button_to accept_challenge_path(challenge), 
                         method: :patch, 
-                        class: "btn btn-success btn-sm me-1" do %>
-                    <i class="fas fa-check me-1"></i>Aceptar
+                        class: "btn btn-success btn-sm",
+                        data: { confirm: "¿Aceptar el desafío? Los duelos se fusionarán." } do %>
+                    <i class="fas fa-check me-1"></i>Aceptar Desafío
                   <% end %>
                   <%= button_to reject_challenge_path(challenge), 
                         method: :patch, 
-                        class: "btn btn-danger btn-sm" do %>
+                        class: "btn btn-outline-danger btn-sm",
+                        data: { confirm: "¿Rechazar el desafío?" } do %>
                     <i class="fas fa-times me-1"></i>Rechazar
                   <% end %>
                 </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <!-- Buscar rivales -->
+      <% if @duel.can_be_challenged? && @desafiables&.any? %>
+        <div class="card mb-4 border-info">
+          <div class="card-header bg-info text-white">
+            <h6 class="mb-0">
+              <i class="fas fa-search me-2"></i>Duelos Disponibles para Desafiar
+            </h6>
+          </div>
+          <div class="card-body">
+            <% @desafiables.limit(3).each do |desafiable| %>
+              <div class="mb-2 p-2 border rounded">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong><%= desafiable.home_team.name %></strong>
+                    <br>
+                    <small class="text-muted">
+                      <i class="fas fa-calendar me-1"></i>
+                      <%= l(desafiable.starts_at, format: :short) %>
+                    </small>
+                  </div>
+                  <%= button_to challenges_path(
+                        challenger_duel_id: @duel.id,
+                        challengee_duel_id: desafiable.id
+                      ), 
+                      method: :post, 
+                      class: "btn btn-outline-primary btn-sm",
+                      data: { confirm: "¿Enviar desafío a #{desafiable.home_team.name}?" } do %>
+                    <i class="fas fa-paper-plane me-1"></i>Desafiar
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+            <% if @desafiables.count > 3 %>
+              <div class="text-center mt-2">
+                <%= link_to "Ver más duelos", open_duels_path, class: "btn btn-outline-info btn-sm" %>
               </div>
             <% end %>
           </div>

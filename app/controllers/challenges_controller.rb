@@ -52,18 +52,22 @@ class ChallengesController < ApplicationController
       # Vista opcional para mostrar info del Challenge
     end
   
-    # PATCH /challenges/:id/accept
-    def accept
-      if @challenge.update(status: :accepted)
-        DuelMerger.call(@challenge)
-        # Podrías notificar al desafiante aquí
+      # PATCH /challenges/:id/accept
+  def accept
+    if @challenge.update(status: :accepted)
+      if DuelMerger.call(@challenge)
         redirect_to @challenge.challenger_duel,
                     notice: "Reto aceptado. Los duelos se han fusionado."
       else
+        @challenge.update!(status: :pending) # Revertir si falla
         redirect_to @challenge.challenger_duel,
-                    alert: "No se pudo aceptar el reto."
+                    alert: "Error al fusionar los duelos. Intenta nuevamente."
       end
+    else
+      redirect_to @challenge.challenger_duel,
+                  alert: "No se pudo aceptar el reto."
     end
+  end
   
     # PATCH /challenges/:id/reject
     def reject
@@ -84,22 +88,11 @@ class ChallengesController < ApplicationController
         @challenge = Challenge.find(params[:id])  # params[:id] es el UUID/string del Challenge
         end
     
-        # Fusión de duelos si el challenge es aceptado
-        def merge_duels(challenge)
-        challenger = challenge.challenger_duel
-        challengee = challenge.challengee_duel
-    
-        # 1) Asignar away_team al challenger
-        # challenger.update!(away_team_id: challengee.home_team_id)
-        challenger.update_column(:away_team_id, challengee.home_team_id)
-    
-        # 2) Copiar callups y lineups del challengee al challenger
-        challengee.callups.update_all(duel_id: challenger.id)
-        challengee.lineups.update_all(duel_id: challenger.id)
-    
-        # 3) Marcar el duel challengee como merged (o archivado)
-        challengee.update!(status: 'merged')
-        end
+            # Fusión de duelos si el challenge es aceptado
+    def merge_duels(challenge)
+      # DEPRECATED: Usar DuelMerger.call(challenge) en su lugar
+      DuelMerger.call(challenge)
+    end
         def find_admin_for_duel(duel)
             team = duel.home_team
             return nil unless team

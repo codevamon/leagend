@@ -106,8 +106,14 @@
             <i class="fas fa-users me-2"></i>Gestión de Jugadores
           </h5>
           <div>
-            <%= link_to callup_users_team_path(@duel.home_team), class: "btn btn-primary btn-sm" do %>
-              <i class="fas fa-plus me-1"></i>Convocar Jugadores
+            <% if @duel.home_team.present? %>
+              <%= link_to callup_users_team_path(@duel.home_team), class: "btn btn-primary btn-sm" do %>
+                <i class="fas fa-plus me-1"></i>Convocar Jugadores
+              <% end %>
+            <% else %>
+              <button type="button" class="btn btn-secondary btn-sm" disabled>
+                <i class="fas fa-plus me-1"></i>Asignar Equipo Primero
+              </button>
             <% end %>
           </div>
         </div>
@@ -305,4 +311,4 @@
       <% end %>
     </div>
   </div>
-</div>
+</div> 

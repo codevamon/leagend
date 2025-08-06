@@ -1,0 +1,132 @@
+<h1>Mis duelos como jugador libre</h1>
+
+<div class="row">
+  <div class="col-md-8">
+    <% if @joined_duels.any? %>
+      <% @joined_duels.each do |duel| %>
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+              <h5 class="card-title">
+                <%= duel.duel_type.titleize %> en <%= duel.arena&.name || "Cancha por confirmar" %>
+              </h5>
+              <div>
+                <span class="badge bg-primary">
+                  <%= duel.starts_at.strftime("%d/%m/%Y %H:%M") %>
+                </span>
+                <span class="badge bg-<%= duel.status == "pending" ? "warning" : "success" %>">
+                  <%= duel.status.titleize %>
+                </span>
+              </div>
+            </div>
+
+            <div class="row mt-3">
+              <div class="col-md-6">
+                <h6>Equipo local</h6>
+                <p>
+                  <%= duel.home_team.name %><br>
+                  <small class="text-muted">
+                    <%= pluralize(duel.home_players.count, "jugador") %> confirmado(s)
+                  </small>
+                </p>
+              </div>
+              <div class="col-md-6">
+                <h6>Equipo visitante</h6>
+                <% if duel.away_team.present? %>
+                  <p>
+                    <%= duel.away_team.name %><br>
+                    <small class="text-muted">
+                      <%= pluralize(duel.away_players.count, "jugador") %> confirmado(s)
+                    </small>
+                  </p>
+                <% else %>
+                  <p class="text-muted">Equipo por confirmar</p>
+                <% end %>
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <h6>Mi equipo</h6>
+              <% my_lineup = duel.lineups.find_by(user: current_user) %>
+              <% if my_lineup %>
+                <p>
+                  Estás en el equipo: 
+                  <strong><%= my_lineup.teamable.name %></strong>
+                </p>
+              <% end %>
+            </div>
+
+            <div class="mt-3">
+              <h6>Detalles</h6>
+              <ul class="list-unstyled">
+                <li>
+                  <i class="fas fa-clock"></i>
+                  Duración: <%= duel.duration %> minutos
+                </li>
+                <% if duel.arena.present? %>
+                  <li>
+                    <i class="fas fa-map-marker-alt"></i>
+                    <%= duel.arena.address %>
+                  </li>
+                <% end %>
+              </ul>
+            </div>
+
+            <div class="mt-3">
+              <% if duel.status == "pending" %>
+                <%= link_to "Abandonar duelo", 
+                  leave_free_player_path(duel_id: duel.id), 
+                  method: :post,
+                  class: "btn btn-danger",
+                  data: { confirm: "¿Estás seguro de abandonar el duelo?" }
+                %>
+              <% end %>
+              <%= link_to "Ver detalles", duel_path(duel), class: "btn btn-outline-primary" %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    <% else %>
+      <div class="alert alert-info">
+        <h4 class="alert-heading">No tienes duelos programados</h4>
+        <p>No te has unido a ningún duelo como jugador libre.</p>
+        <hr>
+        <p class="mb-0">
+          <%= link_to "Buscar duelos disponibles", free_players_path, class: "btn btn-primary" %>
+        </p>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Estadísticas</h5>
+        <ul class="list-unstyled">
+          <li>
+            <strong>Duelos jugados:</strong>
+            <%= @joined_duels.where(status: "finished").count %>
+          </li>
+          <li>
+            <strong>Próximo duelo:</strong>
+            <% if next_duel = @joined_duels.where("starts_at > ?", Time.current).first %>
+              <%= next_duel.starts_at.strftime("%d/%m/%Y %H:%M") %>
+            <% else %>
+              No hay duelos programados
+            <% end %>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-body">
+        <h5 class="card-title">Acciones rápidas</h5>
+        <div class="d-grid gap-2">
+          <%= link_to "Buscar duelos", free_players_path, class: "btn btn-primary" %>
+          <%= link_to "Explorar arenas", arenas_path, class: "btn btn-outline-primary" %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div> 

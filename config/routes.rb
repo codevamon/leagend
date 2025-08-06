@@ -66,6 +66,12 @@ Rails.application.routes.draw do
       patch :complete
       get :manage
       patch :randomize_teams
+      patch :publish_for_freeplayers
+      patch :postpone
+      patch :cancel
+      patch :accept_challenge
+      patch :challenge_team
+      post :create_temporary_team
     end
   
     resources :lineups, only: [:index, :edit, :update, :destroy]

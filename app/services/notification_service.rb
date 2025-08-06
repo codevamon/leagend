@@ -1,5 +1,6 @@
 class NotificationService
   def self.notify_duel_created(duel)
+<<<<<<< HEAD
     # Notificar al equipo local
     notify_team(duel.home_team, {
       title: "Nuevo duelo creado",
@@ -10,10 +11,32 @@ class NotificationService
     # Si hay arena, notificar a equipos cercanos
     if duel.arena.present?
       notify_nearby_teams(duel)
+=======
+    return unless duel.persisted?
+
+    # Notificar al capitán del equipo local (solo si existe)
+    notify_team_captain(duel.home_team, duel, "Has creado un nuevo duelo") if duel.home_team&.captain
+    
+    # Notificar a los jugadores convocados (solo si hay equipo)
+    notify_team_players(duel.home_team, duel, "Has sido convocado a un nuevo duelo") if duel.home_team
+  end
+
+  def self.notify_duel_updated(duel)
+    return unless duel.saved_change_to_status?
+
+    case duel.status
+    when 'started'
+      notify_duel_started(duel)
+    when 'finished'
+      notify_duel_finished(duel)
+    when 'cancelled'
+      notify_duel_cancelled(duel)
+>>>>>>> 7f45a488370116d2e378852178b09b3b9460e954
     end
   end
 
   def self.notify_duel_started(duel)
+<<<<<<< HEAD
     # Notificar a todos los jugadores convocados
     duel.lineups.includes(:user).each do |lineup|
       notify_user(lineup.user, {
@@ -56,11 +79,43 @@ class NotificationService
           data: { duel_id: duel.id }
         })
       end
+=======
+    message = "El duelo ha comenzado"
+    notify_team_players(duel.home_team, duel, message)
+    notify_team_players(duel.away_team, duel, message) if duel.away_team
+  end
+
+  def self.notify_duel_finished(duel)
+    message = "El duelo ha finalizado"
+    notify_team_players(duel.home_team, duel, message)
+    notify_team_players(duel.away_team, duel, message) if duel.away_team
+  end
+
+  def self.notify_duel_cancelled(duel)
+    message = "El duelo ha sido cancelado"
+    notify_team_players(duel.home_team, duel, message)
+    notify_team_players(duel.away_team, duel, message) if duel.away_team
+  end
+
+  def self.notify_callup(callup, sender)
+    return if callup.user == sender
+
+    unless Notification.exists?(recipient: callup.user, notifiable: callup, category: :callup)
+      notification = Notification.create!(
+        recipient: callup.user,
+        sender: sender,
+        message: "Fuiste convocado a un duelo",
+        category: :callup,
+        notifiable: callup
+      )
+      Rails.logger.info "Notificación creada para #{callup.user.slug}"
+>>>>>>> 7f45a488370116d2e378852178b09b3b9460e954
     end
   end
 
   private
 
+<<<<<<< HEAD
     def self.notify_team(team, notification)
       team.users.each do |user|
         notify_user(user, notification)
@@ -89,4 +144,33 @@ class NotificationService
         })
       end
     end
+=======
+  def self.notify_team_captain(team, duel, message)
+    return unless team.captain
+
+    Notification.create!(
+      recipient: team.captain,
+      sender: team.captain,
+      message: message,
+      category: :duel,
+      notifiable: duel
+    )
+  end
+
+  def self.notify_team_players(team, duel, message)
+    return unless team
+
+    team.callups.includes(:user).each do |callup|
+      next if team.captain && callup.user == team.captain
+
+      Notification.create!(
+        recipient: callup.user,
+        sender: team.captain || callup.user, # Fallback si no hay captain
+        message: message,
+        category: :duel,
+        notifiable: duel
+      )
+    end
+  end
+>>>>>>> 7f45a488370116d2e378852178b09b3b9460e954
 end 

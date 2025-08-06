@@ -1,0 +1,199 @@
+<div class="container mt-4">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <!-- Header -->
+      <div class="text-center mb-4">
+        <h2 class="fw-bold text-primary">
+          <i class="fas fa-trophy me-2"></i>Crear Nuevo Duelo
+        </h2>
+        <p class="text-muted">Configura tu duelo en un solo paso</p>
+      </div>
+
+      <!-- Formulario principal -->
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+          <%= form_with model: @duel, local: true, class: "needs-validation", novalidate: true do |f| %>
+            
+            <!-- Equipo Local -->
+            <div class="mb-4">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-home me-2 text-primary"></i>Equipo Local
+              </label>
+              <% if @team_options.any? %>
+                <%= f.select :home_team_id, 
+                    options_from_collection_for_select(@team_options.map(&:joinable), 'id', 'name'),
+                    { prompt: "Selecciona tu equipo (opcional)" },
+                    { class: "form-select" } %>
+              <% else %>
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle me-2"></i>
+                  No tienes equipos disponibles. 
+                  <%= link_to "Únete a un club o clan", root_path, class: "alert-link" %> para crear duelos.
+                </div>
+              <% end %>
+            </div>
+
+            <!-- Fecha y Hora -->
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">
+                  <i class="fas fa-calendar me-2 text-success"></i>Fecha y Hora
+                </label>
+                <%= f.datetime_local_field :starts_at, 
+                    class: "form-control", 
+                    required: true,
+                    min: Time.current.strftime("%Y-%m-%dT%H:%M") %>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">
+                  <i class="fas fa-stopwatch me-2 text-warning"></i>Duración (horas)
+                </label>
+                <%= f.number_field :duration, 
+                    class: "form-control", 
+                    value: 2,
+                    min: 1, max: 6,
+                    required: true %>
+              </div>
+            </div>
+
+            <!-- Tipo de Duelo -->
+            <div class="mb-4">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-gamepad me-2 text-info"></i>Tipo de Duelo
+              </label>
+              <%= f.select :duel_type, 
+                  Duel.duel_types.keys.map { |t| [t.titleize, t] },
+                  { selected: 'friendly' },
+                  { class: "form-select", required: true } %>
+            </div>
+
+            <!-- Arena (Opcional) -->
+            <div class="mb-4">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-map-marker-alt me-2 text-danger"></i>Arena (Opcional)
+              </label>
+              <%= f.select :arena_id, 
+                  Arena.all.map { |a| ["#{a.name} - #{a.address}", a.id] },
+                  { prompt: "Sin arena - Buscar rival después" },
+                  { class: "form-select" } %>
+              <small class="text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                Si no seleccionas arena, podrás buscar rivales después
+              </small>
+            </div>
+
+            <!-- Opciones adicionales -->
+            <div class="mb-4">
+              <div class="form-check">
+                <%= check_box_tag :assign_referee, "1", false, class: "form-check-input" %>
+                <label class="form-check-label" for="assign_referee">
+                  <i class="fas fa-user-tie me-2"></i>Asignar árbitro automáticamente
+                </label>
+              </div>
+            </div>
+
+            <!-- Botones -->
+            <div class="d-grid gap-2">
+              <%= f.submit "Crear Duelo", class: "btn btn-primary btn-lg" %>
+              <%= link_to "Cancelar", duels_path, class: "btn btn-outline-secondary" %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <!-- Información adicional -->
+      <div class="card mt-4 border-0 bg-light">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3">
+            <i class="fas fa-lightbulb me-2 text-warning"></i>¿Cómo funciona?
+          </h6>
+          <ul class="list-unstyled mb-0">
+            <li class="mb-2">
+              <i class="fas fa-check text-success me-2"></i>
+              <strong>Crea el duelo:</strong> Configura fecha, hora y tipo
+            </li>
+            <li class="mb-2">
+              <i class="fas fa-check text-success me-2"></i>
+              <strong>Convoca jugadores:</strong> Invita a tu equipo desde el panel
+            </li>
+            <li class="mb-2">
+              <i class="fas fa-check text-success me-2"></i>
+              <strong>Busca rival:</strong> Encuentra otro equipo para jugar
+            </li>
+            <li class="mb-0">
+              <i class="fas fa-check text-success me-2"></i>
+              <strong>¡Juega!</strong> Inicia el duelo cuando esté todo listo
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Calcular ends_at automáticamente
+  const startsAtField = document.querySelector('#duel_starts_at');
+  const durationField = document.querySelector('#duel_duration');
+  
+  function updateEndTime() {
+    if (startsAtField.value && durationField.value) {
+      const startTime = new Date(startsAtField.value);
+      const duration = parseInt(durationField.value);
+      const endTime = new Date(startTime.getTime() + (duration * 60 * 60 * 1000));
+      
+      // Crear campo hidden para ends_at si no existe
+      let endsAtField = document.querySelector('#duel_ends_at');
+      if (!endsAtField) {
+        endsAtField = document.createElement('input');
+        endsAtField.type = 'hidden';
+        endsAtField.name = 'duel[ends_at]';
+        endsAtField.id = 'duel_ends_at';
+        startsAtField.parentNode.appendChild(endsAtField);
+      }
+      
+      endsAtField.value = endTime.toISOString().slice(0, 16);
+    }
+  }
+  
+  startsAtField.addEventListener('change', updateEndTime);
+  durationField.addEventListener('change', updateEndTime);
+  
+  // Validación del formulario
+  const form = document.querySelector('.needs-validation');
+  form.addEventListener('submit', function(event) {
+    if (!form.checkValidity()) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    form.classList.add('was-validated');
+  });
+});
+</script>
+
+<style>
+.card {
+  border-radius: 12px;
+}
+
+.form-control, .form-select {
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.btn {
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.form-label {
+  color: #495057;
+  font-size: 0.9rem;
+}
+</style> 

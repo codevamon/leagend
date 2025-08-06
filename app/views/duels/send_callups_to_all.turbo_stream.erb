@@ -1,18 +1,4 @@
-<% if @user && @team %>
-  <turbo-stream action="replace" target="callup-btn-<%= @user.id %>">
-    <template>
-      <button class="btn btn-sm btn-warning" disabled>
-        <i class="fas fa-clock me-1"></i>Pendiente
-      </button>
-    </template>
-  </turbo-stream>
-
-  <turbo-stream action="replace" target="callup-status-<%= @user.id %>">
-    <template>
-      <span class="badge bg-warning">Pendiente</span>
-    </template>
-  </turbo-stream>
-
+<% if @team %>
   <turbo-stream action="replace" target="accepted-count">
     <template>
       <%= @callups.accepted.count %>
@@ -31,23 +17,48 @@
     </template>
   </turbo-stream>
 
+  <turbo-stream action="replace" target="callup-all-btn">
+    <template>
+      <button class="btn btn-success btn-sm" disabled>
+        <i class="fas fa-check me-1"></i>Convocatorias Enviadas
+      </button>
+    </template>
+  </turbo-stream>
+
   <turbo-stream action="update" target="callup-feedback">
     <template>
       <div class="alert alert-success alert-dismissible fade show" role="alert">
         <i class="fas fa-check-circle me-2"></i>
-        Convocatoria enviada exitosamente a <%= @user.slug %>
+        Convocatorias enviadas exitosamente a todos los usuarios seleccionados
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     </template>
   </turbo-stream>
+
+  <!-- Actualizar todos los botones de usuarios seleccionados -->
+  <% @callups.pending.includes(:user).each do |callup| %>
+    <turbo-stream action="replace" target="callup-btn-<%= callup.user.id %>">
+      <template>
+        <button class="btn btn-sm btn-warning" disabled>
+          <i class="fas fa-clock me-1"></i>Pendiente
+        </button>
+      </template>
+    </turbo-stream>
+    
+    <turbo-stream action="replace" target="callup-status-<%= callup.user.id %>">
+      <template>
+        <span class="badge bg-warning">Pendiente</span>
+      </template>
+    </turbo-stream>
+  <% end %>
 <% else %>
   <turbo-stream action="update" target="callup-feedback">
     <template>
       <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <i class="fas fa-exclamation-triangle me-2"></i>
-        Error al enviar la convocatoria
+        Error al enviar las convocatorias
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     </template>
   </turbo-stream>
-<% end %>
+<% end %> 

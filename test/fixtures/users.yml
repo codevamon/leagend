@@ -9,3 +9,35 @@ one: {}
 #
 two: {}
 # column: value
+
+captain:
+  email: captain@test.com
+  encrypted_password: <%= Devise::Encryptor.digest(User, 'password123') %>
+  firstname: John
+  lastname: Captain
+  role: captain
+  status: active
+
+player1:
+  email: player1@test.com
+  encrypted_password: <%= Devise::Encryptor.digest(User, 'password123') %>
+  firstname: Mike
+  lastname: Player
+  role: player
+  status: active
+
+player2:
+  email: player2@test.com
+  encrypted_password: <%= Devise::Encryptor.digest(User, 'password123') %>
+  firstname: Sarah
+  lastname: Player
+  role: player
+  status: active
+
+referee:
+  email: referee@test.com
+  encrypted_password: <%= Devise::Encryptor.digest(User, 'password123') %>
+  firstname: David
+  lastname: Referee
+  role: referee
+  status: active

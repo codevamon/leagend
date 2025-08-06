@@ -1,50 +1,335 @@
-<h1>¿Qué y cuándo?</h1>
+<div class="container mt-4">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <!-- Header con progreso -->
+      <div class="text-center mb-4">
+        <h2 class="fw-bold text-primary">🏆 Crear Nuevo Duelo</h2>
+        <p class="text-muted">Paso 1 de 4: Configuración básica</p>
+        
+        <!-- Barra de progreso -->
+        <div class="progress mb-3" style="height: 8px;">
+          <div class="progress-bar bg-primary" role="progressbar" style="width: 25%"></div>
+        </div>
+      </div>
 
-<%= form_with url: select_team_duels_path, method: :get, local: true do |f| %>
-  <div class="mb-3">
-    <%= label_tag :duel_type, "Tipo de duelo" %>
-    <%= select_tag :duel_type, options_for_select([["Entrenamiento", "training"], ["Parchar", "friendly"]]), class: "form-control" %>
+      <!-- Card principal -->
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+          <%= form_with url: select_team_duels_path, method: :get, local: true, id: "duel-form" do |f| %>
+            
+            <!-- Tipo de Duelo -->
+            <div class="mb-4">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-trophy me-2"></i>Tipo de Duelo
+              </label>
+              <div class="row g-3">
+                <div class="col-6">
+                  <div class="card h-100 duel-type-card" data-type="training">
+                    <div class="card-body text-center p-3">
+                      <i class="fas fa-dumbbell fa-2x text-warning mb-2"></i>
+                      <h6 class="card-title mb-1">Entrenamiento</h6>
+                      <small class="text-muted">7 jugadores</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="card h-100 duel-type-card" data-type="hobbie">
+                    <div class="card-body text-center p-3">
+                      <i class="fas fa-futbol fa-2x text-success mb-2"></i>
+                      <h6 class="card-title mb-1">Parchar</h6>
+                      <small class="text-muted">5 jugadores</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <%= hidden_field_tag :duel_type, "training", id: "duel_type_input" %>
+            </div>
+
+            <!-- Modalidad -->
+            <div class="mb-4">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-clock me-2"></i>Modalidad
+              </label>
+              <div class="row g-3">
+                <div class="col-6">
+                  <div class="card h-100 mode-card" data-mode="express">
+                    <div class="card-body text-center p-3">
+                      <i class="fas fa-bolt fa-2x text-danger mb-2"></i>
+                      <h6 class="card-title mb-1">Express</h6>
+                      <small class="text-muted">Jugar pronto</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="card h-100 mode-card" data-mode="scheduled">
+                    <div class="card-body text-center p-3">
+                      <i class="fas fa-calendar fa-2x text-info mb-2"></i>
+                      <h6 class="card-title mb-1">Programado</h6>
+                      <small class="text-muted">Fecha específica</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <%= hidden_field_tag :mode, "express", id: "mode_input" %>
+            </div>
+
+            <!-- Opciones Express -->
+            <div id="express-options" class="mb-4">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-hourglass-half me-2"></i>¿Cuándo jugarán?
+              </label>
+              <div class="row g-2">
+                <div class="col-4">
+                  <div class="time-option" data-minutes="30">
+                    <div class="card text-center p-2">
+                      <small class="fw-bold">30 min</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="time-option" data-minutes="60">
+                    <div class="card text-center p-2">
+                      <small class="fw-bold">1 hora</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="time-option" data-minutes="90">
+                    <div class="card text-center p-2">
+                      <small class="fw-bold">1.5 horas</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="time-option" data-minutes="120">
+                    <div class="card text-center p-2">
+                      <small class="fw-bold">2 horas</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="time-option" data-minutes="180">
+                    <div class="card text-center p-2">
+                      <small class="fw-bold">3 horas</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="time-option" data-minutes="240">
+                    <div class="card text-center p-2">
+                      <small class="fw-bold">4 horas</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <%= hidden_field_tag :express_minutes, "60", id: "express_minutes_input" %>
+            </div>
+
+            <!-- Opciones Programado -->
+            <div id="scheduled-options" class="mb-4" style="display: none;">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-calendar-alt me-2"></i>Fecha y Hora
+              </label>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <%= label_tag :date, "Fecha", class: "form-label" %>
+                  <%= date_field_tag :date, Date.current + 1.day, class: "form-control", id: "scheduled_date" %>
+                </div>
+                <div class="col-md-6">
+                  <%= label_tag :time, "Hora", class: "form-label" %>
+                  <%= time_field_tag :time, "19:00", class: "form-control", id: "scheduled_time" %>
+                </div>
+              </div>
+            </div>
+
+            <!-- Duración -->
+            <div class="mb-4">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-stopwatch me-2"></i>Duración del Duelo
+              </label>
+              <div class="row g-2">
+                <div class="col-4">
+                  <div class="duration-option" data-duration="60">
+                    <div class="card text-center p-2">
+                      <small class="fw-bold">60 min</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="duration-option" data-duration="90">
+                    <div class="card text-center p-2">
+                      <small class="fw-bold">90 min</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="duration-option" data-duration="120">
+                    <div class="card text-center p-2">
+                      <small class="fw-bold">120 min</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <%= hidden_field_tag :duration, "90", id: "duration_input" %>
+            </div>
+
+            <!-- Resumen en tiempo real -->
+            <div class="alert alert-info" id="summary">
+              <div class="d-flex align-items-center">
+                <i class="fas fa-info-circle me-2"></i>
+                <div>
+                  <strong>Resumen:</strong> 
+                  <span id="summary-text">Entrenamiento Express en 1 hora, duración 90 minutos</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Botón de continuar -->
+            <div class="d-grid">
+              <%= submit_tag "Continuar → Seleccionar Equipo", class: "btn btn-primary btn-lg", id: "submit-btn" %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
   </div>
+</div>
 
-  <div class="mb-3">
-    <%= label_tag :mode, "Modalidad" %><br>
-    <%= radio_button_tag :mode, "express", true %> Express<br>
-    <%= radio_button_tag :mode, "scheduled" %> Programado
-  </div>
+<style>
+.duel-type-card, .mode-card, .time-option, .duration-option {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
 
-  <div class="mb-3 express-options">
-    <%= label_tag :express_minutes, "¿Cuándo jugarán? (minutos desde ahora)" %>
-    <%= select_tag :express_minutes, options_for_select([30, 60, 90, 120, 150, 180, 210, 240]), class: "form-control" %>
-  </div>
+.duel-type-card:hover, .mode-card:hover, .time-option:hover, .duration-option:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
 
-  <div class="mb-3 scheduled-options" style="display: none;">
-    <%= label_tag :starts_at, "¿Cuándo empieza?" %>
-    <%= datetime_select :duel, :starts_at, default: Time.now + 1.hour %>
-  </div>
+.duel-type-card.selected, .mode-card.selected, .time-option.selected, .duration-option.selected {
+  border-color: #0d6efd;
+  background-color: #f8f9ff;
+}
 
-  <div class="mb-3">
-    <%= label_tag :duration, "Duración del duelo" %>
-    <%= select_tag :duration, options_for_select([["60 minutos", 60], ["120 minutos", 120], ["Personalizado (máx. 240)", 240]]), class: "form-control" %>
-  </div>
+.time-option .card, .duration-option .card {
+  border: 1px solid #dee2e6;
+  transition: all 0.2s ease;
+}
 
-  <%= submit_tag "Siguiente", class: "btn btn-primary" %>
-<% end %>
+.time-option.selected .card, .duration-option.selected .card {
+  border-color: #0d6efd;
+  background-color: #e7f1ff;
+}
+
+.progress {
+  border-radius: 10px;
+}
+
+.progress-bar {
+  border-radius: 10px;
+}
+</style>
 
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const expressOptions = document.querySelector('.express-options');
-    const scheduledOptions = document.querySelector('.scheduled-options');
+document.addEventListener("DOMContentLoaded", function () {
+  // Elementos del DOM
+  const duelTypeCards = document.querySelectorAll('.duel-type-card');
+  const modeCards = document.querySelectorAll('.mode-card');
+  const timeOptions = document.querySelectorAll('.time-option');
+  const durationOptions = document.querySelectorAll('.duration-option');
+  const expressOptions = document.getElementById('express-options');
+  const scheduledOptions = document.getElementById('scheduled-options');
+  const summary = document.getElementById('summary-text');
+  
+  // Inputs hidden
+  const duelTypeInput = document.getElementById('duel_type_input');
+  const modeInput = document.getElementById('mode_input');
+  const expressMinutesInput = document.getElementById('express_minutes_input');
+  const durationInput = document.getElementById('duration_input');
 
-    document.querySelectorAll('input[name="mode"]').forEach((radio) => {
-      radio.addEventListener('change', function () {
-        if (this.value === 'express') {
-          expressOptions.style.display = '';
-          scheduledOptions.style.display = 'none';
-        } else {
-          expressOptions.style.display = 'none';
-          scheduledOptions.style.display = '';
-        }
-      });
+  // Selección de tipo de duelo
+  duelTypeCards.forEach(card => {
+    card.addEventListener('click', function() {
+      duelTypeCards.forEach(c => c.classList.remove('selected'));
+      this.classList.add('selected');
+      duelTypeInput.value = this.dataset.type;
+      updateSummary();
     });
   });
+
+  // Selección de modalidad
+  modeCards.forEach(card => {
+    card.addEventListener('click', function() {
+      modeCards.forEach(c => c.classList.remove('selected'));
+      this.classList.add('selected');
+      modeInput.value = this.dataset.mode;
+      
+      if (this.dataset.mode === 'express') {
+        expressOptions.style.display = 'block';
+        scheduledOptions.style.display = 'none';
+      } else {
+        expressOptions.style.display = 'none';
+        scheduledOptions.style.display = 'block';
+      }
+      updateSummary();
+    });
+  });
+
+  // Selección de tiempo express
+  timeOptions.forEach(option => {
+    option.addEventListener('click', function() {
+      timeOptions.forEach(o => o.classList.remove('selected'));
+      this.classList.add('selected');
+      expressMinutesInput.value = this.dataset.minutes;
+      updateSummary();
+    });
+  });
+
+  // Selección de duración
+  durationOptions.forEach(option => {
+    option.addEventListener('click', function() {
+      durationOptions.forEach(o => o.classList.remove('selected'));
+      this.classList.add('selected');
+      durationInput.value = this.dataset.duration;
+      updateSummary();
+    });
+  });
+
+  // Función para actualizar el resumen
+  function updateSummary() {
+    const duelType = duelTypeInput.value === 'training' ? 'Entrenamiento' : 'Parchar';
+    const mode = modeInput.value === 'express' ? 'Express' : 'Programado';
+    const duration = durationInput.value;
+    
+    let timeText = '';
+    if (modeInput.value === 'express') {
+      const minutes = expressMinutesInput.value;
+      if (minutes === '30') timeText = 'en 30 minutos';
+      else if (minutes === '60') timeText = 'en 1 hora';
+      else if (minutes === '90') timeText = 'en 1.5 horas';
+      else if (minutes === '120') timeText = 'en 2 horas';
+      else if (minutes === '180') timeText = 'en 3 horas';
+      else if (minutes === '240') timeText = 'en 4 horas';
+    } else {
+      timeText = 'en fecha programada';
+    }
+    
+    summary.textContent = `${duelType} ${mode} ${timeText}, duración ${duration} minutos`;
+  }
+
+  // Inicializar selecciones por defecto
+  document.querySelector('.duel-type-card[data-type="training"]').classList.add('selected');
+  document.querySelector('.mode-card[data-mode="express"]').classList.add('selected');
+  document.querySelector('.time-option[data-minutes="60"]').classList.add('selected');
+  document.querySelector('.duration-option[data-duration="90"]').classList.add('selected');
+  updateSummary();
+
+  // Validación del formulario
+  document.getElementById('duel-form').addEventListener('submit', function(e) {
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Procesando...';
+  });
+});
 </script>

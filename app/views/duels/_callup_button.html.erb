@@ -1,0 +1,24 @@
+<%# Partial para el botón de convocatoria %>
+<% existing_callup = team.callups.find_by(user: player, duel: duel) %>
+
+<% if existing_callup.nil? %>
+  <%# No convocado - mostrar botón para convocar %>
+  <button class="btn btn-primary btn-sm btn-callup" type="button">
+    <i class="fas fa-plus me-1"></i>Convocar
+  </button>
+<% elsif existing_callup.pending? %>
+  <%# Pendiente - mostrar estado pendiente %>
+  <button class="btn btn-warning btn-sm" type="button" disabled>
+    <i class="fas fa-clock me-1"></i>Pendiente
+  </button>
+<% elsif existing_callup.accepted? %>
+  <%# Confirmado - mostrar estado confirmado %>
+  <button class="btn btn-success btn-sm" type="button" disabled>
+    <i class="fas fa-check me-1"></i>Confirmado
+  </button>
+<% elsif existing_callup.rejected? %>
+  <%# Rechazado - mostrar botón para convocar nuevamente %>
+  <button class="btn btn-primary btn-sm btn-callup" type="button">
+    <i class="fas fa-redo me-1"></i>Convocar Nuevamente
+  </button>
+<% end %> 

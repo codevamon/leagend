@@ -1,0 +1,96 @@
+<%# Vista para que los usuarios vean y respondan sus callups %>
+<div class="container py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+          <i class="fas fa-bell me-2"></i>Mis Convocatorias
+        </h2>
+        <%= link_to notifications_path, class: "btn btn-outline-secondary btn-sm" do %>
+          <i class="fas fa-arrow-left me-1"></i>Volver a Notificaciones
+        <% end %>
+      </div>
+
+      <% if @callups.any? %>
+        <div class="row">
+          <% @callups.each do |callup| %>
+            <div class="col-md-6 col-lg-4 mb-3">
+              <div class="card h-100">
+                <div class="card-header">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                      <%= callup.teamable.name %>
+                    </h6>
+                    <% case callup.status %>
+                    <% when 'pending' %>
+                      <span class="badge bg-warning">
+                        <i class="fas fa-clock me-1"></i>Pendiente
+                      </span>
+                    <% when 'accepted' %>
+                      <span class="badge bg-success">
+                        <i class="fas fa-check me-1"></i>Aceptado
+                      </span>
+                    <% when 'rejected' %>
+                      <span class="badge bg-danger">
+                        <i class="fas fa-times me-1"></i>Rechazado
+                      </span>
+                    <% end %>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="mb-3">
+                    <h6 class="card-title">Duelo</h6>
+                    <p class="card-text">
+                      <strong>Tipo:</strong> <%= callup.duel&.duel_type || "No especificado" %><br>
+                      <strong>Fecha:</strong> <%= callup.duel&.starts_at ? l(callup.duel.starts_at, format: :long) : "No especificada" %><br>
+                      <strong>Arena:</strong> <%= callup.duel&.arena&.name || "Por asignar" %>
+                    </p>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <small class="text-muted">
+                      Convocado hace <%= time_ago_in_words(callup.created_at) %>
+                    </small>
+                  </div>
+
+                  <% if callup.pending? %>
+                    <div class="d-grid gap-2">
+                      <%= button_to accept_callup_path(callup), 
+                          method: :post, 
+                          class: "btn btn-success btn-sm",
+                          data: { confirm: "¿Aceptar la convocatoria?" } do %>
+                        <i class="fas fa-check me-1"></i>Aceptar Convocatoria
+                      <% end %>
+                      <%= button_to reject_callup_path(callup), 
+                          method: :post, 
+                          class: "btn btn-danger btn-sm",
+                          data: { confirm: "¿Rechazar la convocatoria?" } do %>
+                        <i class="fas fa-times me-1"></i>Rechazar Convocatoria
+                      <% end %>
+                    </div>
+                  <% elsif callup.accepted? %>
+                    <div class="alert alert-success mb-0">
+                      <i class="fas fa-check-circle me-2"></i>
+                      Has aceptado esta convocatoria. ¡Prepárate para el duelo!
+                    </div>
+                  <% elsif callup.rejected? %>
+                    <div class="alert alert-danger mb-0">
+                      <i class="fas fa-times-circle me-2"></i>
+                      Has rechazado esta convocatoria.
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="text-center py-5">
+          <i class="fas fa-bell fa-3x text-muted mb-3"></i>
+          <h5 class="text-muted">No tienes convocatorias</h5>
+          <p class="text-muted">Cuando recibas convocatorias para duelos, aparecerán aquí.</p>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div> 

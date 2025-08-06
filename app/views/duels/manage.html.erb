@@ -194,23 +194,35 @@
         </div>
       </div>
 
-      <%# Convocatorias pendientes %>
-      <% if @duel.pending_callups.any? %>
+      <%# Estado de convocatorias %>
+      <% if @duel.callups.any? %>
         <div class="card mt-4">
-          <div class="card-header">
-            <h5 class="mb-0">Convocatorias Pendientes</h5>
-          </div>
+                  <div class="card-header">
+          <h5 class="mb-0">Estado de Convocatorias</h5>
+        </div>
           <div class="card-body">
             <div class="list-group">
-              <% @duel.pending_callups.each do |callup| %>
+              <% @duel.callups.includes(:user).each do |callup| %>
                 <div class="list-group-item d-flex justify-content-between align-items-center">
                   <div>
                     <%= callup.user.firstname%>
                     <small class="text-muted d-block">Convocado hace <%= time_ago_in_words(callup.created_at) %></small>
                   </div>
-                  <div class="btn-group">
-                    <%= button_to "Aceptar", accept_callup_path(callup), method: :post, class: "btn btn-sm btn-success" %>
-                    <%= button_to "Rechazar", reject_callup_path(callup), method: :post, class: "btn btn-sm btn-danger" %>
+                  <div>
+                    <% case callup.status %>
+                    <% when 'pending' %>
+                      <span class="badge bg-warning">
+                        <i class="fas fa-clock me-1"></i>Pendiente
+                      </span>
+                    <% when 'accepted' %>
+                      <span class="badge bg-success">
+                        <i class="fas fa-check me-1"></i>Aceptado
+                      </span>
+                    <% when 'rejected' %>
+                      <span class="badge bg-danger">
+                        <i class="fas fa-times me-1"></i>Rechazado
+                      </span>
+                    <% end %>
                   </div>
                 </div>
               <% end %>

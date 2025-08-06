@@ -201,6 +201,11 @@ class Duel < ApplicationRecord
     status.in?(["pending", "open"]) && !expired? && !has_minimum_players?
   end
 
+  # ¿Está habilitado el toggle de freeplayers?
+  def allow_freeplayers?
+    allow_freeplayers == true
+  end
+
   # Scope para Explore
   scope :open_for_freeplayers, -> { where(status: [:pending, :open], temporary: true).where('expires_at > ?', Time.current) }
 

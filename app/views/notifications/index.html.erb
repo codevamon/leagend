@@ -1,4 +1,9 @@
-<h1>Notificaciones</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="mb-0">Notificaciones</h1>
+  <%= link_to callups_user_path(current_user), class: "btn btn-outline-primary btn-sm" do %>
+    <i class="fas fa-bell me-1"></i>Mis Convocatorias
+  <% end %>
+</div>
 
 <% if @notifications.any? %>
   <%= button_to "Marcar todas como leídas", mark_all_read_notifications_path,
@@ -19,11 +24,21 @@
               <%= button_to "Rechazar", notification_path(notification, reject: true),
                     method: :put, class: "btn btn-sm btn-danger" %>
             <% elsif notification.category == "callup" && notification.notifiable.is_a?(Callup) %>
-              <%= button_to "Aceptar convocatoria", accept_callup_path(notification.notifiable),
-                    method: :post, class: "btn btn-sm btn-success" %>
-
-              <%= button_to "Rechazar convocatoria", reject_callup_path(notification.notifiable),
-                    method: :post, class: "btn btn-sm btn-danger" %>
+              <% if notification.notifiable.user == current_user && notification.notifiable.pending? %>
+                <%= button_to "Aceptar convocatoria", accept_callup_path(notification.notifiable),
+                      method: :post, class: "btn btn-sm btn-success" %>
+                <%= button_to "Rechazar convocatoria", reject_callup_path(notification.notifiable),
+                      method: :post, class: "btn btn-sm btn-danger" %>
+              <% else %>
+                <% callup = notification.notifiable %>
+                <% if callup.accepted? %>
+                  <span class="text-success">✅ Convocatoria aceptada</span>
+                <% elsif callup.rejected? %>
+                  <span class="text-danger">❌ Convocatoria rechazada</span>
+                <% else %>
+                  <span class="text-muted">Pendiente de respuesta</span>
+                <% end %>
+              <% end %>
             <% elsif notification.category == "challenge" && notification.notifiable.is_a?(Challenge) %>
               <% challenger_duel = notification.notifiable.challenger_duel %>
               <%= link_to "Ver desafío", duel_path(challenger_duel), class: "btn btn-sm btn-primary" %>

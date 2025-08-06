@@ -10,7 +10,11 @@ Rails.application.routes.draw do
 
 
   devise_for :users, controllers: { omniauth_callbacks: 'omniauth_callbacks' }
-  resources :users, only: [:index, :show, :edit, :update, :destroy]
+  resources :users, only: [:index, :show, :edit, :update, :destroy] do
+    member do
+      get :callups
+    end
+  end
   resources :notifications, only: [:index, :update] do
     collection do
       put :mark_all_read
@@ -72,6 +76,9 @@ Rails.application.routes.draw do
       patch :accept_challenge
       patch :challenge_team
       post :create_temporary_team
+      get :available_players
+      post :callup_player
+      patch :toggle_freeplayers
     end
   
     resources :lineups, only: [:index, :edit, :update, :destroy]
@@ -91,7 +98,7 @@ Rails.application.routes.draw do
 
   resources :callups, only: [] do
     post :send_callup, on: :collection
-    collection do
+    member do
       post :accept
       post :reject
     end

@@ -195,7 +195,7 @@ class DuelsController < ApplicationController
             locals: { duel: @duel }
           )
         }
-        format.html { redirect_to manage_duel_path(@duel), notice: "Equipo temporal creado exitosamente." }
+        format.html { redirect_to available_players_duel_path(@duel), notice: "Equipo temporal creado exitosamente." }
       end
     end
   rescue => e
@@ -205,6 +205,96 @@ class DuelsController < ApplicationController
           partial: "shared/flash", locals: { alert: "Error al crear equipo: #{e.message}" })
       }
       format.html { redirect_to manage_duel_path(@duel), alert: "Error al crear equipo: #{e.message}" }
+    end
+  end
+
+  # Nueva acción para mostrar jugadores disponibles
+  def available_players
+    @duel = Duel.find(params[:id])
+    @team = @duel.home_team
+    
+    unless @team.present? && @team.temporary?
+      redirect_to manage_duel_path(@duel), alert: "No hay equipo temporal asignado."
+      return
+    end
+
+    # Obtener jugadores de clubs/clanes del usuario
+    @club_players = []
+    @clan_players = []
+    @free_players = []
+    
+    current_user.memberships.includes(:joinable).each do |membership|
+      joinable = membership.joinable
+      if joinable.is_a?(Club)
+        @club_players.concat(joinable.users.where.not(id: current_user.id))
+      elsif joinable.is_a?(Clan)
+        @clan_players.concat(joinable.users.where.not(id: current_user.id))
+      end
+    end
+    
+    # Obtener jugadores libres (sin club/clan)
+    @free_players = User.where.not(id: current_user.id)
+                        .left_joins(:memberships)
+                        .where(memberships: { id: nil })
+                        .limit(20)
+    
+    # Remover duplicados y jugadores ya convocados
+    called_up_user_ids = @team.callups.where(duel: @duel).pluck(:user_id)
+    @club_players = @club_players.uniq.reject { |user| called_up_user_ids.include?(user.id) }
+    @clan_players = @clan_players.uniq.reject { |user| called_up_user_ids.include?(user.id) }
+    @free_players = @free_players.reject { |user| called_up_user_ids.include?(user.id) }
+  end
+
+  # Acción para convocar jugador
+  def callup_player
+    @duel = Duel.find(params[:id])
+    @team = @duel.home_team
+    @user = User.find(params[:user_id])
+    
+    unless @team.present? && @team.temporary?
+      redirect_to manage_duel_path(@duel), alert: "No hay equipo temporal asignado."
+      return
+    end
+
+    # Verificar si ya existe una convocatoria
+    existing_callup = @team.callups.find_by(user: @user, duel: @duel)
+    
+    if existing_callup
+      if existing_callup.pending?
+        render json: { status: 'already_pending', message: 'Jugador ya convocado' }
+      elsif existing_callup.accepted?
+        render json: { status: 'already_accepted', message: 'Jugador ya confirmado' }
+      else
+        # Rechazado, crear nueva convocatoria
+        existing_callup.update!(status: :pending)
+        NotificationService.notify_callup_sent(@user, @team, @duel)
+        render json: { status: 'success', message: 'Jugador convocado nuevamente' }
+      end
+    else
+      # Crear nueva convocatoria
+      callup = @team.callups.create!(
+        user: @user,
+        duel: @duel,
+        status: :pending
+      )
+      NotificationService.notify_callup_sent(@user, @team, @duel)
+      render json: { status: 'success', message: 'Jugador convocado exitosamente' }
+    end
+  rescue => e
+    render json: { status: 'error', message: e.message }
+  end
+
+  # Acción para habilitar/deshabilitar freeplayers
+  def toggle_freeplayers
+    @duel = Duel.find(params[:id])
+    @duel.update!(allow_freeplayers: !@duel.allow_freeplayers)
+    
+    respond_to do |format|
+      format.turbo_stream { 
+        render turbo_stream: turbo_stream.update("freeplayers_toggle", 
+          partial: "duels/freeplayers_toggle", locals: { duel: @duel })
+      }
+      format.html { redirect_to available_players_duel_path(@duel), notice: "Configuración de jugadores libres actualizada." }
     end
   end
 

@@ -104,6 +104,38 @@ class DuelsController < ApplicationController
     end
   end
 
+  # app/controllers/duels_controller.rb
+
+  def self_callup_captain
+    @duel = Duel.find(params[:id])
+    @team = @duel.home_team
+    
+    unless @team.present? && current_user == @team.captain
+      respond_to do |format|
+        format.turbo_stream { render status: :forbidden }
+      end
+      return
+    end
+
+    # Evitar duplicados
+    unless @duel.callups.exists?(user: current_user, teamable: @team)
+      @duel.callups.create!(
+        user: current_user,
+        teamable: @team,
+        status: :accepted
+      )
+      Lineup.create!(
+        duel: @duel,
+        user: current_user,
+        teamable: @team
+      )
+    end
+
+    respond_to do |format|
+      format.turbo_stream
+    end
+  end
+
   # 🔹 FLUJO LEGACY (DEPRECATED - Solo para compatibilidad)
   def when
     redirect_to new_duel_path, notice: "Flujo simplificado. Usa 'Crear Duelo' directamente."
@@ -187,6 +219,9 @@ class DuelsController < ApplicationController
       
       @duel.update!(home_team: team)
       
+      # Autoconvocatoria del capitán
+      @duel.auto_callup_captain
+      
       respond_to do |format|
         format.turbo_stream { 
           render turbo_stream: turbo_stream.replace(
@@ -195,7 +230,7 @@ class DuelsController < ApplicationController
             locals: { duel: @duel }
           )
         }
-        format.html { redirect_to available_players_duel_path(@duel), notice: "Equipo temporal creado exitosamente." }
+        format.html { redirect_to available_players_duel_path(@duel), notice: "Equipo temporal creado exitosamente. Has sido autoconvocado como capitán." }
       end
     end
   rescue => e
@@ -238,11 +273,17 @@ class DuelsController < ApplicationController
                         .where(memberships: { id: nil })
                         .limit(20)
     
-    # Remover duplicados y jugadores ya convocados
+    # Remover duplicados, jugadores ya convocados y el capitán
     called_up_user_ids = @team.callups.where(duel: @duel).pluck(:user_id)
-    @club_players = @club_players.uniq.reject { |user| called_up_user_ids.include?(user.id) }
-    @clan_players = @clan_players.uniq.reject { |user| called_up_user_ids.include?(user.id) }
-    @free_players = @free_players.reject { |user| called_up_user_ids.include?(user.id) }
+    captain_id = @team.captain&.id
+    
+    @club_players = @club_players.uniq.reject { |user| called_up_user_ids.include?(user.id) || user.id == captain_id }
+    @clan_players = @clan_players.uniq.reject { |user| called_up_user_ids.include?(user.id) || user.id == captain_id }
+    @free_players = @free_players.reject { |user| called_up_user_ids.include?(user.id) || user.id == captain_id }
+    
+    # Obtener clubs y clanes del usuario para asociación
+    @user_clubs = current_user.memberships.includes(:joinable).map(&:joinable).select { |j| j.is_a?(Club) }
+    @user_clans = current_user.memberships.includes(:joinable).map(&:joinable).select { |j| j.is_a?(Clan) }
   end
 
   # Acción para convocar jugador
@@ -296,6 +337,109 @@ class DuelsController < ApplicationController
       }
       format.html { redirect_to available_players_duel_path(@duel), notice: "Configuración de jugadores libres actualizada." }
     end
+  end
+
+  # Acción para asociar duelo a club
+  def associate_with_club
+    @duel = Duel.find(params[:id])
+    @club = Club.find(params[:club_id])
+    
+    # Verificar que el usuario sea miembro del club
+    unless current_user.memberships.exists?(joinable: @club)
+      redirect_to available_players_duel_path(@duel), alert: "Debes ser miembro del club para asociarlo."
+      return
+    end
+    
+    membership = current_user.memberships.find_by(joinable: @club)
+    
+    if membership.admin?
+      # Si es admin, asociación inmediata
+      @duel.update!(club: @club, club_association_pending: false)
+      redirect_to available_players_duel_path(@duel), notice: "Duelo asociado al club #{@club.name} exitosamente."
+    else
+      # Si no es admin, enviar notificación al admin
+      @duel.update!(club: @club, club_association_pending: true)
+      
+      # Notificar al admin del club
+      club_admin = @club.user
+      Notification.create!(
+        recipient: club_admin,
+        sender: current_user,
+        category: :club_association,
+        message: "#{current_user.firstname} solicita asociar un duelo al club #{@club.name}",
+        notifiable: @duel
+      )
+      
+      redirect_to available_players_duel_path(@duel), notice: "Solicitud de asociación enviada al admin del club. Pendiente de aprobación."
+    end
+  end
+
+  # Acción para asociar duelo a clan
+  def associate_with_clan
+    @duel = Duel.find(params[:id])
+    @clan = Clan.find(params[:clan_id])
+    
+    # Verificar que el usuario sea miembro del clan
+    unless current_user.memberships.exists?(joinable: @clan)
+      redirect_to available_players_duel_path(@duel), alert: "Debes ser miembro del clan para asociarlo."
+      return
+    end
+    
+    # Asociación inmediata para clanes
+    @duel.update!(clan: @clan)
+    redirect_to available_players_duel_path(@duel), notice: "Duelo asociado al clan #{@clan.name} exitosamente."
+  end
+
+  # Acción para aprobar/rechazar asociación de club
+  def approve_club_association
+    @duel = Duel.find(params[:id])
+    
+    # Verificar que el usuario sea admin del club
+    unless current_user.memberships.exists?(joinable: @duel.club, admin: true)
+      redirect_to notifications_path, alert: "No tienes permisos para aprobar esta asociación."
+      return
+    end
+    
+    @duel.update!(club_association_pending: false)
+    
+    # Notificar al solicitante
+    if @duel.home_team&.captain
+      Notification.create!(
+        recipient: @duel.home_team.captain,
+        sender: current_user,
+        category: :club_association,
+        message: "Tu solicitud de asociación al club #{@duel.club.name} ha sido aprobada",
+        notifiable: @duel
+      )
+    end
+    
+    redirect_to notifications_path, notice: "Asociación de club aprobada exitosamente."
+  end
+
+  def reject_club_association
+    @duel = Duel.find(params[:id])
+    
+    # Verificar que el usuario sea admin del club
+    unless current_user.memberships.exists?(joinable: @duel.club, admin: true)
+      redirect_to notifications_path, alert: "No tienes permisos para rechazar esta asociación."
+      return
+    end
+    
+    # Notificar al solicitante
+    if @duel.home_team&.captain
+      Notification.create!(
+        recipient: @duel.home_team.captain,
+        sender: current_user,
+        category: :club_association,
+        message: "Tu solicitud de asociación al club #{@duel.club.name} ha sido rechazada",
+        notifiable: @duel
+      )
+    end
+    
+    # Remover la asociación
+    @duel.update!(club: nil, club_association_pending: false)
+    
+    redirect_to notifications_path, notice: "Asociación de club rechazada."
   end
 
   private

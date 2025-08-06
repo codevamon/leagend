@@ -42,6 +42,15 @@
             <% elsif notification.category == "challenge" && notification.notifiable.is_a?(Challenge) %>
               <% challenger_duel = notification.notifiable.challenger_duel %>
               <%= link_to "Ver desafío", duel_path(challenger_duel), class: "btn btn-sm btn-primary" %>
+            <% elsif notification.category == "club_association" && notification.notifiable.is_a?(Duel) %>
+              <% if notification.notifiable.club_association_pending? %>
+                <%= button_to "Aprobar Asociación", approve_club_association_duel_path(notification.notifiable), 
+                    method: :patch, class: "btn btn-sm btn-success" %>
+                <%= button_to "Rechazar Asociación", reject_club_association_duel_path(notification.notifiable), 
+                    method: :patch, class: "btn btn-sm btn-danger" %>
+              <% else %>
+                <span class="text-success">✅ Asociación procesada</span>
+              <% end %>
             <% end %>
 
           <% elsif notification.read? && notification.category == "callup" %>

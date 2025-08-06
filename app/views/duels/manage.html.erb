@@ -52,6 +52,9 @@
         </div>
       <% end %>
 
+      <%# Estado de asociación %>
+      <%= render partial: "duels/association_status", locals: { duel: @duel } %>
+
       <%# Información del duelo %>
       <div class="card mb-4">
         <div class="card-body">
@@ -107,7 +110,7 @@
           </h5>
           <div>
             <% if @duel.home_team.present? %>
-              <%= link_to callup_users_team_path(@duel.home_team), class: "btn btn-primary btn-sm" do %>
+              <%= link_to available_players_duel_path(@duel), class: "btn btn-primary btn-sm" do %>
                 <i class="fas fa-plus me-1"></i>Convocar Jugadores
               <% end %>
             <% else %>

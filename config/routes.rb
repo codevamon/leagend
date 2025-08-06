@@ -79,6 +79,11 @@ Rails.application.routes.draw do
       get :available_players
       post :callup_player
       patch :toggle_freeplayers
+      post :associate_with_club
+      post :associate_with_clan
+      patch :approve_club_association
+      patch :reject_club_association
+      post :self_callup_captain
     end
   
     resources :lineups, only: [:index, :edit, :update, :destroy]

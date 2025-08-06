@@ -23,5 +23,11 @@ module Leagend
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+    
+    # Configurar Active Storage para usar MiniMagick en lugar de Vips
+    config.active_storage.variant_processor = :mini_magick
+    
+    # Deshabilitar procesamiento de imágenes temporalmente
+    # config.active_storage.variant_processor = nil
   end
 end

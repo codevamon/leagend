@@ -112,7 +112,11 @@ class DuelsController < ApplicationController
     
     unless @team.present? && current_user == @team.captain
       respond_to do |format|
-        format.turbo_stream { render status: :forbidden }
+        format.turbo_stream { 
+          render turbo_stream: turbo_stream.update("flash_messages", 
+            partial: "shared/flash", locals: { alert: "No tienes permisos para autoconvocarte." })
+        }
+        format.html { redirect_to available_players_duel_path(@duel), alert: "No tienes permisos para autoconvocarte." }
       end
       return
     end
@@ -132,7 +136,18 @@ class DuelsController < ApplicationController
     end
 
     respond_to do |format|
-      format.turbo_stream
+      format.turbo_stream { 
+        render turbo_stream: [
+          turbo_stream.replace(
+            "callup_button_#{current_user.id}",
+            partial: "duels/callup_button", 
+            locals: { player: current_user, team: @team, duel: @duel }
+          ),
+          turbo_stream.update("flash_messages", 
+            partial: "shared/flash", locals: { notice: "Te has autoconvocado exitosamente como capitán." })
+        ]
+      }
+      format.html { redirect_to available_players_duel_path(@duel), notice: "Te has autoconvocado exitosamente como capitán." }
     end
   end
 
@@ -187,6 +202,79 @@ class DuelsController < ApplicationController
     end
   end
 
+  def postpone
+    @duel = Duel.find(params[:id])
+    
+    unless @duel.can_be_postponed?
+      respond_to do |format|
+        format.turbo_stream { 
+          render turbo_stream: turbo_stream.update("flash_messages", 
+            partial: "shared/flash", locals: { alert: "No se puede postergar este duelo en este momento." })
+        }
+        format.html { redirect_to manage_duel_path(@duel), alert: "No se puede postergar este duelo en este momento." }
+      end
+      return
+    end
+
+    hours_to_add = params[:hours].to_i
+    
+    unless [1, 2, 4, 8, 12, 24].include?(hours_to_add)
+      respond_to do |format|
+        format.turbo_stream { 
+          render turbo_stream: turbo_stream.update("flash_messages", 
+            partial: "shared/flash", locals: { alert: "Tiempo de postergación inválido." })
+        }
+        format.html { redirect_to manage_duel_path(@duel), alert: "Tiempo de postergación inválido." }
+      end
+      return
+    end
+
+    ActiveRecord::Base.transaction do
+      # Calcular la nueva duración original
+      original_duration = @duel.ends_at - @duel.starts_at
+      
+      # Actualizar starts_at
+      @duel.starts_at += hours_to_add.hours
+      
+      # Actualizar ends_at manteniendo la misma duración
+      @duel.ends_at = @duel.starts_at + original_duration
+      
+      # Cambiar status a postponed
+      @duel.status = :postponed
+      
+      if @duel.save!
+        # Notificar a los jugadores convocados sobre el cambio de horario
+        notify_players_about_postponement(hours_to_add)
+        
+        respond_to do |format|
+          format.turbo_stream { 
+            render turbo_stream: [
+              turbo_stream.replace(
+                "duel_details_section",
+                partial: "duels/duel_details_section",
+                locals: { duel: @duel }
+              ),
+              turbo_stream.update("flash_messages", 
+                partial: "shared/flash", locals: { notice: "Duelo postergado exitosamente por #{hours_to_add} horas." })
+            ]
+          }
+          format.html { redirect_to manage_duel_path(@duel), notice: "Duelo postergado exitosamente por #{hours_to_add} horas." }
+        end
+      end
+    end
+  rescue => e
+    Rails.logger.error "Error al postergar duelo: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+    
+    respond_to do |format|
+      format.turbo_stream { 
+        render turbo_stream: turbo_stream.update("flash_messages", 
+          partial: "shared/flash", locals: { alert: "Error al postergar el duelo: #{e.message}" })
+      }
+      format.html { redirect_to manage_duel_path(@duel), alert: "Error al postergar el duelo: #{e.message}" }
+    end
+  end
+
   # Acción para publicar el duelo en Explore (jugadores libres)
   def publish_for_freeplayers
     @duel = Duel.find(params[:id])
@@ -209,9 +297,21 @@ class DuelsController < ApplicationController
   def create_temporary_team
     @duel = Duel.find(params[:id])
     
+    # Verificar que el duelo no tenga ya un equipo asignado
+    if @duel.home_team.present?
+      respond_to do |format|
+        format.turbo_stream { 
+          render turbo_stream: turbo_stream.update("flash_messages", 
+            partial: "shared/flash", locals: { alert: "El duelo ya tiene un equipo asignado." })
+        }
+        format.html { redirect_to manage_duel_path(@duel), alert: "El duelo ya tiene un equipo asignado." }
+      end
+      return
+    end
+    
     ActiveRecord::Base.transaction do
       team = Team.create!(
-        name: "Equipo Temporal #{@duel.id.last(4)}",
+        name: "Equipo de #{current_user.firstname}",
         captain: current_user,
         temporary: true,
         expires_at: @duel.starts_at + 24.hours
@@ -219,18 +319,22 @@ class DuelsController < ApplicationController
       
       @duel.update!(home_team: team)
       
-      # Autoconvocatoria del capitán
-      @duel.auto_callup_captain
+      # NO autoconvocar al capitán automáticamente
+      # @duel.auto_callup_captain
       
       respond_to do |format|
         format.turbo_stream { 
-          render turbo_stream: turbo_stream.replace(
-            "team_assignment_section",
-            partial: "duels/team_assignment_section",
-            locals: { duel: @duel }
-          )
+          render turbo_stream: [
+            turbo_stream.replace(
+              "team_assignment_section",
+              partial: "duels/team_assignment_section",
+              locals: { duel: @duel }
+            ),
+            turbo_stream.update("flash_messages", 
+              partial: "shared/flash", locals: { notice: "Equipo temporal creado exitosamente. Ahora puedes convocar jugadores." })
+          ]
         }
-        format.html { redirect_to available_players_duel_path(@duel), notice: "Equipo temporal creado exitosamente. Has sido autoconvocado como capitán." }
+        format.html { redirect_to manage_duel_path(@duel), notice: "Equipo temporal creado exitosamente. Ahora puedes convocar jugadores." }
       end
     end
   rescue => e
@@ -253,33 +357,10 @@ class DuelsController < ApplicationController
       return
     end
 
-    # Obtener jugadores de clubs/clanes del usuario
-    @club_players = []
-    @clan_players = []
-    @free_players = []
-    
-    current_user.memberships.includes(:joinable).each do |membership|
-      joinable = membership.joinable
-      if joinable.is_a?(Club)
-        @club_players.concat(joinable.users.where.not(id: current_user.id))
-      elsif joinable.is_a?(Clan)
-        @clan_players.concat(joinable.users.where.not(id: current_user.id))
-      end
-    end
-    
-    # Obtener jugadores libres (sin club/clan)
-    @free_players = User.where.not(id: current_user.id)
-                        .left_joins(:memberships)
-                        .where(memberships: { id: nil })
-                        .limit(20)
-    
-    # Remover duplicados, jugadores ya convocados y el capitán
-    called_up_user_ids = @team.callups.where(duel: @duel).pluck(:user_id)
-    captain_id = @team.captain&.id
-    
-    @club_players = @club_players.uniq.reject { |user| called_up_user_ids.include?(user.id) || user.id == captain_id }
-    @clan_players = @clan_players.uniq.reject { |user| called_up_user_ids.include?(user.id) || user.id == captain_id }
-    @free_players = @free_players.reject { |user| called_up_user_ids.include?(user.id) || user.id == captain_id }
+    # Obtener TODOS los usuarios de la plataforma (excepto el usuario actual)
+    @all_users = User.where.not(id: current_user.id)
+                     .includes(:memberships, :avatar_attachment)
+                     .order(:firstname, :lastname)
     
     # Obtener clubs y clanes del usuario para asociación
     @user_clubs = current_user.memberships.includes(:joinable).map(&:joinable).select { |j| j.is_a?(Club) }
@@ -293,7 +374,14 @@ class DuelsController < ApplicationController
     @user = User.find(params[:user_id])
     
     unless @team.present? && @team.temporary?
-      redirect_to manage_duel_path(@duel), alert: "No hay equipo temporal asignado."
+      respond_to do |format|
+        format.turbo_stream { 
+          render turbo_stream: turbo_stream.update("flash_messages", 
+            partial: "shared/flash", locals: { alert: "No hay equipo temporal asignado." })
+        }
+        format.html { redirect_to manage_duel_path(@duel), alert: "No hay equipo temporal asignado." }
+        format.json { render json: { status: 'error', message: 'No hay equipo temporal asignado.' } }
+      end
       return
     end
 
@@ -302,14 +390,43 @@ class DuelsController < ApplicationController
     
     if existing_callup
       if existing_callup.pending?
-        render json: { status: 'already_pending', message: 'Jugador ya convocado' }
+        respond_to do |format|
+          format.turbo_stream { 
+            render turbo_stream: turbo_stream.update("flash_messages", 
+              partial: "shared/flash", locals: { alert: 'Jugador ya convocado' })
+          }
+          format.html { redirect_to available_players_duel_path(@duel), alert: 'Jugador ya convocado' }
+          format.json { render json: { status: 'already_pending', message: 'Jugador ya convocado' } }
+        end
       elsif existing_callup.accepted?
-        render json: { status: 'already_accepted', message: 'Jugador ya confirmado' }
+        respond_to do |format|
+          format.turbo_stream { 
+            render turbo_stream: turbo_stream.update("flash_messages", 
+              partial: "shared/flash", locals: { alert: 'Jugador ya confirmado' })
+          }
+          format.html { redirect_to available_players_duel_path(@duel), alert: 'Jugador ya confirmado' }
+          format.json { render json: { status: 'already_accepted', message: 'Jugador ya confirmado' } }
+        end
       else
         # Rechazado, crear nueva convocatoria
         existing_callup.update!(status: :pending)
         NotificationService.notify_callup_sent(@user, @team, @duel)
-        render json: { status: 'success', message: 'Jugador convocado nuevamente' }
+        
+        respond_to do |format|
+          format.turbo_stream { 
+            render turbo_stream: [
+              turbo_stream.replace(
+                "callup_button_#{@user.id}",
+                partial: "duels/callup_button", 
+                locals: { player: @user, team: @team, duel: @duel }
+              ),
+              turbo_stream.update("flash_messages", 
+                partial: "shared/flash", locals: { notice: 'Jugador convocado nuevamente' })
+            ]
+          }
+          format.html { redirect_to available_players_duel_path(@duel), notice: 'Jugador convocado nuevamente' }
+          format.json { render json: { status: 'success', message: 'Jugador convocado nuevamente' } }
+        end
       end
     else
       # Crear nueva convocatoria
@@ -319,10 +436,35 @@ class DuelsController < ApplicationController
         status: :pending
       )
       NotificationService.notify_callup_sent(@user, @team, @duel)
-      render json: { status: 'success', message: 'Jugador convocado exitosamente' }
+      
+      respond_to do |format|
+        format.turbo_stream { 
+          render turbo_stream: [
+            turbo_stream.replace(
+              "callup_button_#{@user.id}",
+              partial: "duels/callup_button", 
+              locals: { player: @user, team: @team, duel: @duel }
+            ),
+            turbo_stream.update("flash_messages", 
+              partial: "shared/flash", locals: { notice: 'Jugador convocado exitosamente' })
+          ]
+        }
+        format.html { redirect_to available_players_duel_path(@duel), notice: 'Jugador convocado exitosamente' }
+        format.json { render json: { status: 'success', message: 'Jugador convocado exitosamente' } }
+      end
     end
   rescue => e
-    render json: { status: 'error', message: e.message }
+    Rails.logger.error "Error en callup_player: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+    
+    respond_to do |format|
+      format.turbo_stream { 
+        render turbo_stream: turbo_stream.update("flash_messages", 
+          partial: "shared/flash", locals: { alert: "Error al convocar jugador: #{e.message}" })
+      }
+      format.html { redirect_to available_players_duel_path(@duel), alert: "Error al convocar jugador: #{e.message}" }
+      format.json { render json: { status: 'error', message: e.message } }
+    end
   end
 
   # Acción para habilitar/deshabilitar freeplayers
@@ -459,5 +601,20 @@ class DuelsController < ApplicationController
       :home_team_id, :away_team_id, :arena_id, :starts_at, :ends_at,
       :duel_type, :mode, :duration, :private, :status, :challenge_type
     )
+  end
+
+  def notify_players_about_postponement(hours_added)
+    # Notificar a todos los jugadores convocados (aceptados y pendientes)
+    all_convoked_users = @duel.callups.includes(:user).map(&:user).uniq
+    
+    all_convoked_users.each do |user|
+      Notification.create!(
+        recipient: user,
+        sender: current_user,
+        category: :duel_postponed,
+        message: "El duelo '#{@duel.duel_type.titleize}' ha sido postergado por #{hours_added} horas. Nueva hora: #{l(@duel.starts_at, format: :long)}",
+        notifiable: @duel
+      )
+    end
   end
 end

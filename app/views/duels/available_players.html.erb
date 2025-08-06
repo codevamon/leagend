@@ -1,5 +1,8 @@
 <%# Vista para mostrar jugadores disponibles después de crear equipo temporal %>
 <div class="container py-4">
+  <div id="flash_messages">
+    <%= render partial: "shared/flash" %>
+  </div>
   <div class="row">
     <div class="col-12">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -134,120 +137,77 @@
         </div>
       </div>
 
-     <%= render partial: "duels/captain_callup", locals: { duel: @duel, team: @team } %>
-
-      <%# Jugadores de Clubs %>
-      <% if @club_players.any? %>
-        <div class="card mb-4">
-          <div class="card-header">
+            <%# Lista de todos los usuarios convocables %>
+      <div class="card mb-4">
+        <div class="card-header">
+          <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
-              <i class="fas fa-building me-2 text-primary"></i>Jugadores de Clubs
+              <i class="fas fa-users me-2"></i>Jugadores Disponibles
+              <span class="badge bg-primary ms-2"><%= @all_users.count %></span>
             </h5>
-          </div>
-          <div class="card-body">
-            <div class="row">
-              <% @club_players.each do |player| %>
-                <div class="col-md-6 col-lg-4 mb-3">
-                  <div class="card h-100">
-                    <div class="card-body">
-                      <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                          <h6 class="card-title mb-1"><%= player.firstname %></h6>
-                          <% player.memberships.includes(:joinable).each do |membership| %>
-                            <% if membership.joinable.is_a?(Club) %>
-                              <span class="badge bg-primary"><%= membership.joinable.name %></span>
-                            <% end %>
-                          <% end %>
-                        </div>
-                        <div class="callup-button" data-user-id="<%= player.id %>">
-                          <%= render partial: "duels/callup_button", locals: { player: player, team: @team, duel: @duel } %>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              <% end %>
+            <div class="d-flex gap-2">
+              <input type="text" id="userSearch" class="form-control form-control-sm" 
+                     placeholder="Buscar por nombre o slug..." style="width: 250px;">
+              <button class="btn btn-outline-secondary btn-sm" onclick="clearSearch()">
+                <i class="fas fa-times"></i>
+              </button>
             </div>
           </div>
         </div>
-      <% end %>
-
-      <%# Jugadores de Clanes %>
-      <% if @clan_players.any? %>
-        <div class="card mb-4">
-          <div class="card-header">
-            <h5 class="mb-0">
-              <i class="fas fa-shield-alt me-2 text-success"></i>Jugadores de Clanes
-            </h5>
-          </div>
-          <div class="card-body">
-            <div class="row">
-              <% @clan_players.each do |player| %>
-                <div class="col-md-6 col-lg-4 mb-3">
-                  <div class="card h-100">
-                    <div class="card-body">
-                      <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                          <h6 class="card-title mb-1"><%= player.firstname %></h6>
-                          <% player.memberships.includes(:joinable).each do |membership| %>
-                            <% if membership.joinable.is_a?(Clan) %>
-                              <span class="badge bg-success"><%= membership.joinable.name %></span>
-                            <% end %>
-                          <% end %>
-                        </div>
-                        <div class="callup-button" data-user-id="<%= player.id %>">
-                          <%= render partial: "duels/callup_button", locals: { player: player, team: @team, duel: @duel } %>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+        <div class="card-body">
+          <% if @all_users.any? %>
+            <div class="row" id="usersList">
+              <% @all_users.each do |user| %>
+                <%= render partial: "duels/user_card", locals: { user: user, team: @team, duel: @duel } %>
               <% end %>
             </div>
-          </div>
-        </div>
-      <% end %>
-
-      <%# Jugadores Libres %>
-      <% if @free_players.any? %>
-        <div class="card mb-4">
-          <div class="card-header">
-            <h5 class="mb-0">
-              <i class="fas fa-user-friends me-2 text-info"></i>Jugadores Libres
-            </h5>
-          </div>
-          <div class="card-body">
-            <div class="row">
-              <% @free_players.each do |player| %>
-                <div class="col-md-6 col-lg-4 mb-3">
-                  <div class="card h-100">
-                    <div class="card-body">
-                      <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                          <h6 class="card-title mb-1"><%= player.firstname %></h6>
-                          <span class="badge bg-info">Libre</span>
-                        </div>
-                        <div class="callup-button" data-user-id="<%= player.id %>">
-                          <%= render partial: "duels/callup_button", locals: { player: player, team: @team, duel: @duel } %>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              <% end %>
+          <% else %>
+            <div class="text-center py-5">
+              <i class="fas fa-users fa-3x text-muted mb-3"></i>
+              <h5 class="text-muted">No hay jugadores disponibles</h5>
+              <p class="text-muted">No hay otros usuarios en la plataforma para convocar.</p>
             </div>
-          </div>
+          <% end %>
         </div>
-      <% end %>
+      </div>
 
-      <%# Mensaje si no hay jugadores disponibles %>
-      <% if @club_players.empty? && @clan_players.empty? && @free_players.empty? %>
-        <div class="text-center py-5">
-          <i class="fas fa-users fa-3x text-muted mb-3"></i>
-          <h5 class="text-muted">No hay jugadores disponibles</h5>
-          <p class="text-muted">Todos los jugadores ya han sido convocados o no tienes acceso a clubs/clanes.</p>
-        </div>
-      <% end %>
+      <%# JavaScript para búsqueda %>
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+          const searchInput = document.getElementById('userSearch');
+          const usersList = document.getElementById('usersList');
+          
+          if (searchInput && usersList) {
+            searchInput.addEventListener('input', function() {
+              const searchTerm = this.value.toLowerCase();
+              const userCards = usersList.querySelectorAll('.col-md-6');
+              
+              userCards.forEach(function(card) {
+                const userName = card.querySelector('.user-slug').textContent.toLowerCase();
+                const fullName = card.querySelector('.text-muted.small').textContent.toLowerCase();
+                
+                if (userName.includes(searchTerm) || fullName.includes(searchTerm)) {
+                  card.style.display = '';
+                } else {
+                  card.style.display = 'none';
+                }
+              });
+            });
+          }
+        });
+        
+        function clearSearch() {
+          const searchInput = document.getElementById('userSearch');
+          const userCards = document.querySelectorAll('.col-md-6');
+          
+          if (searchInput) {
+            searchInput.value = '';
+            userCards.forEach(function(card) {
+              card.style.display = '';
+            });
+          }
+        }
+      </script>
     </div>
   </div>
 </div>
@@ -280,72 +240,4 @@
   </div>
 </div>
 
-<%# JavaScript para manejar convocatorias %>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Manejar clics en botones de convocatoria
-  document.addEventListener('click', function(e) {
-    if (e.target.closest('.callup-button')) {
-      const button = e.target.closest('.callup-button');
-      const userId = button.dataset.userId;
-      
-      if (e.target.classList.contains('btn-callup')) {
-        e.preventDefault();
-        callupPlayer(userId, button);
-      }
-    }
-  });
-
-  function callupPlayer(userId, buttonElement) {
-    const originalText = buttonElement.innerHTML;
-    buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Enviando...';
-    
-    fetch(`/duels/<%= @duel.id %>/callup_player`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
-      },
-      body: JSON.stringify({ user_id: userId })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.status === 'success') {
-        buttonElement.innerHTML = '<i class="fas fa-clock me-1"></i>Pendiente';
-        buttonElement.querySelector('button').classList.remove('btn-primary');
-        buttonElement.querySelector('button').classList.add('btn-warning');
-        buttonElement.querySelector('button').disabled = true;
-        
-        // Mostrar notificación
-        showNotification(data.message, 'success');
-      } else {
-        buttonElement.innerHTML = originalText;
-        showNotification(data.message, 'warning');
-      }
-    })
-    .catch(error => {
-      buttonElement.innerHTML = originalText;
-      showNotification('Error al convocar jugador', 'error');
-    });
-  }
-
-  function showNotification(message, type) {
-    const alertClass = type === 'success' ? 'alert-success' : type === 'warning' ? 'alert-warning' : 'alert-danger';
-    const alertHtml = `
-      <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    `;
-    
-    const container = document.querySelector('.container');
-    container.insertAdjacentHTML('afterbegin', alertHtml);
-    
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-      const alert = document.querySelector('.alert');
-      if (alert) alert.remove();
-    }, 5000);
-  }
-});
-</script> 
+ 

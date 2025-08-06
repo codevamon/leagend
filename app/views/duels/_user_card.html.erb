@@ -1,0 +1,66 @@
+<%# Partial para mostrar cada usuario en la lista de convocables %>
+<div class="col-md-6 col-lg-4 mb-3">
+  <div class="card h-100 user-card">
+    <div class="card-body">
+      <div class="d-flex align-items-start">
+        <%# Avatar %>
+        <div class="me-3">
+          <% if user.avatar.attached? %>
+            <%= image_tag user.avatar.variant(resize_to_fill: [50, 50]), 
+                class: "rounded-circle user-avatar" %>
+          <% else %>
+            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center user-avatar">
+              <i class="fas fa-user text-white"></i>
+            </div>
+          <% end %>
+        </div>
+        
+        <%# Información del usuario %>
+        <div class="flex-grow-1">
+          <%# Slug %>
+          <h6 class="card-title mb-1 user-slug">
+            <%= user.slug %>
+            <% if user == team.captain %>
+              <i class="fas fa-crown captain-crown ms-1" title="Capitán"></i>
+            <% end %>
+          </h6>
+          
+          <%# Nombre completo %>
+          <p class="text-muted small mb-2">
+            <%= user.firstname %> <%= user.lastname %>
+          </p>
+          
+          <%# Badges de club/clan %>
+          <div class="user-badges mb-2">
+            <% user.memberships.includes(:joinable).each do |membership| %>
+              <% if membership.joinable.is_a?(Club) %>
+                <span class="badge bg-primary">
+                  <i class="fas fa-building me-1"></i><%= membership.joinable.name %>
+                </span>
+              <% elsif membership.joinable.is_a?(Clan) %>
+                <span class="badge bg-success">
+                  <i class="fas fa-shield-alt me-1"></i><%= membership.joinable.name %>
+                </span>
+              <% end %>
+            <% end %>
+            
+            <%# Badge de usuario libre si no tiene membresías %>
+            <% if user.memberships.empty? %>
+              <span class="badge bg-info">
+                <i class="fas fa-user-friends me-1"></i>Libre
+              </span>
+            <% end %>
+          </div>
+          
+          <%# Estado de convocatoria %>
+          <%= callup_status_badge(user, team, duel) %>
+        </div>
+        
+        <%# Botón de convocatoria %>
+        <div class="callup-button-container">
+          <%= render partial: "duels/callup_button", locals: { player: user, team: team, duel: duel } %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

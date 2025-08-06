@@ -1,0 +1,68 @@
+/* Estilos específicos para el modal de postergación */
+
+.postpone-modal .modal-header {
+  background-color: #fff3cd;
+  border-bottom: 1px solid #ffeaa7;
+}
+
+.postpone-modal .modal-title {
+  color: #856404;
+}
+
+.postpone-modal .form-select {
+  border-color: #ffc107;
+}
+
+.postpone-modal .form-select:focus {
+  border-color: #ffc107;
+  box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+}
+
+.postpone-modal .alert-info {
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+  color: #0c5460;
+}
+
+.postpone-modal .alert-warning {
+  background-color: #fff3cd;
+  border-color: #ffeaa7;
+  color: #856404;
+}
+
+.postpone-modal .btn-warning {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #212529;
+}
+
+.postpone-modal .btn-warning:hover {
+  background-color: #e0a800;
+  border-color: #d39e00;
+  color: #212529;
+}
+
+/* Animación para el modal */
+.postpone-modal.fade .modal-dialog {
+  transition: transform 0.3s ease-out;
+  transform: translate(0, -50px);
+}
+
+.postpone-modal.show .modal-dialog {
+  transform: none;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .postpone-modal .modal-dialog {
+    margin: 0.5rem;
+  }
+  
+  .postpone-modal .modal-body {
+    padding: 1rem;
+  }
+  
+  .postpone-modal .modal-footer {
+    padding: 0.75rem 1rem;
+  }
+}

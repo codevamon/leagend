@@ -56,51 +56,7 @@
       <%= render partial: "duels/association_status", locals: { duel: @duel } %>
 
       <%# Información del duelo %>
-      <div class="card mb-4">
-        <div class="card-body">
-          <div class="row">
-            <div class="col-md-6">
-              <h5 class="card-title">Detalles del Duelo</h5>
-              <dl class="row mb-0">
-                <dt class="col-sm-4">Tipo:</dt>
-                <dd class="col-sm-8"><%= @duel.duel_type.titleize %></dd>
-
-                <dt class="col-sm-4">Fecha:</dt>
-                <dd class="col-sm-8"><%= l(@duel.starts_at, format: :long) %></dd>
-
-                <dt class="col-sm-4">Duración:</dt>
-                <dd class="col-sm-8"><%= @duel.duration %> minutos</dd>
-
-                <dt class="col-sm-4">Arena:</dt>
-                <dd class="col-sm-8"><%= @duel.arena&.name || "Por asignar" %></dd>
-              </dl>
-            </div>
-            <div class="col-md-6">
-              <h5 class="card-title">Acciones</h5>
-              <div class="d-grid gap-2">
-                <% if @duel.can_start? %>
-                  <%= button_to "Iniciar Duelo", start_duel_path(@duel), method: :patch, class: "btn btn-success" %>
-                <% end %>
-                
-                <% if @duel.can_randomize_teams? %>
-                  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#randomizeModal">
-                    Llenar Cupo
-                  </button>
-                <% end %>
-
-                <% if @duel.can_be_postponed? %>
-                  <%= button_to "Postergar", postpone_duel_path(@duel), method: :patch, class: "btn btn-warning" %>
-                <% end %>
-
-                <% if @duel.can_be_cancelled? %>
-                  <%= button_to "Cancelar", cancel_duel_path(@duel), method: :patch, class: "btn btn-danger", 
-                      data: { confirm: "¿Estás seguro de cancelar este duelo?" } %>
-                <% end %>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <%= render partial: "duels/duel_details_section", locals: { duel: @duel } %>
 
       <%# Gestión de convocatorias %>
       <div class="card mb-4">
@@ -326,4 +282,7 @@
       <% end %>
     </div>
   </div>
-</div> 
+</div>
+
+<%# Modal para postergar duelo %>
+<%= render partial: "duels/postpone_modal", locals: { duel: @duel } %> 

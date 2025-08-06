@@ -41,94 +41,16 @@
       <div class="text-center py-4">
         <i class="fas fa-plus-circle fa-3x text-muted mb-3"></i>
         <h6 class="text-muted">Asigna un equipo</h6>
-        <p class="text-muted small">Crea o selecciona un equipo para este duelo</p>
-        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#assignTeamModal">
+        <p class="text-muted small">Crea un equipo temporal para este duelo</p>
+        <%= button_to create_temporary_team_duel_path(duel), 
+            method: :post, 
+            class: "btn btn-primary btn-sm",
+            data: { turbo: true } do %>
           <i class="fas fa-plus me-1"></i>Asignar Equipo
-        </button>
+        <% end %>
       </div>
     <% end %>
   </div>
 </div>
 
-<!-- Modal para asignar equipo -->
-<div class="modal fade" id="assignTeamModal" tabindex="-1" aria-labelledby="assignTeamModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="assignTeamModalLabel">
-          <i class="fas fa-users me-2"></i>Asignar Equipo
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="d-grid gap-3">
-          <!-- Unirse a Club -->
-          <div class="card border-primary">
-            <div class="card-body text-center">
-              <i class="fas fa-building fa-2x text-primary mb-2"></i>
-              <h6 class="card-title">Unirse a un Club</h6>
-              <p class="card-text small text-muted">Busca y únete a un club existente</p>
-              <button type="button" class="btn btn-outline-primary btn-sm" disabled>
-                <i class="fas fa-search me-1"></i>Buscar Club
-              </button>
-            </div>
-          </div>
-
-          <!-- Unirse a Clan -->
-          <div class="card border-success">
-            <div class="card-body text-center">
-              <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
-              <h6 class="card-title">Unirse a un Clan</h6>
-              <p class="card-text small text-muted">Busca y únete a un clan existente</p>
-              <button type="button" class="btn btn-outline-success btn-sm" disabled>
-                <i class="fas fa-search me-1"></i>Buscar Clan
-              </button>
-            </div>
-          </div>
-
-          <!-- Crear Club -->
-          <div class="card border-warning">
-            <div class="card-body text-center">
-              <i class="fas fa-plus-circle fa-2x text-warning mb-2"></i>
-              <h6 class="card-title">Crear Nuevo Club</h6>
-              <p class="card-text small text-muted">Crea un club desde cero</p>
-              <%= link_to new_club_path, target: "_blank", class: "btn btn-outline-warning btn-sm" do %>
-                <i class="fas fa-plus me-1"></i>Crear Club
-              <% end %>
-            </div>
-          </div>
-
-          <!-- Crear Clan -->
-          <div class="card border-info">
-            <div class="card-body text-center">
-              <i class="fas fa-plus-circle fa-2x text-info mb-2"></i>
-              <h6 class="card-title">Crear Nuevo Clan</h6>
-              <p class="card-text small text-muted">Crea un clan desde cero</p>
-              <%= link_to new_clan_path, target: "_blank", class: "btn btn-outline-info btn-sm" do %>
-                <i class="fas fa-plus me-1"></i>Crear Clan
-              <% end %>
-            </div>
-          </div>
-
-          <!-- Equipo Temporal -->
-          <div class="card border-secondary">
-            <div class="card-body text-center">
-              <i class="fas fa-clock fa-2x text-secondary mb-2"></i>
-              <h6 class="card-title">Crear Equipo Temporal</h6>
-              <p class="card-text small text-muted">Equipo temporal para este duelo</p>
-              <%= button_to create_temporary_team_duel_path(duel), 
-                  method: :post, 
-                  class: "btn btn-outline-secondary btn-sm",
-                  data: { turbo: false } do %>
-                <i class="fas fa-plus me-1"></i>Crear Equipo Temporal
-              <% end %>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-      </div>
-    </div>
-  </div>
-</div> 
+ 

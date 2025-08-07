@@ -12,8 +12,8 @@ class CreateTeams < ActiveRecord::Migration[8.0]
       t.string :captain_id, limit: 36, null: true
 
       # Relación polimórfica con Club o Clan
-      t.string :joinable_type
-      t.string :joinable_id, limit: 36
+      t.string :joinable_type, null: true
+      t.string :joinable_id, limit: 36, null: true
 
       # Estado del equipo (enum opcional)
       t.integer :status

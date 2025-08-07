@@ -6,39 +6,15 @@ class DuelsController < ApplicationController
   # 🔹 FLUJO SIMPLIFICADO - MVP
   def new
     @duel = Duel.new
-    @memberships = current_user.memberships.includes(:joinable)
-    @team_options = @memberships.select do |m|
-      joinable = m.joinable
-      joinable.is_a?(Clan) || (joinable.is_a?(Club) && (m.admin? || m.king?))
-    end
   end
 
     def create
     ActiveRecord::Base.transaction do
-      # Buscar o crear el Team correspondiente al Club/Clan seleccionado (opcional)
-      team = nil
-      if params[:duel][:home_team_id].present?
-        joinable = Club.find_by(id: params[:duel][:home_team_id]) || Clan.find_by(id: params[:duel][:home_team_id])
-        if joinable
-          # Buscar si ya existe un Team para este Club/Clan
-          team = Team.find_by(joinable: joinable)
-          if team.nil?
-            # Crear nuevo Team si no existe
-            team = Team.create!(
-              name: "#{joinable.name} Team",
-              joinable: joinable
-              # Removed captain assignment - will be assigned later in management
-            )
-          end
-        end
-      end
-      
-      # Crear duelo (con o sin home_team)
-      duel_attributes = duel_params.except(:home_team_id)
+      # Crear duelo sin equipo asignado inicialmente
+      duel_attributes = duel_params
       # Limpiar arena_id si está vacío
       duel_attributes[:arena_id] = nil if duel_attributes[:arena_id].blank?
       @duel = Duel.new(duel_attributes)
-      @duel.home_team = team if team.present?
       @duel.status = 'open' # Por defecto abierto para desafíos
       
       # Calcular ends_at si se proporciona duration
@@ -48,29 +24,28 @@ class DuelsController < ApplicationController
       end
       
       if @duel.save!
+        # Crear equipo temporal automáticamente
+        team = Team.create!(
+          name: "Equipo de #{current_user.firstname}",
+          captain: current_user,
+          temporary: true,
+          expires_at: @duel.starts_at + 24.hours
+        )
+        
+        # Asignar el equipo temporal al duelo
+        @duel.update!(home_team: team)
+        
         # Asignar árbitro si se solicita
         RefereeAssigner.assign_to_duel(@duel) if params[:assign_referee] == '1'
         
-        # Notificar solo si hay equipo asignado
-        NotificationService.notify_duel_created(@duel) if @duel.home_team.present?
         redirect_to @duel, notice: 'Duelo creado exitosamente. Ahora puedes convocar jugadores.'
       end
     end
     
   rescue ActiveRecord::RecordInvalid => e
-    @memberships = current_user.memberships.includes(:joinable)
-    @team_options = @memberships.select do |m|
-      joinable = m.joinable
-      joinable.is_a?(Clan) || (joinable.is_a?(Club) && (m.admin? || m.king?))
-    end
     flash.now[:alert] = e.message
     render :new
   rescue => e
-    @memberships = current_user.memberships.includes(:joinable)
-    @team_options = @memberships.select do |m|
-      joinable = m.joinable
-      joinable.is_a?(Clan) || (joinable.is_a?(Club) && (m.admin? || m.king?))
-    end
     flash.now[:alert] = "Error al crear el duelo: #{e.message}"
     render :new
   end
@@ -293,73 +268,20 @@ class DuelsController < ApplicationController
     redirect_to manage_duel_path(@duel), notice: "Jugador libre aceptado y alineado."
   end
 
-  # Acción para crear equipo temporal
-  def create_temporary_team
-    @duel = Duel.find(params[:id])
-    
-    # Verificar que el duelo no tenga ya un equipo asignado
-    if @duel.home_team.present?
-      respond_to do |format|
-        format.turbo_stream { 
-          render turbo_stream: turbo_stream.update("flash_messages", 
-            partial: "shared/flash", locals: { alert: "El duelo ya tiene un equipo asignado." })
-        }
-        format.html { redirect_to manage_duel_path(@duel), alert: "El duelo ya tiene un equipo asignado." }
-      end
-      return
-    end
-    
-    ActiveRecord::Base.transaction do
-      team = Team.create!(
-        name: "Equipo de #{current_user.firstname}",
-        captain: current_user,
-        temporary: true,
-        expires_at: @duel.starts_at + 24.hours
-      )
-      
-      @duel.update!(home_team: team)
-      
-      # NO autoconvocar al capitán automáticamente
-      # @duel.auto_callup_captain
-      
-      respond_to do |format|
-        format.turbo_stream { 
-          render turbo_stream: [
-            turbo_stream.replace(
-              "team_assignment_section",
-              partial: "duels/team_assignment_section",
-              locals: { duel: @duel }
-            ),
-            turbo_stream.update("flash_messages", 
-              partial: "shared/flash", locals: { notice: "Equipo temporal creado exitosamente. Ahora puedes convocar jugadores." })
-          ]
-        }
-        format.html { redirect_to manage_duel_path(@duel), notice: "Equipo temporal creado exitosamente. Ahora puedes convocar jugadores." }
-      end
-    end
-  rescue => e
-    respond_to do |format|
-      format.turbo_stream { 
-        render turbo_stream: turbo_stream.update("flash_messages", 
-          partial: "shared/flash", locals: { alert: "Error al crear equipo: #{e.message}" })
-      }
-      format.html { redirect_to manage_duel_path(@duel), alert: "Error al crear equipo: #{e.message}" }
-    end
-  end
+
 
   # Nueva acción para mostrar jugadores disponibles
   def available_players
     @duel = Duel.find(params[:id])
     @team = @duel.home_team
     
-    unless @team.present? && @team.temporary?
-      redirect_to manage_duel_path(@duel), alert: "No hay equipo temporal asignado."
+    unless @team.present?
+      redirect_to manage_duel_path(@duel), alert: "No hay equipo asignado."
       return
     end
 
-    # Obtener TODOS los usuarios de la plataforma (excepto el usuario actual)
-    @all_users = User.where.not(id: current_user.id)
-                     .includes(:memberships, :avatar_attachment)
+    # Obtener TODOS los usuarios de la plataforma (incluyendo al capitán)
+    @all_users = User.includes(:memberships, :avatar_attachment)
                      .order(:firstname, :lastname)
     
     # Obtener clubs y clanes del usuario para asociación
@@ -373,14 +295,14 @@ class DuelsController < ApplicationController
     @team = @duel.home_team
     @user = User.find(params[:user_id])
     
-    unless @team.present? && @team.temporary?
+    unless @team.present?
       respond_to do |format|
         format.turbo_stream { 
           render turbo_stream: turbo_stream.update("flash_messages", 
-            partial: "shared/flash", locals: { alert: "No hay equipo temporal asignado." })
+            partial: "shared/flash", locals: { alert: "No hay equipo asignado." })
         }
-        format.html { redirect_to manage_duel_path(@duel), alert: "No hay equipo temporal asignado." }
-        format.json { render json: { status: 'error', message: 'No hay equipo temporal asignado.' } }
+        format.html { redirect_to manage_duel_path(@duel), alert: "No hay equipo asignado." }
+        format.json { render json: { status: 'error', message: 'No hay equipo asignado.' } }
       end
       return
     end
@@ -598,7 +520,7 @@ class DuelsController < ApplicationController
 
   def duel_params
     params.require(:duel).permit(
-      :home_team_id, :away_team_id, :arena_id, :starts_at, :ends_at,
+      :away_team_id, :arena_id, :starts_at, :ends_at,
       :duel_type, :mode, :duration, :private, :status, :challenge_type
     )
   end

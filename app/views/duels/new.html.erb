@@ -14,25 +14,6 @@
         <div class="card-body p-4">
           <%= form_with model: @duel, local: true, class: "needs-validation", novalidate: true do |f| %>
             
-            <!-- Equipo Local -->
-            <div class="mb-4">
-              <label class="form-label fw-semibold">
-                <i class="fas fa-home me-2 text-primary"></i>Equipo Local
-              </label>
-              <% if @team_options.any? %>
-                <%= f.select :home_team_id, 
-                    options_from_collection_for_select(@team_options.map(&:joinable), 'id', 'name'),
-                    { prompt: "Selecciona tu equipo (opcional)" },
-                    { class: "form-select" } %>
-              <% else %>
-                <div class="alert alert-info">
-                  <i class="fas fa-info-circle me-2"></i>
-                  No tienes equipos disponibles. 
-                  <%= link_to "Únete a un club o clan", root_path, class: "alert-link" %> para crear duelos.
-                </div>
-              <% end %>
-            </div>
-
             <!-- Fecha y Hora -->
             <div class="row mb-4">
               <div class="col-md-6">
@@ -114,11 +95,11 @@
             </li>
             <li class="mb-2">
               <i class="fas fa-check text-success me-2"></i>
-              <strong>Convoca jugadores:</strong> Invita a tu equipo desde el panel
+              <strong>Equipo automático:</strong> Se crea un equipo temporal automáticamente
             </li>
             <li class="mb-2">
               <i class="fas fa-check text-success me-2"></i>
-              <strong>Busca rival:</strong> Encuentra otro equipo para jugar
+              <strong>Convoca jugadores:</strong> Invita a tu equipo desde el panel
             </li>
             <li class="mb-0">
               <i class="fas fa-check text-success me-2"></i>

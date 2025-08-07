@@ -39,15 +39,9 @@
       <% end %>
     <% else %>
       <div class="text-center py-4">
-        <i class="fas fa-plus-circle fa-3x text-muted mb-3"></i>
-        <h6 class="text-muted">Asigna un equipo</h6>
-        <p class="text-muted small">Crea un equipo temporal para este duelo</p>
-        <%= button_to create_temporary_team_duel_path(duel), 
-            method: :post, 
-            class: "btn btn-primary btn-sm",
-            data: { turbo: true } do %>
-          <i class="fas fa-plus me-1"></i>Asignar Equipo
-        <% end %>
+        <i class="fas fa-spinner fa-spin fa-3x text-muted mb-3"></i>
+        <h6 class="text-muted">Creando equipo temporal...</h6>
+        <p class="text-muted small">Por favor espera un momento</p>
       </div>
     <% end %>
   </div>

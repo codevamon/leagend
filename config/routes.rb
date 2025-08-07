@@ -75,7 +75,7 @@ Rails.application.routes.draw do
       patch :cancel
       patch :accept_challenge
       patch :challenge_team
-      post :create_temporary_team
+
       get :available_players
       post :callup_player
       patch :toggle_freeplayers

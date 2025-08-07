@@ -10,10 +10,17 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_06_064922) do
-# Could not dump table "active_storage_attachments" because of following StandardError
-#   Unknown type 'uuid' for column 'record_id'
-
+ActiveRecord::Schema[8.0].define(version: 2025_04_01_044111) do
+  create_table "active_storage_attachments", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "record_type", null: false
+    t.string "record_id", limit: 36, null: false
+    t.bigint "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
+    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+    t.index ["record_type", "record_id"], name: "index_active_storage_attachments_on_record"
+  end
 
   create_table "active_storage_blobs", force: :cascade do |t|
     t.string "key", null: false
@@ -33,9 +40,17 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_06_064922) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
-# Could not dump table "admins" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
-
+  create_table "admins", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "user_id", limit: 36, null: false
+    t.string "club_id", limit: 36
+    t.string "clan_id", limit: 36
+    t.integer "level", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["clan_id"], name: "index_admins_on_clan_id"
+    t.index ["club_id"], name: "index_admins_on_club_id"
+    t.index ["user_id"], name: "index_admins_on_user_id"
+  end
 
   create_table "arenas", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "owner_id", limit: 36, null: false
@@ -56,9 +71,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_06_064922) do
     t.index ["slug"], name: "index_arenas_on_slug", unique: true
   end
 
-# Could not dump table "callups" because of following StandardError
-#   Unknown type 'uuid' for column 'duel_id'
-
+  create_table "callups", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "duel_id", limit: 36
+    t.string "user_id", limit: 36, null: false
+    t.string "teamable_type", null: false
+    t.string "teamable_id", null: false
+    t.integer "status", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["duel_id", "user_id", "teamable_id", "teamable_type"], name: "idx_on_duel_id_user_id_teamable_id_teamable_type_1d1e3ae175", unique: true
+    t.index ["duel_id"], name: "index_callups_on_duel_id"
+    t.index ["teamable_type", "teamable_id"], name: "index_callups_on_teamable"
+    t.index ["user_id"], name: "index_callups_on_user_id"
+  end
 
   create_table "challenges", force: :cascade do |t|
     t.string "challenger_duel_id", null: false
@@ -70,21 +95,145 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_06_064922) do
     t.index ["challenger_duel_id"], name: "index_challenges_on_challenger_duel_id"
   end
 
-# Could not dump table "clans" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
+  create_table "clans", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "user_id", limit: 36, null: false
+    t.string "slug", default: "", null: false
+    t.string "name"
+    t.string "country"
+    t.string "city"
+    t.string "neighborhood"
+    t.string "address"
+    t.text "description"
+    t.integer "status"
+    t.integer "price"
+    t.decimal "latitude", precision: 10, scale: 6
+    t.decimal "longitude", precision: 10, scale: 6
+    t.boolean "active", default: false
+    t.string "main_color", default: "#000000"
+    t.string "other_color", default: "#FFFFFF"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["slug"], name: "index_clans_on_slug", unique: true
+    t.index ["user_id"], name: "index_clans_on_user_id"
+  end
 
+  create_table "clubs", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "user_id", limit: 36, null: false
+    t.string "slug", default: "", null: false
+    t.string "name"
+    t.string "country"
+    t.string "city"
+    t.string "neighborhood"
+    t.string "address"
+    t.integer "sport"
+    t.integer "status"
+    t.integer "price"
+    t.text "description"
+    t.decimal "prestige", precision: 10, scale: 6
+    t.decimal "latitude", precision: 10, scale: 6
+    t.decimal "longitude", precision: 10, scale: 6
+    t.boolean "private", default: false
+    t.boolean "uniform", default: false
+    t.boolean "training", default: false
+    t.boolean "active", default: false
+    t.boolean "lockers", default: false
+    t.boolean "snacks", default: false
+    t.boolean "payroll", default: false
+    t.boolean "bathrooms", default: false
+    t.boolean "staff", default: false
+    t.boolean "assistance", default: false
+    t.boolean "roof", default: false
+    t.boolean "parking", default: false
+    t.boolean "wifi", default: false
+    t.boolean "gym", default: false
+    t.boolean "showers", default: false
+    t.boolean "amenities", default: false
+    t.boolean "payment", default: false
+    t.boolean "transport", default: false
+    t.boolean "lunch", default: false
+    t.boolean "videogames", default: false
+    t.boolean "air", default: false
+    t.boolean "pools", default: false
+    t.boolean "front", default: false
+    t.string "main_color", default: "#000000"
+    t.string "other_color", default: "#FFFFFF"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["slug"], name: "index_clubs_on_slug", unique: true
+    t.index ["user_id"], name: "index_clubs_on_user_id"
+  end
 
-# Could not dump table "clubs" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
+  create_table "duel_goals", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "duel_id", limit: 36, null: false
+    t.string "user_id", limit: 36, null: false
+    t.string "team_id", limit: 36, null: false
+    t.integer "minute"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["duel_id"], name: "index_duel_goals_on_duel_id"
+    t.index ["team_id"], name: "index_duel_goals_on_team_id"
+    t.index ["user_id"], name: "index_duel_goals_on_user_id"
+  end
 
-
-# Could not dump table "duel_goals" because of following StandardError
-#   Unknown type 'uuid' for column 'duel_id'
-
-
-# Could not dump table "duels" because of following StandardError
-#   Unknown type '' for column 'referee_id'
-
+  create_table "duels", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "home_team_id", limit: 36
+    t.string "away_team_id", limit: 36
+    t.string "club_id"
+    t.string "clan_id"
+    t.string "referee_id", limit: 36
+    t.string "best_player_id", limit: 36
+    t.string "arena_id", limit: 36
+    t.datetime "starts_at"
+    t.datetime "ends_at"
+    t.string "address"
+    t.string "neighborhood"
+    t.string "city"
+    t.string "country"
+    t.decimal "latitude", precision: 10, scale: 6
+    t.decimal "longitude", precision: 10, scale: 6
+    t.decimal "price", precision: 8, scale: 2, default: "0.0"
+    t.decimal "budget", precision: 8, scale: 2, default: "0.0"
+    t.decimal "budget_place", precision: 8, scale: 2, default: "0.0"
+    t.decimal "budget_equipment", precision: 8, scale: 2, default: "0.0"
+    t.decimal "referee_price", precision: 8, scale: 2, default: "0.0"
+    t.integer "status", default: 0
+    t.integer "duel_type", default: 0
+    t.integer "duration", default: 0
+    t.boolean "timing", default: false
+    t.boolean "referee_required", default: false
+    t.boolean "live", default: false
+    t.boolean "private", default: false
+    t.boolean "streaming", default: false
+    t.boolean "audience", default: false
+    t.boolean "parking", default: false
+    t.boolean "wifi", default: false
+    t.boolean "lockers", default: false
+    t.boolean "snacks", default: false
+    t.boolean "allow_freeplayers", default: false
+    t.boolean "allow_freereferees", default: false
+    t.boolean "allow_freearenas", default: false
+    t.boolean "club_association_pending", default: false
+    t.integer "home_goals", default: 0
+    t.integer "away_goals", default: 0
+    t.boolean "hunted", default: false
+    t.boolean "temporary", default: true
+    t.datetime "expires_at"
+    t.boolean "responsibility", default: false
+    t.string "why"
+    t.string "mode"
+    t.integer "challenge", default: 0
+    t.integer "challenge_type", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["arena_id"], name: "index_duels_on_arena_id"
+    t.index ["clan_id"], name: "index_duels_on_clan_id"
+    t.index ["club_id"], name: "index_duels_on_club_id"
+    t.index ["duel_type"], name: "index_duels_on_duel_type"
+    t.index ["ends_at"], name: "index_duels_on_ends_at"
+    t.index ["referee_id"], name: "index_duels_on_referee_id"
+    t.index ["starts_at"], name: "index_duels_on_starts_at"
+    t.index ["status"], name: "index_duels_on_status"
+  end
 
   create_table "friendly_id_slugs", force: :cascade do |t|
     t.string "slug", null: false
@@ -97,13 +246,31 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_06_064922) do
     t.index ["sluggable_type", "sluggable_id"], name: "index_friendly_id_slugs_on_sluggable_type_and_sluggable_id"
   end
 
-# Could not dump table "lineups" because of following StandardError
-#   Unknown type 'uuid' for column 'duel_id'
+  create_table "lineups", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "duel_id", limit: 36, null: false
+    t.string "teamable_type", null: false
+    t.string "teamable_id", null: false
+    t.string "user_id", limit: 36, null: false
+    t.string "position"
+    t.integer "formation"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["duel_id"], name: "index_lineups_on_duel_id"
+    t.index ["teamable_type", "teamable_id"], name: "index_lineups_on_teamable"
+    t.index ["user_id"], name: "index_lineups_on_user_id"
+  end
 
-
-# Could not dump table "memberships" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
-
+  create_table "memberships", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "user_id", limit: 36, null: false
+    t.string "joinable_type", null: false
+    t.string "joinable_id", limit: 36, null: false
+    t.integer "status"
+    t.integer "role"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["joinable_type", "joinable_id"], name: "index_memberships_on_joinable_type_and_joinable_id"
+    t.index ["user_id"], name: "index_memberships_on_user_id"
+  end
 
   create_table "notifications", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "recipient_type", null: false
@@ -122,9 +289,13 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_06_064922) do
     t.index ["sender_type", "sender_id"], name: "index_notifications_on_sender_type_and_sender_id"
   end
 
-# Could not dump table "owners" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
-
+  create_table "owners", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "user_id", limit: 36, null: false
+    t.integer "level", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_owners_on_user_id"
+  end
 
   create_table "pages", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "title", null: false
@@ -137,9 +308,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_06_064922) do
     t.index ["slug"], name: "index_pages_on_slug", unique: true
   end
 
-# Could not dump table "referees" because of following StandardError
-#   Unknown type 'uuid' for column 'user_id'
-
+  create_table "referees", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "user_id", limit: 36, null: false
+    t.decimal "fee", precision: 8, scale: 2, default: "0.0"
+    t.boolean "available"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_referees_on_user_id"
+  end
 
   create_table "reservations", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "reservable_type", null: false
@@ -157,9 +333,24 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_06_064922) do
     t.index ["reservable_type", "reservable_id"], name: "index_reservations_on_reservable_type_and_reservable_id"
   end
 
-# Could not dump table "results" because of following StandardError
-#   Unknown type '' for column 'duel_id'
-
+  create_table "results", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "duel_id", limit: 36, null: false
+    t.string "home_teamable_type", null: false
+    t.string "home_teamable_id", null: false
+    t.string "away_teamable_type", null: false
+    t.string "away_teamable_id", null: false
+    t.string "referee_id", limit: 36
+    t.string "best_player_id", limit: 36
+    t.integer "outcome", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["away_teamable_type", "away_teamable_id"], name: "index_results_on_away_teamable"
+    t.index ["duel_id", "away_teamable_id", "away_teamable_type"], name: "index_results_on_duel_and_away_teamable"
+    t.index ["duel_id", "home_teamable_id", "home_teamable_type"], name: "index_results_on_duel_and_home_teamable"
+    t.index ["duel_id"], name: "index_results_on_duel_id"
+    t.index ["home_teamable_type", "home_teamable_id"], name: "index_results_on_home_teamable"
+    t.index ["referee_id"], name: "index_results_on_referee_id"
+  end
 
   create_table "teams", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "name"

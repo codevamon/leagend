@@ -1,0 +1,16 @@
+<%# Partial para el toggle de freeplayers %>
+<div class="form-check form-switch">
+  <%= form_with url: toggle_freeplayers_duel_path(duel), method: :patch, local: false do |form| %>
+    <%= form.check_box :allow_freeplayers, 
+        { 
+          checked: duel.allow_freeplayers?, 
+          class: "form-check-input",
+          onchange: "this.form.requestSubmit()"
+        } %>
+    <label class="form-check-label" for="allow_freeplayers">
+      <small class="text-muted">
+        <i class="fas fa-user-friends me-1"></i>Llenar con jugadores libres
+      </small>
+    </label>
+  <% end %>
+</div> 

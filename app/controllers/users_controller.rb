@@ -14,6 +14,10 @@ class UsersController < ApplicationController
   def index
   end
 
+  def callups
+    @callups = current_user.callups.includes(:teamable, :duel).order(created_at: :desc)
+  end
+
   def update
     # if @user.update(user_params)
     #   redirect_to @user, notice: 'User was successfully updated.'

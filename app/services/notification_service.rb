@@ -55,6 +55,20 @@ class NotificationService
     end
   end
 
+  def self.notify_callup_sent(user, team, duel)
+    # Notificar al usuario que ha sido convocado
+    unless Notification.exists?(recipient: user, notifiable: duel, category: :callup)
+      Notification.create!(
+        recipient: user,
+        sender: team.captain || team,
+        message: "Has sido convocado al duelo por #{team.name}",
+        category: :callup,
+        notifiable: duel
+      )
+      Rails.logger.info "Notificación de convocatoria enviada a #{user.slug}"
+    end
+  end
+
   private
 
   def self.notify_team_captain(team, duel, message)

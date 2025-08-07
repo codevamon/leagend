@@ -52,52 +52,11 @@
         </div>
       <% end %>
 
+      <%# Estado de asociación %>
+      <%= render partial: "duels/association_status", locals: { duel: @duel } %>
+
       <%# Información del duelo %>
-      <div class="card mb-4">
-        <div class="card-body">
-          <div class="row">
-            <div class="col-md-6">
-              <h5 class="card-title">Detalles del Duelo</h5>
-              <dl class="row mb-0">
-                <dt class="col-sm-4">Tipo:</dt>
-                <dd class="col-sm-8"><%= @duel.duel_type.titleize %></dd>
-
-                <dt class="col-sm-4">Fecha:</dt>
-                <dd class="col-sm-8"><%= l(@duel.starts_at, format: :long) %></dd>
-
-                <dt class="col-sm-4">Duración:</dt>
-                <dd class="col-sm-8"><%= @duel.duration %> minutos</dd>
-
-                <dt class="col-sm-4">Arena:</dt>
-                <dd class="col-sm-8"><%= @duel.arena&.name || "Por asignar" %></dd>
-              </dl>
-            </div>
-            <div class="col-md-6">
-              <h5 class="card-title">Acciones</h5>
-              <div class="d-grid gap-2">
-                <% if @duel.can_start? %>
-                  <%= button_to "Iniciar Duelo", start_duel_path(@duel), method: :patch, class: "btn btn-success" %>
-                <% end %>
-                
-                <% if @duel.can_randomize_teams? %>
-                  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#randomizeModal">
-                    Llenar Cupo
-                  </button>
-                <% end %>
-
-                <% if @duel.can_be_postponed? %>
-                  <%= button_to "Postergar", postpone_duel_path(@duel), method: :patch, class: "btn btn-warning" %>
-                <% end %>
-
-                <% if @duel.can_be_cancelled? %>
-                  <%= button_to "Cancelar", cancel_duel_path(@duel), method: :patch, class: "btn btn-danger", 
-                      data: { confirm: "¿Estás seguro de cancelar este duelo?" } %>
-                <% end %>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <%= render partial: "duels/duel_details_section", locals: { duel: @duel } %>
 
       <%# Gestión de convocatorias %>
       <div class="card mb-4">
@@ -107,7 +66,7 @@
           </h5>
           <div>
             <% if @duel.home_team.present? %>
-              <%= link_to callup_users_team_path(@duel.home_team), class: "btn btn-primary btn-sm" do %>
+              <%= link_to available_players_duel_path(@duel), class: "btn btn-primary btn-sm" do %>
                 <i class="fas fa-plus me-1"></i>Convocar Jugadores
               <% end %>
             <% else %>
@@ -194,23 +153,35 @@
         </div>
       </div>
 
-      <%# Convocatorias pendientes %>
-      <% if @duel.pending_callups.any? %>
+      <%# Estado de convocatorias %>
+      <% if @duel.callups.any? %>
         <div class="card mt-4">
-          <div class="card-header">
-            <h5 class="mb-0">Convocatorias Pendientes</h5>
-          </div>
+                  <div class="card-header">
+          <h5 class="mb-0">Estado de Convocatorias</h5>
+        </div>
           <div class="card-body">
             <div class="list-group">
-              <% @duel.pending_callups.each do |callup| %>
+              <% @duel.callups.includes(:user).each do |callup| %>
                 <div class="list-group-item d-flex justify-content-between align-items-center">
                   <div>
                     <%= callup.user.firstname%>
                     <small class="text-muted d-block">Convocado hace <%= time_ago_in_words(callup.created_at) %></small>
                   </div>
-                  <div class="btn-group">
-                    <%= button_to "Aceptar", accept_callup_path(callup), method: :post, class: "btn btn-sm btn-success" %>
-                    <%= button_to "Rechazar", reject_callup_path(callup), method: :post, class: "btn btn-sm btn-danger" %>
+                  <div>
+                    <% case callup.status %>
+                    <% when 'pending' %>
+                      <span class="badge bg-warning">
+                        <i class="fas fa-clock me-1"></i>Pendiente
+                      </span>
+                    <% when 'accepted' %>
+                      <span class="badge bg-success">
+                        <i class="fas fa-check me-1"></i>Aceptado
+                      </span>
+                    <% when 'rejected' %>
+                      <span class="badge bg-danger">
+                        <i class="fas fa-times me-1"></i>Rechazado
+                      </span>
+                    <% end %>
                   </div>
                 </div>
               <% end %>
@@ -311,4 +282,7 @@
       <% end %>
     </div>
   </div>
-</div> 
+</div>
+
+<%# Modal para postergar duelo %>
+<%= render partial: "duels/postpone_modal", locals: { duel: @duel } %> 

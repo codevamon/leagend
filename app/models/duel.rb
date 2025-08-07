@@ -4,6 +4,8 @@ class Duel < ApplicationRecord
   belongs_to :referee, class_name: 'User', optional: true
   belongs_to :man_of_the_match, class_name: 'User', optional: true
   belongs_to :arena, optional: true
+  belongs_to :club, optional: true
+  belongs_to :clan, optional: true
 
   has_one :result
   
@@ -199,6 +201,59 @@ class Duel < ApplicationRecord
   # ¿Permite llenar cupo con jugadores libres?
   def allows_freeplayers?
     status.in?(["pending", "open"]) && !expired? && !has_minimum_players?
+  end
+
+  # ¿Está habilitado el toggle de freeplayers?
+  def allow_freeplayers?
+    allow_freeplayers == true
+  end
+
+  # Métodos para asociación con club/clan
+  def associated_with_club?
+    club.present?
+  end
+
+  def associated_with_clan?
+    clan.present?
+  end
+
+  def association_status
+    if associated_with_club?
+      if club_association_pending?
+        'pending_club_approval'
+      else
+        'club_approved'
+      end
+    elsif associated_with_clan?
+      'clan_associated'
+    else
+      'not_associated'
+    end
+  end
+
+  def club_association_pending?
+    club.present? && club_association_pending == true
+  end
+
+  # Autoconvocatoria del capitán
+  def auto_callup_captain
+    return unless home_team&.captain
+    return if callups.exists?(user: home_team.captain)
+    
+    callup = callups.create!(
+      user: home_team.captain,
+      teamable: home_team,
+      status: :accepted
+    )
+    
+    # Crear lineup automáticamente
+    Lineup.create!(
+      duel: self,
+      user: home_team.captain,
+      teamable: home_team
+    )
+    
+    callup
   end
 
   # Scope para Explore

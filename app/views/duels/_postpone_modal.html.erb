@@ -1,0 +1,98 @@
+<%# Modal para postergar el duelo %>
+<div class="modal fade postpone-modal" id="postponeModal" tabindex="-1" aria-labelledby="postponeModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="postponeModalLabel">
+          <i class="fas fa-clock me-2"></i>Postergar Duelo
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      
+      <%= form_with url: postpone_duel_path(duel), method: :patch, data: { turbo: true } do |form| %>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Hora actual:</strong> <%= l(duel.starts_at, format: :long) %>
+          </div>
+          
+          <div class="mb-3">
+            <label for="hours" class="form-label">
+              <strong>¿Cuántas horas deseas postergar el duelo?</strong>
+            </label>
+            <select class="form-select" id="hours" name="hours" required>
+              <option value="">Selecciona una opción...</option>
+              <option value="1">1 hora</option>
+              <option value="2">2 horas</option>
+              <option value="4">4 horas</option>
+              <option value="8">8 horas</option>
+              <option value="12">12 horas</option>
+              <option value="24">24 horas</option>
+            </select>
+          </div>
+          
+          <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Importante:</strong> Al postergar el duelo, se notificará automáticamente a todos los jugadores convocados sobre el cambio de horario.
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-1"></i>Cancelar
+          </button>
+          <%= form.submit "Postergar Duelo", class: "btn btn-warning", 
+              data: { 
+                confirm: "¿Estás seguro de que deseas postergar este duelo?",
+                disable_with: "Postergando..."
+              } %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const postponeModal = document.getElementById('postponeModal');
+  const hoursSelect = document.getElementById('hours');
+  const submitButton = postponeModal?.querySelector('input[type="submit"]');
+  
+  if (postponeModal && hoursSelect && submitButton) {
+    // Habilitar/deshabilitar botón según selección
+    hoursSelect.addEventListener('change', function() {
+      submitButton.disabled = !this.value;
+    });
+    
+    // Limpiar selección al abrir el modal
+    postponeModal.addEventListener('show.bs.modal', function() {
+      hoursSelect.value = '';
+      submitButton.disabled = true;
+    });
+    
+    // Mostrar nueva hora cuando se selecciona una opción
+    hoursSelect.addEventListener('change', function() {
+      const hours = parseInt(this.value);
+      if (hours && hours > 0) {
+        const currentTime = new Date('<%= duel.starts_at.iso8601 %>');
+        const newTime = new Date(currentTime.getTime() + (hours * 60 * 60 * 1000));
+        
+        const timeInfo = postponeModal.querySelector('.alert-info');
+        if (timeInfo) {
+          timeInfo.innerHTML = `
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Hora actual:</strong> <%= l(duel.starts_at, format: :long) %><br>
+            <strong>Nueva hora:</strong> ${newTime.toLocaleString('es-ES', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          `;
+        }
+      }
+    });
+  }
+});
+</script>

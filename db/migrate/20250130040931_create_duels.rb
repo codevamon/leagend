@@ -4,8 +4,10 @@ class CreateDuels < ActiveRecord::Migration[8.0]
       t.string  :id, limit: 36, primary_key: true, null: false
 
       # Relaciones con equipos
-      t.string  :home_team_id, limit: 36, null: false
+      t.string  :home_team_id, limit: 36, null: true
       t.string  :away_team_id, limit: 36, null: true
+      t.references :club, type: :string, foreign_key: { to_table: :clubs }, null: true
+      t.references :clan, type: :string, foreign_key: { to_table: :clans }, null: true
 
       # Árbitro y mejor jugador
       t.references :referee, type: :uuid, foreign_key: { to_table: :users }, null: true
@@ -47,6 +49,11 @@ class CreateDuels < ActiveRecord::Migration[8.0]
       t.boolean :wifi,                 default: false
       t.boolean :lockers,              default: false
       t.boolean :snacks,               default: false
+      t.boolean :allow_freeplayers,    default: false
+      t.boolean :allow_freereferees,   default: false
+      t.boolean :allow_freearenas,     default: false
+      t.boolean :club_association_pending,  default: false
+
 
       t.integer :home_goals, default: 0
       t.integer :away_goals, default: 0
@@ -63,6 +70,7 @@ class CreateDuels < ActiveRecord::Migration[8.0]
       # Campo enum "challenge"
       # 0: challengee, 1: challenger, 2: challenged
       t.integer :challenge, default: 0
+      t.integer :challenge_type, default: 0
 
       t.timestamps
     end

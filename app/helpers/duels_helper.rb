@@ -31,4 +31,24 @@ module DuelsHelper
       'fas fa-user-plus'
     end
   end
+
+  def callup_status_badge(player, team, duel)
+    existing_callup = team.callups.find_by(user: player, duel: duel)
+    return nil unless existing_callup
+    
+    case existing_callup.status
+    when 'pending'
+      content_tag :span, class: "badge bg-warning" do
+        content_tag(:i, "", class: "fas fa-clock me-1") + "Pendiente"
+      end
+    when 'accepted'
+      content_tag :span, class: "badge bg-success" do
+        content_tag(:i, "", class: "fas fa-check me-1") + "Confirmado"
+      end
+    when 'rejected'
+      content_tag :span, class: "badge bg-danger" do
+        content_tag(:i, "", class: "fas fa-times me-1") + "Rechazado"
+      end
+    end
+  end
 end

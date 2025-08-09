@@ -43,6 +43,10 @@ class Team < ApplicationRecord
     team_memberships.find_by(leader: true)&.user
   end
 
+  def temporary?
+    temporary == true
+  end
+
   private
 
     def generate_uuid

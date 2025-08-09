@@ -33,3 +33,10 @@
 
 # Ignore master key for decrypting credentials and more.
 /config/master.key
+
+
+# Ignore DB files
+/db/development.sqlite3
+/db/test.sqlite3
+/db/schema.rb
+db/development.sqlite3

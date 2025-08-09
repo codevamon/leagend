@@ -52,6 +52,42 @@ ActiveRecord::Schema[8.0].define(version: 2025_04_01_044111) do
     t.index ["user_id"], name: "index_admins_on_user_id"
   end
 
+  create_table "arena_business_hours", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "arena_id", limit: 36, null: false
+    t.integer "weekday", null: false
+    t.time "opens_at"
+    t.time "closes_at"
+    t.boolean "closed", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["arena_id", "weekday"], name: "index_arena_business_hours_on_arena_id_and_weekday", unique: true
+  end
+
+  create_table "arena_closures", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "arena_id", limit: 36, null: false
+    t.datetime "starts_at", null: false
+    t.datetime "ends_at", null: false
+    t.string "reason"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["arena_id"], name: "index_arena_closures_on_arena_id"
+    t.index ["ends_at"], name: "index_arena_closures_on_ends_at"
+    t.index ["starts_at"], name: "index_arena_closures_on_starts_at"
+  end
+
+  create_table "arena_verifications", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "arena_id", limit: 36, null: false
+    t.string "submitted_by_id", limit: 36, null: false
+    t.string "status", default: "draft", null: false
+    t.text "rejection_reason"
+    t.string "payout_method"
+    t.json "payout_payload"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["arena_id"], name: "index_arena_verifications_on_arena_id"
+    t.index ["status"], name: "index_arena_verifications_on_status"
+  end
+
   create_table "arenas", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "owner_id", limit: 36, null: false
     t.string "name"
@@ -66,9 +102,15 @@ ActiveRecord::Schema[8.0].define(version: 2025_04_01_044111) do
     t.boolean "private", default: false
     t.boolean "rentable", default: false
     t.decimal "price_per_hour", precision: 8, scale: 2, default: "0.0"
+    t.string "status", default: "unverified", null: false
+    t.json "amenities", default: {}
+    t.text "cancellation_policy"
+    t.integer "deposit_cents", default: 0
+    t.string "currency", default: "COP", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["slug"], name: "index_arenas_on_slug", unique: true
+    t.index ["status"], name: "index_arenas_on_status"
   end
 
   create_table "callups", id: { type: :string, limit: 36 }, force: :cascade do |t|
@@ -322,15 +364,22 @@ ActiveRecord::Schema[8.0].define(version: 2025_04_01_044111) do
     t.string "reservable_id", limit: 36, null: false
     t.string "payer_id", limit: 36, null: false
     t.string "receiver_id", limit: 36, null: false
-    t.datetime "start_time"
-    t.datetime "end_time"
-    t.decimal "price_per_hour", precision: 8, scale: 2
-    t.decimal "total_price", precision: 10, scale: 2
-    t.boolean "confirmed", default: false
-    t.string "purpose"
+    t.datetime "starts_at", null: false
+    t.datetime "ends_at", null: false
+    t.string "status", default: "held", null: false
+    t.integer "amount_cents", default: 0, null: false
+    t.string "currency", default: "COP", null: false
+    t.string "payment_provider"
+    t.string "payment_ref"
+    t.text "notes"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["ends_at"], name: "index_reservations_on_ends_at"
+    t.index ["reservable_type", "reservable_id", "starts_at", "ends_at"], name: "idx_reservable_time_window"
     t.index ["reservable_type", "reservable_id"], name: "index_reservations_on_reservable_type_and_reservable_id"
+    t.index ["starts_at"], name: "index_reservations_on_starts_at"
+    t.index ["status"], name: "index_reservations_on_status"
+    t.check_constraint "ends_at > starts_at", name: "chk_reservations_time_window"
   end
 
   create_table "results", id: { type: :string, limit: 36 }, force: :cascade do |t|
@@ -430,6 +479,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_04_01_044111) do
   add_foreign_key "admins", "clans"
   add_foreign_key "admins", "clubs"
   add_foreign_key "admins", "users"
+  add_foreign_key "arena_business_hours", "arenas"
+  add_foreign_key "arena_closures", "arenas"
+  add_foreign_key "arena_verifications", "arenas"
+  add_foreign_key "arena_verifications", "users", column: "submitted_by_id"
   add_foreign_key "arenas", "owners"
   add_foreign_key "callups", "duels"
   add_foreign_key "callups", "users"

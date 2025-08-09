@@ -1,0 +1,10 @@
+<turbo-frame id="arena_quick_new">
+  <div class="fixed inset-0 bg-black bg-opacity-50 z-50"></div>
+  <div class="fixed right-0 top-0 h-full w-full max-w-lg bg-white p-6 overflow-y-auto z-50">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="text-xl font-semibold mb-0">Nueva Arena</h2>
+      <button type="button" class="btn-close" data-action="click->arena-location#closeModal"></button>
+    </div>
+    <%= render "form_quick", arena: @arena %>
+  </div>
+</turbo-frame>

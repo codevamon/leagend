@@ -53,10 +53,14 @@
               <label class="form-label fw-semibold">
                 <i class="fas fa-map-marker-alt me-2 text-danger"></i>Arena (Opcional)
               </label>
-              <%= f.select :arena_id, 
-                  Arena.all.map { |a| ["#{a.name} - #{a.address}", a.id] },
-                  { prompt: "Sin arena - Buscar rival después" },
-                  { class: "form-select" } %>
+              <div class="d-flex gap-2 mb-2">
+                <%= render "arena_select", arenas: @arenas, selected_arena_id: @duel.arena_id %>
+                <button type="button" class="btn btn-outline-primary" data-turbo-frame="arena_quick_new">
+                  <%= link_to "Crear Arena", new_arena_path(quick: true), 
+                      data: { turbo_frame: "arena_quick_new" }, 
+                      class: "text-decoration-none" %>
+                </button>
+              </div>
               <small class="text-muted">
                 <i class="fas fa-info-circle me-1"></i>
                 Si no seleccionas arena, podrás buscar rivales después
@@ -110,6 +114,9 @@
       </div>
     </div>
   </div>
+  
+  <!-- Turbo Frame para modal de arena -->
+  <turbo-frame id="arena_quick_new"></turbo-frame>
 </div>
 
 <script>

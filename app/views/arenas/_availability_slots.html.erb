@@ -1,0 +1,15 @@
+<% if @available_slots.any? %>
+  <div class="row">
+    <% @available_slots.each do |slot| %>
+      <div class="col-3 mb-2">
+        <button class="btn btn-outline-primary btn-sm w-100" 
+                data-slot="<%= slot.iso8601 %>"
+                onclick="selectSlot('<%= slot.iso8601 %>')">
+          <%= slot.strftime("%H:%M") %>
+        </button>
+      </div>
+    <% end %>
+  </div>
+<% else %>
+  <div class="text-muted">No hay horarios disponibles para esta fecha</div>
+<% end %>

@@ -92,10 +92,13 @@ Rails.application.routes.draw do
   end
 
   # Arenas y Propietarios
-    resources :arenas do
-      resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Arena' }
-      post :reserve, on: :member
+  resources :arenas do
+    member do
+      get :availability
     end
+    resources :arena_verifications, only: [:new, :create]
+    resources :reservations, only: [:create]
+  end
 
   resources :referees do
     resources :reservations, only: [:index, :new, :create], defaults: { reservable: 'Referee' }
@@ -110,7 +113,11 @@ Rails.application.routes.draw do
   end
 
   resources :owners, only: [:new, :create, :show]
-  resources :reservations, only: [:index, :show]
+  resources :reservations, only: [:show] do
+    member do
+      patch :cancel
+    end
+  end
 
   resources :challenges, only: [:create, :show] do
     member do
@@ -127,6 +134,12 @@ Rails.application.routes.draw do
     resources :duels, only: [:index, :show, :edit, :update, :destroy]
     resources :referees, only: [:index, :show, :edit, :update, :destroy]
     resources :arenas, only: [:index, :show, :edit, :update, :destroy]
+    resources :arena_verifications, only: [:index, :show] do
+      member do
+      patch :approve
+      patch :reject
+      end
+    end
   end
 
   # API pública
@@ -138,7 +151,16 @@ Rails.application.routes.draw do
       resources :teams, only: [:index, :show]
       resources :duels, only: [:index, :show]
       resources :referees, only: [:index, :show]
-      resources :arenas, only: [:index, :show]
+      resources :arenas, only: [:index, :show] do
+        member do
+          get :availability
+        end
+      end
+      resources :reservations, only: [:create] do
+        member do
+          patch :cancel
+        end
+      end
     end
   end
 

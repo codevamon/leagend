@@ -1,0 +1,284 @@
+<div class="container">
+  <!-- Galería de fotos -->
+  <% if @arena.photos.attached? %>
+    <div class="row mb-4">
+      <div class="col-12">
+        <div id="arenaCarousel" class="carousel slide" data-bs-ride="carousel">
+          <div class="carousel-inner">
+            <% @arena.photos.each_with_index do |photo, index| %>
+              <div class="carousel-item <%= 'active' if index == 0 %>">
+                <%= image_tag photo, class: "d-block w-100", style: "height: 400px; object-fit: cover;" %>
+              </div>
+            <% end %>
+          </div>
+          <% if @arena.photos.count > 1 %>
+            <button class="carousel-control-prev" type="button" data-bs-target="#arenaCarousel" data-bs-slide="prev">
+              <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+              <span class="visually-hidden">Anterior</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#arenaCarousel" data-bs-slide="next">
+              <span class="carousel-control-next-icon" aria-hidden="true"></span>
+              <span class="visually-hidden">Siguiente</span>
+            </button>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="row">
+    <!-- Información principal -->
+    <div class="col-md-8">
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <h1 class="card-title"><%= @arena.name %></h1>
+            <div>
+              <% if @arena.verified? %>
+                <span class="badge bg-success fs-6">Verificada</span>
+              <% elsif @arena.pending_review? %>
+                <span class="badge bg-warning fs-6">Pendiente de revisión</span>
+              <% else %>
+                <span class="badge bg-secondary fs-6">Sin verificar</span>
+              <% end %>
+            </div>
+          </div>
+          
+          <p class="text-muted mb-3">
+            <i class="fas fa-map-marker-alt"></i> <%= @arena.address %>, <%= @arena.city %>, <%= @arena.country %>
+          </p>
+          
+          <% if @arena.prestige && @arena.prestige > 0 %>
+            <div class="mb-3">
+              <span class="text-warning">
+                <% @arena.prestige.to_i.times do %>
+                  <i class="fas fa-star"></i>
+                <% end %>
+              </span>
+              <span class="text-muted ms-2">Prestigio: <%= @arena.prestige %></span>
+            </div>
+          <% end %>
+          
+          <% if @arena.rentable && @arena.price_per_hour > 0 %>
+            <div class="mb-3">
+              <h4 class="text-primary">$<%= number_with_delimiter(@arena.price_per_hour) %> por hora</h4>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <!-- Amenities -->
+      <% if @arena.amenities.present? %>
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5>Servicios y comodidades</h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <% @arena.amenities.each do |amenity, available| %>
+                <% if available %>
+                  <div class="col-md-6 mb-2">
+                    <i class="fas fa-check text-success"></i> <%= amenity.humanize %>
+                  </div>
+                <% end %>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <!-- Política de cancelación -->
+      <% if @arena.cancellation_policy.present? %>
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5>Política de cancelación</h5>
+          </div>
+          <div class="card-body">
+            <p><%= @arena.cancellation_policy %></p>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+    <!-- Panel lateral -->
+    <div class="col-md-4">
+      <!-- Selector de disponibilidad -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5>Disponibilidad</h5>
+        </div>
+        <div class="card-body">
+          <% if @arena.verified? %>
+            <div class="mb-3">
+              <label for="reservation_date" class="form-label">Fecha</label>
+              <input type="date" id="reservation_date" class="form-control" min="<%= Date.current %>">
+            </div>
+            
+            <div id="available_slots" class="mb-3">
+              <label class="form-label">Horarios disponibles</label>
+              <div class="text-muted">Selecciona una fecha para ver los horarios</div>
+            </div>
+            
+            <button id="reserve_btn" class="btn btn-primary w-100" disabled>
+              Reservar
+            </button>
+          <% else %>
+            <div class="alert alert-warning">
+              <h6>⚠️ Arena sin verificar</h6>
+              <p class="mb-0">Esta arena no ha sido verificada. Puedes usarla pero sin garantía de disponibilidad.</p>
+            </div>
+            
+            <% if @arena.owner.user_id == current_user.id %>
+              <%= link_to "Solicitar verificación", new_arena_arena_verification_path(@arena), class: "btn btn-outline-primary w-100" %>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+
+      <!-- Información del propietario -->
+      <div class="card">
+        <div class="card-header">
+          <h5>Propietario</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex align-items-center">
+            <% if @arena.owner.user.avatar.attached? %>
+              <%= image_tag @arena.owner.user.avatar, class: "rounded-circle me-3", style: "width: 50px; height: 50px; object-fit: cover;" %>
+            <% else %>
+              <div class="rounded-circle bg-secondary me-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                <i class="fas fa-user text-white"></i>
+              </div>
+            <% end %>
+            <div>
+              <h6 class="mb-0"><%= @arena.owner.user.display_name %></h6>
+              <span class="badge bg-<%= @arena.owner.level.in?(%w[admin pro]) ? (@arena.owner.level == 'admin' ? 'danger' : 'primary') : 'secondary' %>">
+                <%= @arena.owner.level.titleize %>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de reserva -->
+<div class="modal fade" id="reservationModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar reserva</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="reservation_form">
+          <div class="mb-3">
+            <label class="form-label">Fecha seleccionada</label>
+            <input type="text" id="modal_date" class="form-control" readonly>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Horario seleccionado</label>
+            <input type="text" id="modal_time" class="form-control" readonly>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Precio total</label>
+            <input type="text" id="modal_price" class="form-control" readonly>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="confirm_reservation">Confirmar reserva</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%= render 'photos_hint' %>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const dateInput = document.getElementById('reservation_date');
+  const slotsContainer = document.getElementById('available_slots');
+  const reserveBtn = document.getElementById('reserve_btn');
+  
+  if (dateInput) {
+    dateInput.addEventListener('change', function() {
+      const date = this.value;
+      if (date) {
+        fetch(`/arenas/<%= @arena.slug %>/availability?date=${date}`)
+          .then(response => response.json())
+          .then(data => {
+            displaySlots(data.slots);
+          });
+      }
+    });
+  }
+  
+  function displaySlots(slots) {
+    if (slots.length === 0) {
+      slotsContainer.innerHTML = '<div class="text-muted">No hay horarios disponibles para esta fecha</div>';
+      reserveBtn.disabled = true;
+      return;
+    }
+    
+    const slotsHtml = slots.map(slot => {
+      const time = new Date(slot).toLocaleTimeString('es-ES', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      return `<button class="btn btn-outline-primary btn-sm me-2 mb-2" onclick="selectSlot('${slot}')">${time}</button>`;
+    }).join('');
+    
+    slotsContainer.innerHTML = slotsHtml;
+  }
+  
+  window.selectSlot = function(slot) {
+    const date = dateInput.value;
+    const time = new Date(slot).toLocaleTimeString('es-ES', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    const price = <%= @arena.price_per_hour || 0 %>;
+    
+    document.getElementById('modal_date').value = new Date(date).toLocaleDateString('es-ES');
+    document.getElementById('modal_time').value = time;
+    document.getElementById('modal_price').value = `$${price.toLocaleString()}`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('reservationModal'));
+    modal.show();
+  };
+  
+  document.getElementById('confirm_reservation').addEventListener('click', function() {
+    const date = dateInput.value;
+    const selectedSlot = document.querySelector('.btn-outline-primary.active');
+    
+    if (!date || !selectedSlot) return;
+    
+    const startsAt = new Date(selectedSlot.dataset.slot);
+    const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000); // 1 hora
+    
+    fetch(`/arenas/<%= @arena.slug %>/reservations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
+      },
+      body: JSON.stringify({
+        reservation: {
+          starts_at: startsAt.toISOString(),
+          ends_at: endsAt.toISOString()
+        }
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        alert(data.error);
+      } else {
+        window.location.href = `/reservations/${data.id}`;
+      }
+    });
+  });
+});
+</script>

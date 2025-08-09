@@ -20,10 +20,18 @@ class CreateArenas < ActiveRecord::Migration[8.0]
       t.boolean :rentable, default: false
       t.decimal :price_per_hour, precision: 8, scale: 2, default: 0.0
 
+      # Campos de AddArenaFields integrados
+      t.string  :status, default: "unverified", null: false
+      t.json    :amenities, default: {}
+      t.text    :cancellation_policy
+      t.integer :deposit_cents, default: 0
+      t.string  :currency, default: "COP", null: false
+
       t.timestamps
     end
 
     add_foreign_key :arenas, :owners, column: :owner_id, primary_key: :id
     add_index :arenas, :slug, unique: true
+    add_index :arenas, :status
   end
 end

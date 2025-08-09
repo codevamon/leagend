@@ -1,0 +1,7 @@
+<turbo-frame id="arena_select_frame">
+  <%= select_tag "duel[arena_id]",
+        options_from_collection_for_select(arenas, :id, :name, selected_arena_id),
+        prompt: "Selecciona una arena",
+        id: "duel_arena_id",
+        class: "form-select" %>
+</turbo-frame>

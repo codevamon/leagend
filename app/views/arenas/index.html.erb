@@ -1,23 +1,32 @@
-<h3><%= @duel ? "Selecciona una arena para tu duelo" : "Explorar arenas disponibles" %></h3>
+<div class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Arenas</h1>
+    <%= link_to "Nueva Arena", new_arena_path, class: "btn btn-primary" %>
+  </div>
 
-<% if @arenas.any? %>
-  <div class="row">
-    <% @arenas.each do |arena| %>
-      <div class="col-md-6 mb-3">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title"><%= arena.name %></h5>
-            <p class="card-text"><%= arena.address %>, <%= arena.city %></p>
-            <% if @duel %>
-              <%= button_to "Usar esta arena", duel_path(@duel, arena_id: arena.id), method: :patch, class: "btn btn-success" %>
-            <% else %>
-              <%= link_to "Ver detalles", arena_path(arena), class: "btn btn-outline-primary" %>
+  <% if @arenas.any? %>
+    <div class="row g-3">
+      <% @arenas.with_attached_photos.each do |arena| %>
+        <div class="col-12 col-md-6 col-lg-4">
+          <div class="card h-100">
+            <% if arena.photos.attached? %>
+              <%= image_tag arena.photos.first.variant(resize_to_fill: [600, 300]), class: "card-img-top", alt: arena.name %>
             <% end %>
+            <div class="card-body">
+              <h5 class="card-title"><%= arena.name %></h5>
+              <p class="card-text mb-1"><%= [arena.city, arena.country].compact.join(", ") %></p>
+              <span class="badge <%= arena.verified? ? 'bg-success' : 'bg-secondary' %>">
+                <%= arena.status.capitalize %>
+              </span>
+            </div>
+            <div class="card-footer bg-white">
+              <%= link_to "Ver", arena_path(arena), class: "btn btn-outline-primary btn-sm" %>
+            </div>
           </div>
         </div>
-      </div>
-    <% end %>
-  </div>
-<% else %>
-  <p>No hay arenas disponibles en este momento.</p>
-<% end %>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="alert alert-secondary">Aún no hay arenas.</div>
+  <% end %>
+</div>

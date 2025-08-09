@@ -1,0 +1,4 @@
+<%= turbo_stream.replace "arena_quick_new", "" %>
+<%= turbo_stream.append "arena_select_options" do %>
+  <%= render "option", arena: @arena %>
+<% end %>

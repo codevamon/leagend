@@ -19,7 +19,7 @@
 
     <%# Includes all stylesheet files in app/assets/stylesheets %>
     <%= stylesheet_link_tag "application", "data-turbo-track": "reload", media: "all" %>
-    <%= javascript_include_tag "application", "data-turbo-track": "reload", defer: true %>
+    <%= javascript_importmap_tags %>
 
 
 
@@ -50,6 +50,9 @@
             </li>
             <li class="nav-item">
               <%= link_to "Discover duels", open_duels_path, class: "nav-link" %>
+            </li>
+            <li class="nav-item">
+              <%= link_to "Arenas", arenas_path, class: "nav-link" %>
             </li>
           </ul>
 

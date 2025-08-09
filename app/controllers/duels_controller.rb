@@ -5,7 +5,8 @@ class DuelsController < ApplicationController
 
   # 🔹 FLUJO SIMPLIFICADO - MVP
   def new
-    @duel = Duel.new
+    @duel   = Duel.new
+    @arenas = Arena.order(:name)
   end
 
     def create

@@ -79,6 +79,12 @@ class User < ApplicationRecord
     end
   end
 
+  # Nombre mostrable
+  def display_name
+    n = [firstname, lastname].compact.join(" ").strip
+    n.presence || slug.presence || email
+  end
+
   # Omniauth
   def self.from_omniauth(auth)
     where(provider: auth.provider, uid: auth.uid).first_or_initialize.tap do |user|

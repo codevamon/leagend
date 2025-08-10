@@ -70,6 +70,10 @@
   color: #198754;
 }
 
+turbo-frame .modal-dialog.modal-lg.modal-dialog-centered{
+  z-index:2000;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .arena-select-container {

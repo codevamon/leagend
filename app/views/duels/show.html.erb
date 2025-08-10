@@ -1,3 +1,9 @@
+<%# Assets de Mapbox sin Geocoder (solo visualización) %>
+<%= render 'shared/mapbox_assets', load_geocoder: false %>
+
+<!-- Meta tag para token de Mapbox (necesario para el mapa) -->
+<meta name="mapbox-token" content="<%= Rails.application.credentials.dig(:mapbox, :public_token) %>">
+
 <div class="container mt-4">
   <!-- Header del duelo -->
   <div class="row">
@@ -112,8 +118,7 @@
                   data-arena-map-editable-value="false"
                   data-arena-map-center-lat-value="<%= lat %>"
                   data-arena-map-center-lng-value="<%= lng %>"
-                  data-arena-map-zoom-value="15"
-                  style="height: 300px; width: 100%; border-radius: 8px;">
+                  data-arena-map-zoom-value="15">
                 </div>
                 <div class="mt-2">
                   <small class="text-muted">

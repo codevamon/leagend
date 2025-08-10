@@ -1,7 +1,9 @@
 <%# app/views/shared/_mapbox_assets.html.erb %>
 <%# CSS de Mapbox (no requiere nonce) %>
 <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css">
+<% if local_assigns[:load_geocoder] != false %>
 <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.1/mapbox-gl-geocoder.css">
+<% end %>
 
 <%= javascript_tag nonce: content_security_policy_nonce do %>
   (function () {
@@ -27,6 +29,7 @@
   })();
 <% end %>
 
+<% if local_assigns[:load_geocoder] != false %>
 <%= javascript_tag nonce: content_security_policy_nonce do %>
   (function () {
     function loadGeocoder() {
@@ -52,4 +55,5 @@
     window.addEventListener('mapboxgl:loaded', loadGeocoder);
     if (typeof mapboxgl !== 'undefined') loadGeocoder();
   })();
+<% end %>
 <% end %>

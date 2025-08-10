@@ -1,94 +1,347 @@
-<div class="container mt-4" data-controller="modal duel-form">
+<%# Assets de Mapbox con Geocoder para autocompletado %>
+<%= render 'shared/mapbox_assets', load_geocoder: true %>
+
+<!-- Meta tag para token de Mapbox -->
+<meta name="mapbox-token" content="<%= Rails.application.credentials.dig(:mapbox, :public_token) %>">
+
+<div class="container mt-4" data-controller="duel-steps modal arena-location">
   <div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
+    <div class="col-lg-10">
       <!-- Header -->
       <div class="text-center mb-4">
         <h2 class="fw-bold text-primary">
           <i class="fas fa-trophy me-2"></i>Crear Nuevo Duelo
         </h2>
-        <p class="text-muted">Configura tu duelo en un solo paso</p>
+        <p class="text-muted">Configura tu duelo paso a paso</p>
+      </div>
+
+      <!-- Barra de progreso simple -->
+      <div class="wizard-progress" data-duel-steps-target="progress">
+        <span class="wizard-dot" data-step-dot="1"></span>
+        <span class="wizard-dot" data-step-dot="2"></span>
+        <span class="wizard-dot" data-step-dot="3"></span>
+      </div>
+
+      <!-- Barra de progreso -->
+      <div class="progress-container mb-4">
+        <div class="progress" style="height: 8px;">
+          <div class="progress-bar bg-primary" 
+               role="progressbar" 
+               data-duel-steps-target="progress"
+               style="width: 25%; transition: width 0.3s ease;">
+          </div>
+        </div>
+        
+        <!-- Indicadores de pasos -->
+        <div class="step-indicators d-flex justify-content-between mt-2">
+          <div class="step-indicator active" data-step="1">
+            <div class="step-number">1</div>
+            <small class="step-label">Configuración</small>
+          </div>
+          <div class="step-indicator" data-step="2">
+            <div class="step-number">2</div>
+            <small class="step-label">Fecha y Hora</small>
+          </div>
+          <div class="step-indicator" data-step="3">
+            <div class="step-number">3</div>
+            <small class="step-label">Resumen</small>
+          </div>
+        </div>
       </div>
 
       <!-- Formulario principal -->
       <div class="card shadow-sm border-0">
         <div class="card-body p-4">
-          <%= form_with model: @duel, local: true, class: "needs-validation", novalidate: true, 
-              data: { duel_form_target: "form" } do |f| %>
+          <%= form_with model: @duel, local: true, class: "needs-validation", novalidate: true do |f| %>
             
-            <!-- Fecha y Hora -->
-            <div class="row mb-4">
-              <div class="col-md-6">
-                <label class="form-label fw-semibold">
-                  <i class="fas fa-calendar me-2 text-success"></i>Fecha y Hora
-                </label>
-                <%= f.datetime_local_field :starts_at, 
-                    class: "form-control", 
-                    required: true,
-                    min: Time.current.strftime("%Y-%m-%dT%H:%M"),
-                    data: { duel_form_target: "startsAt" } %>
+            <!-- Paso 1: Ubicación, Arenas y Árbitro -->
+            <fieldset data-duel-steps-target="step" data-step="1" class="step-content">
+              <div class="step-header mb-4">
+                <h4 class="step-title">
+                  <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+                  Configuración del Duelo
+                </h4>
+                <p class="step-description text-muted">
+                  Define ubicación, selecciona arena y configura árbitro
+                </p>
               </div>
-              <div class="col-md-6">
-                <label class="form-label fw-semibold">
-                  <i class="fas fa-stopwatch me-2 text-warning"></i>Duración (horas)
-                </label>
-                <%= f.number_field :duration, 
-                    class: "form-control", 
-                    value: 2,
-                    min: 1, max: 6,
-                    required: true,
-                    data: { duel_form_target: "duration" } %>
+
+              <div class="container">
+                <div class="row">
+                  <!-- Columna izquierda: Inputs, búsqueda, grid y árbitro -->
+                  <div class="col-lg-6">
+                    <!-- Inputs de ubicación -->
+                    <div class="location-inputs mb-4">
+                      <h6 class="text-muted mb-3">
+                        <i class="fas fa-map-marker-alt me-2"></i>Ubicación del Duelo
+                      </h6>
+                      
+                      <div class="mb-3">
+                        <%= f.label :country, "País", class: "form-label fw-semibold" %>
+                        <%= f.text_field :country, 
+                            class: "form-control", 
+                            required: true,
+                            placeholder: "Ej: Colombia",
+                            data: { 
+                              arena_location_target: "country",
+                              action: "input->arena-location#schedule"
+                            } %>
+                        <div data-arena-location-target="geocoderCountry" class="geocoder-container"></div>
+                      </div>
+
+                      <div class="mb-3">
+                        <%= f.label :city, "Ciudad", class: "form-label fw-semibold" %>
+                        <%= f.text_field :city, 
+                            class: "form-control", 
+                            required: true,
+                            placeholder: "Ej: Bogotá",
+                            data: { 
+                              arena_location_target: "city",
+                              action: "input->arena-location#schedule"
+                            } %>
+                        <div data-arena-location-target="geocoderCity" class="geocoder-container"></div>
+                      </div>
+
+                      <div class="mb-3">
+                        <%= f.label :address, "Dirección", class: "form-label fw-semibold" %>
+                        <%= f.text_field :address, 
+                            class: "form-control", 
+                            required: true,
+                            placeholder: "Ej: Calle 123 #45-67",
+                            data: { 
+                              arena_location_target: "address",
+                              action: "input->arena-location#schedule"
+                            } %>
+                        <div data-arena-location-target="geocoderAddress" class="geocoder-container"></div>
+                      </div>
+
+                      <!-- Campos hidden para lat/lng -->
+                      <%= f.hidden_field :latitude, data: { arena_location_target: "latitude" } %>
+                      <%= f.hidden_field :longitude, data: { arena_location_target: "longitude" } %>
+                    </div>
+
+                    <!-- Búsqueda de arenas -->
+                    <div class="arena-search mb-3">
+                      <label class="form-label fw-semibold">
+                        <i class="fas fa-search me-2"></i>Buscar Arenas
+                      </label>
+                      <input type="text" 
+                             placeholder="Buscar arena..." 
+                             class="form-control mb-3"
+                             data-duel-steps-target="arenaSearch" 
+                             data-action="input->duel-steps#onSearchInput">
+                    </div>
+
+                    <!-- Grid de arenas -->
+                    <div class="row g-3" data-duel-steps-target="arenaGrid">
+                      <%= render partial: "arenas/arena_card", collection: @arenas, as: :arena, locals: { selectable: true } %>
+                    </div>
+
+                    <!-- Checkbox árbitro -->
+                    <div class="form-check mt-3">
+                      <%= check_box_tag :assign_referee, "1", false, class: "form-check-input", id: "assign_referee" %>
+                      <label class="form-check-label" for="assign_referee">
+                        <i class="fas fa-user-tie me-2"></i>Asignar árbitro automáticamente
+                      </label>
+                    </div>
+
+                    <!-- Hidden selección de arena -->
+                    <%= hidden_field_tag "duel[arena_id]", nil, data: { duel_steps_target: "arenaId" } %>
+                  </div>
+
+                  <!-- Columna derecha: Mapa -->
+                  <div class="col-lg-6">
+                    <div class="map-section">
+                      <h6 class="text-muted mb-3">
+                        <i class="fas fa-map me-2"></i>Mapa
+                      </h6>
+                      <div id="location-map" 
+                           data-arena-location-target="map" 
+                           style="height:420px;border-radius:8px"></div>
+                      <small class="text-muted d-block mt-2">
+                        <i class="fas fa-info-circle me-1"></i>Arrastra el marcador o usa las sugerencias
+                      </small>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            </fieldset>
 
-            <!-- Tipo de Duelo -->
-            <div class="mb-4">
-              <label class="form-label fw-semibold">
-                <i class="fas fa-gamepad me-2 text-info"></i>Tipo de Duelo
-              </label>
-              <%= f.select :duel_type, 
-                  Duel.duel_types.keys.map { |t| [t.titleize, t] },
-                  { selected: 'friendly' },
-                  { class: "form-select", required: true } %>
-            </div>
-
-            <!-- Arena (Opcional) -->
-            <div class="mb-4">
-              <label class="form-label fw-semibold">
-                <i class="fas fa-map-marker-alt me-2 text-danger"></i>Arena (Opcional)
-              </label>
-              <div class="arena-select-container mb-2">
-                <%= turbo_frame_tag "arena_select" do %>
-                  <%= render "arenas/arena_select", arenas: @arenas, selected_id: @duel&.arena_id %>
-                <% end %>
-                <%= link_to "Crear Arena",
-                    new_arena_path(quick: true),
-                    data: { 
-                      turbo_frame: "modal",
-                      action: "click->modal#open"
-                    },
-                    class: "btn btn-outline-primary",
-                    aria_label: "Crear nueva arena" %>
+            <!-- Paso 2: Fecha y Hora -->
+            <fieldset data-duel-steps-target="step" data-step="2" class="step-content d-none">
+              <div class="step-header mb-4">
+                <h4 class="step-title">
+                  <i class="fas fa-calendar-alt me-2 text-success"></i>
+                  ¿Cuándo será el duelo?
+                </h4>
+                <p class="step-description text-muted">
+                  Selecciona fecha, hora y duración del duelo
+                </p>
               </div>
-              <small class="text-muted">
-                <i class="fas fa-info-circle me-1"></i>
-                Si no seleccionas arena, podrás buscar rivales después
-              </small>
-            </div>
 
-            <!-- Opciones adicionales -->
-            <div class="mb-4">
-              <div class="form-check">
-                <%= check_box_tag :assign_referee, "1", false, class: "form-check-input" %>
-                <label class="form-check-label" for="assign_referee">
-                  <i class="fas fa-user-tie me-2"></i>Asignar árbitro automáticamente
-                </label>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="mb-4">
+                    <%= f.label :starts_at, "Fecha y Hora", class: "form-label fw-semibold" %>
+                    <%= f.datetime_local_field :starts_at, 
+                        class: "form-control", 
+                        required: true,
+                        min: Time.current.strftime("%Y-%m-%dT%H:%M"),
+                        placeholder: "Selecciona fecha y hora" %>
+                  </div>
+                </div>
+                
+                <div class="col-md-6">
+                  <div class="mb-4">
+                    <%= f.label :duration, "Duración (horas)", class: "form-label fw-semibold" %>
+                    <%= f.select :duration, 
+                        options_for_select([
+                          ['1 hora', 1],
+                          ['2 horas', 2],
+                          ['3 horas', 3],
+                          ['4 horas', 4],
+                          ['5 horas', 5],
+                          ['6 horas', 6]
+                        ], 2),
+                        {},
+                        { class: "form-select", required: true } %>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <!-- Botones -->
-            <div class="d-grid gap-2">
-              <%= f.submit "Crear Duelo", class: "btn btn-primary btn-lg btn-create-duel" %>
-              <%= link_to "Cancelar", duels_path, class: "btn btn-outline-secondary" %>
+              <div class="mb-4">
+                <%= f.label :duel_type, "Tipo de Duelo", class: "form-label fw-semibold" %>
+                <%= f.select :duel_type, 
+                    Duel.duel_types.keys.map { |t| [t.titleize, t] },
+                    { selected: 'friendly' },
+                    { class: "form-select", required: true } %>
+                <small class="text-muted">
+                  <i class="fas fa-info-circle me-1"></i>
+                  El tipo determina las reglas y formato del duelo
+                </small>
+              </div>
+            </fieldset>
+
+
+
+            <!-- Paso 3: Resumen -->
+            <fieldset data-duel-steps-target="step" data-step="3" class="step-content d-none">
+              <div class="step-header mb-4">
+                <h4 class="step-title">
+                  <i class="fas fa-clipboard-check me-2 text-info"></i>
+                  Resumen del Duelo
+                </h4>
+                <p class="step-description text-muted">
+                  Revisa los detalles antes de crear el duelo
+                </p>
+              </div>
+
+              <div class="duel-summary">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="summary-section mb-4">
+                      <h6 class="summary-title text-primary">
+                        <i class="fas fa-map-marker-alt me-2"></i>Ubicación
+                      </h6>
+                      <div class="summary-content">
+                        <p class="mb-1">
+                          <strong>País:</strong> <span id="summary-country">-</span>
+                        </p>
+                        <p class="mb-1">
+                          <strong>Ciudad:</strong> <span id="summary-city">-</span>
+                        </p>
+                        <p class="mb-0">
+                          <strong>Dirección:</strong> <span id="summary-address">-</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="summary-section mb-4">
+                      <h6 class="summary-title text-success">
+                        <i class="fas fa-calendar-alt me-2"></i>Fecha y Hora
+                      </h6>
+                      <div class="summary-content">
+                        <p class="mb-1">
+                          <strong>Fecha:</strong> <span id="summary-date">-</span>
+                        </p>
+                        <p class="mb-1">
+                          <strong>Hora:</strong> <span id="summary-time">-</span>
+                        </p>
+                        <p class="mb-0">
+                          <strong>Duración:</strong> <span id="summary-duration">-</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-md-6">
+                    <div class="summary-section mb-4">
+                      <h6 class="summary-title text-warning">
+                        <i class="fas fa-building me-2"></i>Arena
+                      </h6>
+                      <div class="summary-content">
+                        <p class="mb-0">
+                          <strong>Seleccionada:</strong> 
+                          <span id="summary-arena">Sin arena seleccionada</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="summary-section mb-4">
+                      <h6 class="summary-title text-info">
+                        <i class="fas fa-user-tie me-2"></i>Árbitro
+                      </h6>
+                      <div class="summary-content">
+                        <p class="mb-0">
+                          <strong>Asignación:</strong> 
+                          <span id="summary-referee">Sin árbitro asignado</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="summary-section">
+                      <h6 class="summary-title text-secondary">
+                        <i class="fas fa-gamepad me-2"></i>Tipo de Duelo
+                      </h6>
+                      <div class="summary-content">
+                        <p class="mb-0">
+                          <strong>Tipo:</strong> <span id="summary-duel-type">-</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Disclaimer si no hay arena -->
+                <div id="no-arena-disclaimer" class="alert alert-warning mt-4 d-none">
+                  <i class="fas fa-exclamation-triangle me-2"></i>
+                  <strong>Nota:</strong> Al no seleccionar una arena específica, tu duelo será visible para todos los jugadores 
+                  y podrás recibir desafíos de equipos que busquen rivales. Podrás asignar una arena más tarde desde el panel de gestión.
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Navegación entre pasos -->
+            <div class="step-navigation d-flex justify-content-between align-items-center mt-4 pt-4 border-top">
+              <button type="button" 
+                      class="btn btn-outline-secondary"
+                      data-duel-steps-target="prevBtn"
+                      data-action="click->duel-steps#previous">
+                <i class="fas fa-arrow-left me-2"></i>Anterior
+              </button>
+
+              <div class="step-actions">
+                <button type="button" 
+                        class="btn btn-primary"
+                        data-duel-steps-target="nextBtn"
+                        data-action="click->duel-steps#next">
+                  Siguiente<i class="fas fa-arrow-right ms-2"></i>
+                </button>
+
+                <%= f.submit "Crear Duelo", 
+                    class: "btn btn-success btn-lg",
+                    data: { duel_steps_target: "submitBtn" } %>
+              </div>
             </div>
           <% end %>
         </div>
@@ -103,7 +356,7 @@
           <ul class="list-unstyled mb-0">
             <li class="mb-2">
               <i class="fas fa-check text-success me-2"></i>
-              <strong>Crea el duelo:</strong> Configura fecha, hora y tipo
+              <strong>Crea el duelo:</strong> Configura ubicación, fecha y tipo
             </li>
             <li class="mb-2">
               <i class="fas fa-check text-success me-2"></i>
@@ -126,7 +379,7 @@
   <!-- Contenedor para mensajes flash -->
   <div id="flash"></div>
   
-  <!-- Turbo Frame para modal - Configurado para funcionar con arena_location_controller -->
+  <!-- Turbo Frame para modal -->
   <%= turbo_frame_tag "modal" %>
 </div>
 

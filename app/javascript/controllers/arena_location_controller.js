@@ -295,6 +295,12 @@ export default class extends Controller {
     if (result.bbox && this.map) {
       this.map.fitBounds(result.bbox, { padding: 50 })
     }
+    
+    // Disparar evento de cambio de ubicación si hay coordenadas
+    if (result.center) {
+      const [lng, lat] = result.center
+      this.dispatchLocationChangedEvent(lat, lng)
+    }
   }
 
   // Manejar selección de ciudad
@@ -317,6 +323,12 @@ export default class extends Controller {
         zoom: 12 
       })
     }
+    
+    // Disparar evento de cambio de ubicación
+    if (result.center) {
+      const [lng, lat] = result.center
+      this.dispatchLocationChangedEvent(lat, lng)
+    }
   }
 
   // Manejar selección de dirección
@@ -337,6 +349,9 @@ export default class extends Controller {
       
       // Mover marker y centrar mapa
       this.updateMapLocation(lat, lng)
+      
+      // Disparar evento de cambio de ubicación
+      this.dispatchLocationChangedEvent(lat, lng)
     }
   }
 
@@ -380,6 +395,9 @@ export default class extends Controller {
           
           // Actualizar el mapa si está disponible
           this.updateMapLocation(data.lat, data.lng)
+          
+          // Disparar evento de cambio de ubicación
+          this.dispatchLocationChangedEvent(data.lat, data.lng)
           
           console.log('Geocodificación backend exitosa:', { lat: data.lat, lng: data.lng })
         } else {
@@ -481,6 +499,9 @@ export default class extends Controller {
       zoom: this.zoomValue
     })
     
+    // Guardar instancia global para reutilizar
+    window.leagendMap = this.map
+    
     console.log('Mapa creado, agregando controles...');
     this.map.addControl(new mapboxgl.NavigationControl(), "top-right")
 
@@ -523,6 +544,7 @@ export default class extends Controller {
       const { lat, lng } = this.marker.getLngLat()
       this.updateCoordinates(lat, lng)
       this.reverseGeocode(lat, lng)
+      this.dispatchLocationChangedEvent(lat, lng)
     })
   }
 
@@ -555,9 +577,19 @@ export default class extends Controller {
       if (feat.place_name && (!this.addressTarget.value || this.addressTarget.value !== feat.place_name)) {
         this.addressTarget.value = feat.place_name
       }
+      
+      // Disparar evento de cambio de ubicación
+      this.dispatchLocationChangedEvent(lat, lng)
     } catch(error) {
       console.warn("Error en geocodificación inversa:", error)
     }
+  }
+  
+  // Disparar evento global de cambio de ubicación
+  dispatchLocationChangedEvent(lat, lng) {
+    window.dispatchEvent(new CustomEvent("leagend:location_changed", {
+      detail: { lat: lat, lng: lng }
+    }))
   }
   
   getContextText(ctx, types) { 

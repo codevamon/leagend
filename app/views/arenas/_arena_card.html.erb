@@ -1,0 +1,31 @@
+<%# locals: arena (Arena), selectable: true/false %>
+<% selectable = true if local_assigns[:selectable].nil? %>
+<div class="col-md-6 col-lg-4">
+  <div class="arena-card" data-arena-id="<%= arena.id %>" data-arena-name="<%= arena.name %>" data-city="<%= arena.city %>" data-lat="<%= arena.latitude %>" data-lng="<%= arena.longitude %>" data-action="<%= selectable ? 'click->duel-steps#selectArenaCard' : '' %>">
+    <div class="arena-card__media mb-2">
+      <% if arena.photos.attached? %>
+        <% photo = arena.photos.first %>
+        <% if photo.variable? %>
+          <%= image_tag photo.variant(resize_to_fill: [560, 320]).processed, class: "w-100 rounded" %>
+        <% else %>
+          <%= image_tag photo, class: "w-100 rounded" %>
+        <% end %>
+      <% else %>
+        <div class="arena-card__placeholder bg-light rounded p-5 text-center text-muted">Sin foto</div>
+      <% end %>
+    </div>
+    <div class="arena-card__header">
+      <h6 class="arena-card__title mb-1">
+        <i class="fas fa-map-marker-alt me-2 text-primary"></i><%= arena.name %>
+      </h6>
+      <small class="arena-card__location text-muted">
+        <%= [arena.city, arena.country].compact.join(", ") %>
+      </small>
+    </div>
+    <% if arena.neighborhood.present? %>
+      <div class="arena-card__detail small text-muted mt-1">
+        <i class="fas fa-home me-1 text-muted"></i><%= arena.neighborhood %>
+      </div>
+    <% end %>
+  </div>
+</div>

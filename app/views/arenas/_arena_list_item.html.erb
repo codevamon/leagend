@@ -1,0 +1,41 @@
+<div class="list-group-item list-group-item-action d-flex gap-3 align-items-center arena-item"
+     data-arena-id="<%= arena.id %>"
+     data-lat="<%= arena.latitude %>"
+     data-lng="<%= arena.longitude %>"
+     data-name="<%= arena.name %>"
+     data-city="<%= arena.city %>">
+  <div class="ratio ratio-16x9" style="width:120px; max-width:120px;">
+    <% if arena.photos.attached? %>
+      <% photo = arena.photos.first %>
+      <% if photo.variable? %>
+        <%= image_tag(
+              photo.variant(resize_to_fill: [320, 180]).processed,
+              class: "w-100 h-100 object-fit-cover rounded"
+            ) %>
+      <% else %>
+        <%= image_tag photo, class: "w-100 h-100 object-fit-cover rounded" %>
+      <% end %>
+    <% else %>
+      <div class="bg-light w-100 h-100 rounded d-flex align-items-center justify-content-center text-muted">
+        Sin foto
+      </div>
+    <% end %>
+  </div>
+  <div class="flex-fill">
+    <div class="fw-semibold">
+      <%= arena.name %>
+      <% if arena.verified? %>
+        <span class="badge bg-success">Verificada</span>
+      <% end %>
+    </div>
+    <div class="text-muted small">
+      <%= [arena.city, arena.neighborhood].compact.join(" · ") %>
+    </div>
+    <div class="small" data-distance>—</div>
+  </div>
+  <button type="button" 
+          class="btn btn-outline-primary btn-sm" 
+          data-action="duel-steps#pickArenaFromList">
+    Elegir
+  </button>
+</div>

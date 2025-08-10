@@ -25,6 +25,7 @@ class User < ApplicationRecord
   has_one_attached :coverpage
 
   # Relaciones
+  has_one :owner
   has_one :referee
   has_many :owned_clubs, class_name: "Club", foreign_key: "user_id", dependent: :destroy
   has_many :refereed_duels, through: :referee, source: :duels

@@ -1,0 +1,135 @@
+<%= form_with(model: arena, local: true, html: { class: "arena-form" }) do |f| %>
+  <div data-controller="arena-location" 
+       data-arena-location-editable-value="<%= arena.new_record? || arena.owner&.user_id == current_user.id %>"
+       data-arena-location-center-lat-value="<%= arena.latitude || 4.7110 %>"
+       data-arena-location-center-lng-value="<%= arena.longitude || -74.0721 %>"
+       data-mapbox-token="<%= Rails.application.credentials.dig(:mapbox, :public_token) %>">
+  <% if arena.errors.any? %>
+    <div class="alert alert-danger">
+      <h4><%= pluralize(arena.errors.count, "error") %> impidieron guardar esta arena:</h4>
+      <ul>
+        <% arena.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="row">
+    <div class="col-md-6">
+      <div class="mb-3">
+        <%= f.label :name, "Nombre de la Arena", class: "form-label" %>
+        <%= f.text_field :name, class: "form-control", required: true %>
+      </div>
+
+      <div class="mb-3">
+        <%= f.label :country, "País", class: "form-label" %>
+        <%= f.text_field :country, class: "form-control", 
+            data: { 
+              arena_location_target: "country",
+              action: "input->arena-location#schedule"
+            } %>
+        <!-- Contenedor para geocoder de países -->
+        <div data-arena-location-target="geocoderCountry" class="geocoder-container"></div>
+      </div>
+
+      <div class="mb-3">
+        <%= f.label :city, "Ciudad", class: "form-label" %>
+        <%= f.text_field :city, class: "form-control", 
+            data: { 
+              arena_location_target: "city",
+              action: "input->arena-location#schedule"
+            } %>
+        <!-- Contenedor para geocoder de ciudades -->
+        <div data-arena-location-target="geocoderCity" class="geocoder-container"></div>
+      </div>
+
+      <div class="mb-3">
+        <%= f.label :address, "Dirección", class: "form-label" %>
+        <%= f.text_field :address, class: "form-control", 
+            data: { 
+              arena_location_target: "address",
+              action: "input->arena-location#schedule"
+            } %>
+        <!-- Contenedor para geocoder de direcciones -->
+        <div data-arena-location-target="geocoderAddress" class="geocoder-container"></div>
+      </div>
+
+      <!-- Campos hidden para lat/lng -->
+      <%= f.hidden_field :latitude, data: { arena_location_target: "latitude" } %>
+      <%= f.hidden_field :longitude, data: { arena_location_target: "longitude" } %>
+
+      <div class="mb-3">
+        <%= f.label :neighborhood, "Barrio", class: "form-label" %>
+        <%= f.text_field :neighborhood, class: "form-control" %>
+      </div>
+
+      <% if arena.owner&.verified? %>
+        <div class="mb-3">
+          <%= f.label :prestige, "Prestigio", class: "form-label" %>
+          <%= f.number_field :prestige, class: "form-control", step: "0.01", min: "0" %>
+          <small class="text-muted">Valor entre 0 y 10</small>
+        </div>
+
+        <div class="mb-3">
+          <div class="form-check">
+            <%= f.check_box :private, class: "form-check-input" %>
+            <%= f.label :private, "Arena Privada", class: "form-check-label" %>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <div class="form-check">
+            <%= f.check_box :rentable, class: "form-check-input" %>
+            <%= f.label :rentable, "Arena Alquilable", class: "form-check-label" %>
+          </div>
+        </div>
+
+        <% if arena.rentable? %>
+          <div class="mb-3">
+            <%= f.label :price_per_hour, "Precio por Hora", class: "form-label" %>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <%= f.number_field :price_per_hour, class: "form-control", step: "0.01", min: "0" %>
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+
+    <div class="col-md-6">
+      <div class="arena-map-container">
+        <div 
+          id="arena-map" 
+          class="mapbox-container" 
+          data-arena-location-target="map">
+        </div>
+      </div>
+      
+      <small class="text-muted d-block mt-2">
+        <i class="fas fa-info-circle me-1"></i>
+        <% if arena.new_record? || arena.owner&.user_id == current_user.id %>
+          Arrastra el marcador o usa las sugerencias para establecer la ubicación
+        <% else %>
+          Ubicación de la arena
+        <% end %>
+      </small>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <%= f.label :photos, "Fotos (opcional)", class: "form-label" %>
+    <%= f.file_field :photos, multiple: true, direct_upload: true, class: "form-control" %>
+    <small class="text-muted">Máximo 15 fotos</small>
+  </div>
+  
+  <div class="d-flex gap-2 justify-content-end">
+    <% if local_assigns[:quick] %>
+      <button type="button" class="btn btn-outline-secondary" data-action="click->modal#close">
+        <i class="fas fa-times me-1"></i>Cancelar
+      </button>
+    <% end %>
+    <%= f.submit "Crear Arena", class: "btn btn-primary" %>
+  </div>
+  </div>
+<% end %>

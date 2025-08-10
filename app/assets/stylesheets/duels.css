@@ -1,0 +1,112 @@
+/* Estilos específicos para duels */
+
+/* Formulario de duelo */
+.duel-form {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Campos de fecha y hora */
+.datetime-field {
+  position: relative;
+}
+
+.datetime-field input[type="datetime-local"] {
+  padding-right: 40px;
+}
+
+/* Validación del formulario */
+.needs-validation .form-control:invalid,
+.needs-validation .form-select:invalid {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.needs-validation .form-control:valid,
+.needs-validation .form-select:valid {
+  border-color: #198754;
+  box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+}
+
+/* Campos de arena */
+.arena-select-container {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.arena-select-container .form-select {
+  flex: 1;
+}
+
+/* Botones de acción */
+.btn-create-duel {
+  padding: 12px 24px;
+  font-weight: 600;
+}
+
+/* Información adicional */
+.info-card {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.info-card .card-body {
+  padding: 1.5rem;
+}
+
+.info-card h6 {
+  color: #495057;
+  font-weight: 600;
+}
+
+.info-card ul li {
+  color: #6c757d;
+  font-size: 0.95rem;
+}
+
+.info-card ul li i.fa-check {
+  color: #198754;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .arena-select-container {
+    flex-direction: column;
+  }
+  
+  .arena-select-container .btn {
+    width: 100%;
+  }
+  
+  .btn-create-duel {
+    width: 100%;
+    padding: 15px 24px;
+  }
+}
+
+/* Estados de carga */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

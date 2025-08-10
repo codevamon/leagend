@@ -1,6 +1,6 @@
 <h1>Selecciona una Arena para el duelo</h1>
 
-<div id="map" style="height: 400px; margin-bottom: 20px;"></div>
+<div id="map" class="mapbox-container mb-3"></div>
 
 <ul>
   <% @arenas.each do |arena| %>
@@ -31,23 +31,34 @@
   <p>No hay duelos compatibles disponibles.</p>
 <% end %>
 
-<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-<link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+<%# Assets de Mapbox con nonces %>
+<%= render 'shared/mapbox_assets' %>
 
-<script>
-  mapboxgl.accessToken = '<%= Rails.application.credentials.dig(:mapbox, :public_token) %>';
+<%= javascript_tag nonce: content_security_policy_nonce do %>
+  // Esperar a que Mapbox esté disponible
+  function initializeMap() {
+    if (typeof mapboxgl === 'undefined') {
+      setTimeout(initializeMap, 100);
+      return;
+    }
+    
+    mapboxgl.accessToken = '<%= Rails.application.credentials.dig(:mapbox, :public_token) %>';
 
-  const map = new mapboxgl.Map({
-    container: 'map',
-    style: 'mapbox://styles/mapbox/streets-v11',
-    center: [<%= current_user.longitude || -74.0721 %>, <%= current_user.latitude || 4.7110 %>],
-    zoom: 12
-  });
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/streets-v11',
+      center: [<%= current_user.longitude || -74.0721 %>, <%= current_user.latitude || 4.7110 %>],
+      zoom: 12
+    });
 
-  <% @arenas.each do |arena| %>
-    new mapboxgl.Marker()
-      .setLngLat([<%= arena.longitude %>, <%= arena.latitude %>])
-      .setPopup(new mapboxgl.Popup().setText("<%= arena.name %>"))
-      .addTo(map);
-  <% end %>
-</script>
+    <% @arenas.each do |arena| %>
+      new mapboxgl.Marker()
+        .setLngLat([<%= arena.longitude %>, <%= arena.latitude %>])
+        .setPopup(new mapboxgl.Popup().setText("<%= arena.name %>"))
+        .addTo(map);
+    <% end %>
+  }
+  
+  // Inicializar cuando el DOM esté listo
+  document.addEventListener('DOMContentLoaded', initializeMap);
+<% end %>

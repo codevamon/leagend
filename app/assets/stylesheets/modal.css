@@ -1,0 +1,164 @@
+/* Estilos para el modal y elementos de interfaz */
+
+/* Estilos para el modal de arena */
+.modal-backdrop {
+  z-index: 1040;
+}
+
+.modal {
+  z-index: 1050;
+}
+
+/* Estilos específicos para el modal de creación rápida */
+.modal.d-block {
+  display: block !important;
+}
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1040;
+}
+
+.modal-dialog {
+  max-width: 800px;
+}
+
+.modal-content {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+  border-bottom: 1px solid #dee2e6;
+  padding: 1.5rem;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  border-top: 1px solid #dee2e6;
+  padding: 1.5rem;
+}
+
+/* Estilos para el modal slide-over */
+.modal-slide-over {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  max-width: 500px;
+  height: 100%;
+  background: white;
+  z-index: 1050;
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+}
+
+.modal-slide-over.show {
+  transform: translateX(0);
+}
+
+/* Estilos para los pasos */
+.step-indicator {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.step {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e9ecef;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  margin: 0 0.5rem;
+  position: relative;
+}
+
+.step.active {
+  background: #0d6efd;
+  color: white;
+}
+
+.step.completed {
+  background: #198754;
+  color: white;
+}
+
+.step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: -1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 2px;
+  background: #e9ecef;
+}
+
+.step.completed:not(:last-child)::after {
+  background: #198754;
+}
+
+/* Estilos para botones de navegación */
+.btn-navigation {
+  min-width: 120px;
+}
+
+/* Responsive para el modal */
+@media (max-width: 768px) {
+  .modal-slide-over {
+    max-width: 100%;
+  }
+}
+
+/* Estilos para el select de arena */
+#duel_arena_id:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Estilos para el modal de arena */
+.hidden {
+  display: none !important;
+}
+
+/* Estilos para el mapa de Mapbox */
+.mapbox-pane-small {
+  height: 200px;
+}
+
+/* Mejoras en el mapa */
+.mapboxgl-map {
+  border-radius: 8px;
+}
+
+.mapboxgl-marker {
+  cursor: pointer;
+}
+
+.mapboxgl-marker:hover {
+  transform: scale(1.1);
+  transition: transform 0.2s ease;
+}
+
+/* Estilos para el modal del mapa */
+.modal .mapbox-embed {
+  height: 350px;
+}
+
+.modal .geocoder-container {
+  margin-bottom: 15px;
+}

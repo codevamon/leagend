@@ -7,7 +7,7 @@
           <div class="carousel-inner">
             <% @arena.photos.each_with_index do |photo, index| %>
               <div class="carousel-item <%= 'active' if index == 0 %>">
-                <%= image_tag photo, class: "d-block w-100", style: "height: 400px; object-fit: cover;" %>
+                <%= image_tag photo, class: "d-block w-100 carousel-image" %>
               </div>
             <% end %>
           </div>
@@ -64,6 +64,37 @@
               <h4 class="text-primary">$<%= number_with_delimiter(@arena.price_per_hour) %> por hora</h4>
             </div>
           <% end %>
+        </div>
+      </div>
+
+      <!-- Mapa de ubicación -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5><i class="fas fa-map-marker-alt me-2"></i>Ubicación</h5>
+        </div>
+        <div class="card-body">
+          <div 
+            id="arena-map-show" 
+            class="mapbox-container" 
+            data-controller="arena-location"
+            data-arena-location-target="map"
+            data-arena-location-editable-value="false"
+            data-arena-location-center-lat-value="<%= @arena.latitude || 4.7110 %>"
+            data-arena-location-center-lng-value="<%= @arena.longitude || -74.0721 %>"
+            data-arena-location-zoom-value="15">
+          </div>
+          <div class="mt-3"> 
+            <p class="text-muted mb-1">
+              <i class="fas fa-map-marker-alt me-1"></i>
+              <%= @arena.address %>, <%= @arena.city %>, <%= @arena.country %>
+            </p>
+            <% if @arena.neighborhood.present? %>
+              <p class="text-muted mb-0">
+                <i class="fas fa-building me-1"></i>
+                Barrio: <%= @arena.neighborhood %>
+              </p>
+            <% end %>
+          </div>
         </div>
       </div>
 
@@ -143,9 +174,9 @@
         <div class="card-body">
           <div class="d-flex align-items-center">
             <% if @arena.owner.user.avatar.attached? %>
-              <%= image_tag @arena.owner.user.avatar, class: "rounded-circle me-3", style: "width: 50px; height: 50px; object-fit: cover;" %>
+              <%= image_tag @arena.owner.user.avatar, class: "rounded-circle me-3 avatar-image" %>
             <% else %>
-              <div class="rounded-circle bg-secondary me-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+              <div class="rounded-circle bg-secondary me-3 d-flex align-items-center justify-content-center avatar-placeholder">
                 <i class="fas fa-user text-white"></i>
               </div>
             <% end %>
@@ -195,90 +226,3 @@
 </div>
 
 <%= render 'photos_hint' %>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const dateInput = document.getElementById('reservation_date');
-  const slotsContainer = document.getElementById('available_slots');
-  const reserveBtn = document.getElementById('reserve_btn');
-  
-  if (dateInput) {
-    dateInput.addEventListener('change', function() {
-      const date = this.value;
-      if (date) {
-        fetch(`/arenas/<%= @arena.slug %>/availability?date=${date}`)
-          .then(response => response.json())
-          .then(data => {
-            displaySlots(data.slots);
-          });
-      }
-    });
-  }
-  
-  function displaySlots(slots) {
-    if (slots.length === 0) {
-      slotsContainer.innerHTML = '<div class="text-muted">No hay horarios disponibles para esta fecha</div>';
-      reserveBtn.disabled = true;
-      return;
-    }
-    
-    const slotsHtml = slots.map(slot => {
-      const time = new Date(slot).toLocaleTimeString('es-ES', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-      return `<button class="btn btn-outline-primary btn-sm me-2 mb-2" onclick="selectSlot('${slot}')">${time}</button>`;
-    }).join('');
-    
-    slotsContainer.innerHTML = slotsHtml;
-  }
-  
-  window.selectSlot = function(slot) {
-    const date = dateInput.value;
-    const time = new Date(slot).toLocaleTimeString('es-ES', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-    const price = <%= @arena.price_per_hour || 0 %>;
-    
-    document.getElementById('modal_date').value = new Date(date).toLocaleDateString('es-ES');
-    document.getElementById('modal_time').value = time;
-    document.getElementById('modal_price').value = `$${price.toLocaleString()}`;
-    
-    const modal = new bootstrap.Modal(document.getElementById('reservationModal'));
-    modal.show();
-  };
-  
-  document.getElementById('confirm_reservation').addEventListener('click', function() {
-    const date = dateInput.value;
-    const selectedSlot = document.querySelector('.btn-outline-primary.active');
-    
-    if (!date || !selectedSlot) return;
-    
-    const startsAt = new Date(selectedSlot.dataset.slot);
-    const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000); // 1 hora
-    
-    fetch(`/arenas/<%= @arena.slug %>/reservations`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
-      },
-      body: JSON.stringify({
-        reservation: {
-          starts_at: startsAt.toISOString(),
-          ends_at: endsAt.toISOString()
-        }
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.error) {
-        alert(data.error);
-      } else {
-        window.location.href = `/reservations/${data.id}`;
-      }
-    });
-  });
-});
-</script>

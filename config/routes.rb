@@ -93,6 +93,9 @@ Rails.application.routes.draw do
 
   # Arenas y Propietarios
   resources :arenas do
+    collection do
+      post :geocode
+    end
     member do
       get :availability
     end

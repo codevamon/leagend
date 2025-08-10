@@ -1,87 +1,18 @@
-<% content_for :head do %>
-  <meta name="mapbox-token" content="<%= Rails.configuration.x.mapbox_token %>">
-  <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
-<% end %>
-
-<div data-controller="arena-location" class="container my-4">
-  <div class="row justify-content-center">
-    <div class="col-12 col-md-8">
-      <div class="card">
-        <div class="card-body">
-
-          <h1 class="h4 mb-3">Crear Arena</h1>
-
-          <%= form_with model: @arena, url: arenas_path, data: { turbo: true } do |f| %>
-            <div class="mb-3">
-              <%= f.label :name, "Nombre de la arena", class: "form-label" %>
-              <%= f.text_field :name, class: "form-control", required: true %>
-            </div>
-
-            <!-- Paso 1 -->
-            <div data-arena-location-target="step1">
-              <p class="fw-semibold">Paso 1: Selecciona el país</p>
-              <div class="mb-3">
-                <%= f.label :country, "País", class: "form-label" %>
-                <%= f.text_field :country, class: "form-control", placeholder: "Colombia", data: { arena_location_target: "country" } %>
-              </div>
-              <button type="button" class="btn btn-primary" data-action="click->arena-location#nextFromCountry">Siguiente</button>
-            </div>
-
-            <!-- Paso 2 -->
-            <div data-arena-location-target="step2" class="d-none">
-              <p class="fw-semibold">Paso 2: Selecciona la ciudad</p>
-              <div class="mb-3">
-                <%= f.label :city, "Ciudad", class: "form-label" %>
-                <%= f.text_field :city, class: "form-control", placeholder: "Bogotá", data: { arena_location_target: "city" } %>
-              </div>
-              <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-secondary" data-action="click->arena-location#backTo1">Atrás</button>
-                <button type="button" class="btn btn-primary" data-action="click->arena-location#nextFromCity">Siguiente</button>
-              </div>
-            </div>
-
-            <!-- Paso 3 -->
-            <div data-arena-location-target="step3" class="d-none">
-              <p class="fw-semibold">Paso 3: Dirección y mapa</p>
-
-              <div class="mb-3">
-                <%= f.label :address, "Dirección", class: "form-label" %>
-                <%= f.text_field :address, class: "form-control",
-                      placeholder: "Cra 7 # 10-20",
-                      data: { arena_location_target: "address", action: "input->arena-location#addressChanged" } %>
-              </div>
-
-              <div class="mb-3">
-                <%= f.label :neighborhood, "Barrio (opcional)", class: "form-label" %>
-                <%= f.text_field :neighborhood, class: "form-control", data: { arena_location_target: "neighborhood" } %>
-              </div>
-
-              <div class="mb-3">
-                <div class="border rounded" style="height:300px" data-arena-location-target="map"></div>
-              </div>
-
-              <%= f.hidden_field :latitude,  data: { arena_location_target: "lat" } %>
-              <%= f.hidden_field :longitude, data: { arena_location_target: "lng" } %>
-
-              <div class="mb-3">
-                <%= f.label :photos, "Fotos (opcional, máx. 15)", class: "form-label" %>
-                <%= f.file_field :photos, multiple: true, direct_upload: true, class: "form-control" %>
-              </div>
-
-              <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-secondary" data-action="click->arena-location#backTo2">Atrás</button>
-                <%= f.submit "Crear Arena", class: "btn btn-success" %>
-              </div>
-            </div>
-          <% end %>
-
-          <div class="alert alert-info mt-3">
-            <strong>Consejo:</strong> Puedes subir hasta 15 fotos.
+<% if params[:quick].present? && turbo_frame_request? %>
+  <%= render "quick_modal" %>
+<% else %>
+  <div class="container mt-4">
+    <div class="row justify-content-center">
+      <div class="col-md-8">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="mb-0">Crear Nueva Arena</h2>
           </div>
-
+          <div class="card-body">
+            <%= render "form", arena: @arena %>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
+<% end %>

@@ -1,90 +1,92 @@
-<% content_for :head do %>
-  <meta name="mapbox-token" content="<%= Rails.configuration.x.mapbox_token %>">
-  <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet" />
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
-<% end %>
-
-<div data-controller="arena-location" class="space-y-4">
-  <%= form_with model: arena, url: arenas_path, data: { turbo: true }, class: "space-y-4" do |f| %>
+<%= form_with(model: arena, local: true, html: { class: "arena-form" }) do |f| %>
+  <div data-controller="arena-location" 
+       data-arena-location-editable-value="true"
+       data-arena-location-center-lat-value="<%= arena.latitude || 4.7110 %>"
+       data-arena-location-center-lng-value="<%= arena.longitude || -74.0721 %>"
+       data-mapbox-token="<%= Rails.application.credentials.dig(:mapbox, :public_token) %>">
     
-    <!-- Nombre de la arena -->
-    <div class="mb-3">
-      <%= f.label :name, "Nombre de la arena", class: "form-label fw-bold" %>
-      <%= f.text_field :name, required: true, class: "form-control", placeholder: "Ej: Arena Deportiva Central" %>
-    </div>
+    <% if arena.errors.any? %>
+      <div class="alert alert-danger">
+        <h6><%= pluralize(arena.errors.count, "error") %> impidieron guardar esta arena:</h6>
+        <ul class="mb-0">
+          <% arena.errors.full_messages.each do |message| %>
+            <li><%= message %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
 
-                <!-- Paso 1: País -->
-            <div data-arena-location-target="step1" class="mb-4">
-              <h6 class="mb-3">Paso 1: País</h6>
-              <div class="mb-3">
-                <%= f.label :country, "País", class: "form-label" %>
-                <%= f.text_field :country, data: { arena_location_target: "country" }, 
-                    placeholder: "Colombia", class: "form-control" %>
-              </div>
-              <button type="button" class="btn btn-primary btn-sm" data-action="click->arena-location#nextFromCountry">
-                Siguiente
-              </button>
-            </div>
+    <div class="row">
+      <div class="col-md-6">
+        <div class="mb-3">
+          <%= f.label :name, "Nombre de la Arena", class: "form-label fw-semibold" %>
+          <%= f.text_field :name, class: "form-control", required: true %>
+        </div>
 
-            <!-- Paso 2: Ciudad -->
-            <div data-arena-location-target="step2" class="mb-4 d-none">
-              <h6 class="mb-3">Paso 2: Ciudad</h6>
-              <div class="mb-3">
-                <%= f.label :city, "Ciudad", class: "form-label" %>
-                <%= f.text_field :city, data: { arena_location_target: "city" }, 
-                    placeholder: "Bogotá", class: "form-control" %>
-              </div>
-              <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-action="click->arena-location#backTo1">
-                  Atrás
-                </button>
-                <button type="button" class="btn btn-primary btn-sm" data-action="click->arena-location#nextFromCity">
-                  Siguiente
-                </button>
-              </div>
-            </div>
+        <div class="mb-3">
+          <%= f.label :country, "País", class: "form-label fw-semibold" %>
+          <%= f.text_field :country, class: "form-control", 
+              data: { 
+                arena_location_target: "country",
+                action: "input->arena-location#schedule"
+              } %>
+          <!-- Contenedor para geocoder de países -->
+          <div data-arena-location-target="geocoderCountry" class="geocoder-container"></div>
+        </div>
 
-            <!-- Paso 3: Dirección + mapa -->
-            <div data-arena-location-target="step3" class="mb-4 d-none">
-              <h6 class="mb-3">Paso 3: Dirección</h6>
-              
-              <div class="mb-3">
-                <%= f.label :address, "Dirección", class: "form-label" %>
-                <%= f.text_field :address, data: { arena_location_target: "address", action: "input->arena-location#addressChanged" }, 
-                    placeholder: "Cra 7 # 10-20", class: "form-control" %>
-                <div class="form-text small">Escribe la dirección y se ubicará automáticamente</div>
-              </div>
+        <div class="mb-3">
+          <%= f.label :city, "Ciudad", class: "form-label fw-semibold" %>
+          <%= f.text_field :city, class: "form-control", 
+              data: { 
+                arena_location_target: "city",
+                action: "input->arena-location#schedule"
+              } %>
+          <!-- Contenedor para geocoder de ciudades -->
+          <div data-arena-location-target="geocoderCity" class="geocoder-container"></div>
+        </div>
 
-              <div class="mb-3">
-                <%= f.label :neighborhood, "Barrio (opcional)", class: "form-label" %>
-                <%= f.text_field :neighborhood, data: { arena_location_target: "neighborhood" }, 
-                    placeholder: "La Candelaria", class: "form-control" %>
-              </div>
+        <div class="mb-3">
+          <%= f.label :address, "Dirección", class: "form-label fw-semibold" %>
+          <%= f.text_field :address, class: "form-control", 
+              data: { 
+                arena_location_target: "address",
+                action: "input->arena-location#schedule"
+              } %>
+          <!-- Contenedor para geocoder de direcciones -->
+          <div data-arena-location-target="geocoderAddress" class="geocoder-container"></div>
+        </div>
 
-              <!-- Mapa más pequeño para modal -->
-              <div class="mb-3">
-                <label class="form-label">Ubicación</label>
-                <div class="border rounded mapbox-pane-small" data-arena-location-target="map"></div>
-                <div class="form-text small">Arrastra el marcador para ajustar</div>
-              </div>
+        <!-- Campos hidden para lat/lng -->
+        <%= f.hidden_field :latitude, data: { arena_location_target: "latitude" } %>
+        <%= f.hidden_field :longitude, data: { arena_location_target: "longitude" } %>
 
-      <!-- Campos ocultos para coordenadas -->
-      <%= f.hidden_field :latitude, data: { arena_location_target: "lat" } %>
-      <%= f.hidden_field :longitude, data: { arena_location_target: "lng" } %>
-
-      <!-- 1-3 fotos opcionales para modal rápido -->
-      <div class="mb-3">
-        <%= f.label :photos, "Fotos (opcional, máx. 3)", class: "form-label" %>
-        <%= f.file_field :photos, multiple: true, accept: "image/*", class: "form-control" %>
-        <div class="form-text small">Máximo 3 fotos para creación rápida</div>
+        <div class="mb-3">
+          <%= f.label :neighborhood, "Barrio (opcional)", class: "form-label fw-semibold" %>
+          <%= f.text_field :neighborhood, class: "form-control" %>
+        </div>
       </div>
 
-                    <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-action="click->arena-location#backTo2">
-                  Atrás
-                </button>
-                <%= f.submit "Crear Arena", class: "btn btn-success btn-sm" %>
-              </div>
+      <div class="col-md-6">
+        <div class="arena-map-container">
+          <div 
+            id="arena-map" 
+            class="mapbox-container" 
+            data-arena-location-target="map">
+          </div>
+        </div>
+        
+        <small class="text-muted d-block mt-2">
+          <i class="fas fa-info-circle me-1"></i>
+          Arrastra el marcador o usa las sugerencias para establecer la ubicación
+        </small>
+      </div>
     </div>
-  <% end %>
-</div>
+
+    <div class="d-flex gap-2 justify-content-end mt-4">
+      <button type="button" class="btn btn-outline-secondary" data-action="click->modal#close">
+        <i class="fas fa-times me-1"></i>Cancelar
+      </button>
+      <%= f.submit "Crear Arena", class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>

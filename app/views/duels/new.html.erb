@@ -1,4 +1,4 @@
-<div class="container mt-4">
+<div class="container mt-4" data-controller="modal duel-form">
   <div class="row justify-content-center">
     <div class="col-md-8 col-lg-6">
       <!-- Header -->
@@ -12,7 +12,8 @@
       <!-- Formulario principal -->
       <div class="card shadow-sm border-0">
         <div class="card-body p-4">
-          <%= form_with model: @duel, local: true, class: "needs-validation", novalidate: true do |f| %>
+          <%= form_with model: @duel, local: true, class: "needs-validation", novalidate: true, 
+              data: { duel_form_target: "form" } do |f| %>
             
             <!-- Fecha y Hora -->
             <div class="row mb-4">
@@ -23,7 +24,8 @@
                 <%= f.datetime_local_field :starts_at, 
                     class: "form-control", 
                     required: true,
-                    min: Time.current.strftime("%Y-%m-%dT%H:%M") %>
+                    min: Time.current.strftime("%Y-%m-%dT%H:%M"),
+                    data: { duel_form_target: "startsAt" } %>
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold">
@@ -33,7 +35,8 @@
                     class: "form-control", 
                     value: 2,
                     min: 1, max: 6,
-                    required: true %>
+                    required: true,
+                    data: { duel_form_target: "duration" } %>
               </div>
             </div>
 
@@ -53,13 +56,18 @@
               <label class="form-label fw-semibold">
                 <i class="fas fa-map-marker-alt me-2 text-danger"></i>Arena (Opcional)
               </label>
-              <div class="d-flex gap-2 mb-2">
-                <%= render "arena_select", arenas: @arenas, selected_arena_id: @duel.arena_id %>
-                <button type="button" class="btn btn-outline-primary" data-turbo-frame="arena_quick_new">
-                  <%= link_to "Crear Arena", new_arena_path(quick: true), 
-                      data: { turbo_frame: "arena_quick_new" }, 
-                      class: "text-decoration-none" %>
-                </button>
+              <div class="arena-select-container mb-2">
+                <%= turbo_frame_tag "arena_select" do %>
+                  <%= render "arenas/arena_select", arenas: @arenas, selected_id: @duel&.arena_id %>
+                <% end %>
+                <%= link_to "Crear Arena",
+                    new_arena_path(quick: true),
+                    data: { 
+                      turbo_frame: "modal",
+                      action: "click->modal#open"
+                    },
+                    class: "btn btn-outline-primary",
+                    aria_label: "Crear nueva arena" %>
               </div>
               <small class="text-muted">
                 <i class="fas fa-info-circle me-1"></i>
@@ -79,7 +87,7 @@
 
             <!-- Botones -->
             <div class="d-grid gap-2">
-              <%= f.submit "Crear Duelo", class: "btn btn-primary btn-lg" %>
+              <%= f.submit "Crear Duelo", class: "btn btn-primary btn-lg btn-create-duel" %>
               <%= link_to "Cancelar", duels_path, class: "btn btn-outline-secondary" %>
             </div>
           <% end %>
@@ -87,7 +95,7 @@
       </div>
 
       <!-- Información adicional -->
-      <div class="card mt-4 border-0 bg-light">
+      <div class="card mt-4 border-0 info-card">
         <div class="card-body">
           <h6 class="fw-semibold mb-3">
             <i class="fas fa-lightbulb me-2 text-warning"></i>¿Cómo funciona?
@@ -115,73 +123,11 @@
     </div>
   </div>
   
-  <!-- Turbo Frame para modal de arena -->
-  <turbo-frame id="arena_quick_new"></turbo-frame>
+  <!-- Contenedor para mensajes flash -->
+  <div id="flash"></div>
+  
+  <!-- Turbo Frame para modal - Configurado para funcionar con arena_location_controller -->
+  <%= turbo_frame_tag "modal" %>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Calcular ends_at automáticamente
-  const startsAtField = document.querySelector('#duel_starts_at');
-  const durationField = document.querySelector('#duel_duration');
-  
-  function updateEndTime() {
-    if (startsAtField.value && durationField.value) {
-      const startTime = new Date(startsAtField.value);
-      const duration = parseInt(durationField.value);
-      const endTime = new Date(startTime.getTime() + (duration * 60 * 60 * 1000));
-      
-      // Crear campo hidden para ends_at si no existe
-      let endsAtField = document.querySelector('#duel_ends_at');
-      if (!endsAtField) {
-        endsAtField = document.createElement('input');
-        endsAtField.type = 'hidden';
-        endsAtField.name = 'duel[ends_at]';
-        endsAtField.id = 'duel_ends_at';
-        startsAtField.parentNode.appendChild(endsAtField);
-      }
-      
-      endsAtField.value = endTime.toISOString().slice(0, 16);
-    }
-  }
-  
-  startsAtField.addEventListener('change', updateEndTime);
-  durationField.addEventListener('change', updateEndTime);
-  
-  // Validación del formulario
-  const form = document.querySelector('.needs-validation');
-  form.addEventListener('submit', function(event) {
-    if (!form.checkValidity()) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    form.classList.add('was-validated');
-  });
-});
-</script>
-
-<style>
-.card {
-  border-radius: 12px;
-}
-
-.form-control, .form-select {
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
-}
-
-.form-control:focus, .form-select:focus {
-  border-color: #0d6efd;
-  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
-}
-
-.btn {
-  border-radius: 8px;
-  font-weight: 500;
-}
-
-.form-label {
-  color: #495057;
-  font-size: 0.9rem;
-}
-</style> 
+ 

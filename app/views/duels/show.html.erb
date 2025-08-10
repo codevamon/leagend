@@ -95,11 +95,39 @@
                 <% end %>
               </div>
               <div class="col-md-4 text-end">
-                <%= link_to "Ver en mapa", "https://www.google.com/maps?q=#{@duel.arena.latitude},#{@duel.arena.longitude}", 
-                    target: "_blank", class: "btn btn-outline-primary btn-sm" do %>
-                  <i class="fas fa-external-link-alt me-1"></i>Mapa
-                <% end %>
+                <%= link_to "Ver en mapa", "#", class: "btn btn-outline-primary btn-sm" %>
               </div>
+            </div>
+            
+            <% lat = @duel.arena.try(:latitude) %>
+            <% lng = @duel.arena.try(:longitude) %>
+
+            <% if lat.present? && lng.present? %>
+              <div class="col-12 my-3">
+                <div 
+                  id="duel-arena-map"
+                  class="mapbox-embed"
+                  data-controller="arena-map"
+                  data-arena-map-target="map"
+                  data-arena-map-editable-value="false"
+                  data-arena-map-center-lat-value="<%= lat %>"
+                  data-arena-map-center-lng-value="<%= lng %>"
+                  data-arena-map-zoom-value="15"
+                  style="height: 300px; width: 100%; border-radius: 8px;">
+                </div>
+                <div class="mt-2">
+                  <small class="text-muted">
+                    <i class="fas fa-map-marker-alt me-1"></i>
+                    <%= @duel.arena.address %>, <%= @duel.arena.city %>, <%= @duel.arena.country %>
+                  </small>
+                </div>
+              </div>
+            <% else %>
+              <div class="alert alert-warning mt-2">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                Esta arena no tiene ubicación registrada.
+              </div>
+            <% end %>
             </div>
           </div>
         </div>

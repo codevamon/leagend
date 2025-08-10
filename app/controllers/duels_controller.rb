@@ -45,9 +45,11 @@ class DuelsController < ApplicationController
     
   rescue ActiveRecord::RecordInvalid => e
     flash.now[:alert] = e.message
+    load_arenas_for_form
     render :new
   rescue => e
     flash.now[:alert] = "Error al crear el duelo: #{e.message}"
+    load_arenas_for_form
     render :new
   end
 
@@ -521,9 +523,12 @@ class DuelsController < ApplicationController
 
   def duel_params
     params.require(:duel).permit(
-      :away_team_id, :arena_id, :starts_at, :ends_at,
-      :duel_type, :mode, :duration, :private, :status, :challenge_type
+      :away_team_id, :arena_id, :starts_at, :duration, :duel_type, :private, :status, :challenge_type
     )
+  end
+
+  def load_arenas_for_form
+    @arenas = Arena.order(:name)
   end
 
   def notify_players_about_postponement(hours_added)

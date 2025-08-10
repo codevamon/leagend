@@ -1,10 +1,22 @@
-<turbo-frame id="arena_quick_new">
-  <div class="fixed inset-0 bg-black bg-opacity-50 z-50"></div>
-  <div class="fixed right-0 top-0 h-full w-full max-w-lg bg-white p-6 overflow-y-auto z-50">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="text-xl font-semibold mb-0">Nueva Arena</h2>
-      <button type="button" class="btn-close" data-action="click->arena-location#closeModal"></button>
+<turbo-frame id="modal">
+  <!-- Meta tag para token de Mapbox (necesario cuando se renderiza sin layout) -->
+  <meta name="mapbox-token" content="<%= Rails.application.credentials.dig(:mapbox, :public_token) %>">
+  
+  <%# Assets de Mapbox para modal sin layout %>
+  <%= render 'shared/mapbox_assets' %>
+  
+  <div class="modal d-block modal-high-z-index" tabindex="-1">
+    <div class="modal-backdrop fade show modal-backdrop-high-z-index"></div>
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Crear Arena</h5>
+          <button type="button" class="btn-close" data-action="click->modal#close"></button>
+        </div>
+        <div class="modal-body">
+          <%= render "form_quick", arena: @arena %>
+        </div>
+      </div>
     </div>
-    <%= render "form_quick", arena: @arena %>
   </div>
 </turbo-frame>

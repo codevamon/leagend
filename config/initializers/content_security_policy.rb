@@ -8,11 +8,13 @@ Rails.application.configure do
   config.content_security_policy do |policy|
     policy.default_src :self, :https
     policy.font_src    :self, :https, :data
-    policy.img_src     :self, :https, :data, "https://api.mapbox.com"
+    policy.img_src     :self, :https, :data, :blob, "https://api.mapbox.com", "https://*.mapbox.com"
     policy.object_src  :none
-    policy.script_src  :self, :https, "https://api.mapbox.com"
-    policy.style_src   :self, :https, "https://api.mapbox.com"
-    policy.connect_src :self, :https, "https://api.mapbox.com", "https://events.mapbox.com"
+    policy.script_src  :self, :https, "https://api.mapbox.com", "https://*.mapbox.com"
+    policy.style_src   :self, :https, "https://api.mapbox.com", "https://*.mapbox.com"
+    policy.connect_src :self, :https, "https://api.mapbox.com", "https://*.mapbox.com", "https://events.mapbox.com"
+    policy.worker_src  :blob
+    policy.frame_src   :self
     # Specify URI for violation reports
     # policy.report_uri "/csp-violation-report-endpoint"
   end

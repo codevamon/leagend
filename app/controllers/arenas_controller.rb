@@ -46,44 +46,87 @@ class ArenasController < ApplicationController
     end
   end
 
+  def geocode
+    country = params[:country]&.strip
+    city = params[:city]&.strip
+    address = params[:address]&.strip
+
+    if country.blank? || city.blank? || address.blank?
+      render json: { error: 'Faltan campos requeridos' }, status: :bad_request
+      return
+    end
+
+    # Construir query para geocodificación
+    query = "#{address}, #{city}, #{country}"
+    
+    begin
+      # Usar Geocoder para buscar la dirección
+      results = Geocoder.search(query, limit: 1)
+      
+      if results.any?
+        result = results.first
+        render json: { 
+          lat: result.latitude, 
+          lng: result.longitude 
+        }
+      else
+        render json: { 
+          lat: nil, 
+          lng: nil,
+          message: 'No se encontró la dirección especificada'
+        }, status: :not_found
+      end
+    rescue => e
+      Rails.logger.error "Error en geocodificación: #{e.message}"
+      render json: { 
+        error: 'Error interno en geocodificación',
+        lat: nil,
+        lng: nil
+      }, status: :internal_server_error
+    end
+  end
+
   def new
     @arena = Arena.new
-    # Render sin layout dentro del turbo-frame del modal quick
-    render layout: false if params[:quick].present? && turbo_frame_request?
+    if params[:quick].present? && turbo_frame_request?
+      render :new, layout: false
+    end
   end
 
   def create
+    @arena = Arena.new(arena_params)
+    
+    # Asegurar que el usuario tenga un owner
     owner = current_user.owner || Owner.create!(user: current_user, level: :basic)
+    @arena.owner = owner
 
-    attrs  = arena_params.except(:photos)
-    @arena = owner.arenas.new(attrs.merge(status: "unverified"))
-
-    if params[:arena][:photos].present?
-      files = Array(params[:arena][:photos]).reject(&:blank?)
-      @arena.photos.attach(files) if files.any?
+    # Flujo QUICK (desde duels/new con modal Turbo)
+    if params[:quick].present?
+      respond_to do |format|
+        if @arena.save
+          @arenas = Arena.order(created_at: :desc).limit(100)
+          # Usará app/views/arenas/create.turbo_stream.erb
+          format.turbo_stream
+          format.html { redirect_to arena_path(@arena), notice: "Arena creada." }
+        else
+          # Re-render del form dentro del frame "modal"
+          format.turbo_stream { 
+            render :new, 
+            layout: false, 
+            status: :unprocessable_entity,
+            locals: { quick: true }
+          }
+          format.html { render :new, status: :unprocessable_entity }
+        end
+      end
+      return
     end
 
+    # Flujo normal (arenas/new → show)
     if @arena.save
-      if params[:quick].present? || turbo_frame_request?
-        # Respuesta para el modal desde duels/new:
-        @arenas = Arena.order(:name)
-        @selected_arena_id = @arena.id
-        render turbo_stream: [
-          turbo_stream.replace("arena_quick_new", ""), # cierra modal
-          turbo_stream.replace(
-            "arena_select_frame",
-            partial: "duels/arena_select",
-            locals: { arenas: @arenas, selected_arena_id: @selected_arena_id }
-          )
-        ]
-      else
-        redirect_to @arena, notice: "Arena creada."
-      end
+      redirect_to @arena, notice: "Arena creada."
     else
-      respond_to do |format|
-        format.turbo_stream { render :new, status: :unprocessable_entity }
-        format.html { render :new, status: :unprocessable_entity }
-      end
+      render :new, status: :unprocessable_entity
     end
   end
 
@@ -120,8 +163,10 @@ class ArenasController < ApplicationController
 
   def arena_params
     params.require(:arena).permit(
-      :name, :address, :neighborhood, :city, :country, :latitude, :longitude,
-      photos: [] # solo para filtrarla, no para asignación masiva
+      :name, :country, :city, :address, :neighborhood,
+      :latitude, :longitude, :description, :status, :price_per_hour,
+      :prestige, :private, :rentable,
+      photos: []
     )
   end
 

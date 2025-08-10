@@ -11,10 +11,15 @@ class Arena < ApplicationRecord
   enum :status, { unverified: "unverified", pending_review: "pending_review", verified: "verified" }, validate: true
 
   validates :name, :address, presence: true
+  validates :prestige, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 10 }, allow_nil: true
   validate :photos_limit
 
   extend FriendlyId
   friendly_id :name, use: :slugged
+
+  # Geocoding
+  geocoded_by :full_address
+  after_validation :geocode, if: :should_geocode?
 
   before_create :generate_uuid
 
@@ -22,6 +27,16 @@ class Arena < ApplicationRecord
     return false if closures.where("starts_at < ? AND ends_at > ?", end_time, start_time).exists?
     reservations.where("starts_at < ? AND ends_at > ?", end_time, start_time)
                 .where(status: %w[held reserved paid]).none?
+  end
+
+  def full_address
+    [address, city, country].compact.join(", ")
+  end
+
+  def should_geocode?
+    # Geocodificar si cambió la dirección o si faltan coordenadas
+    address_changed? || city_changed? || country_changed? || 
+    latitude.blank? || longitude.blank?
   end
 
   private

@@ -1,4 +1,53 @@
-<%= turbo_stream.replace "arena_quick_new", "" %>
-<%= turbo_stream.append "arena_select_options" do %>
-  <%= render "option", arena: @arena %>
+<%= turbo_stream.replace "arena_select" do %>
+  <%= render "arenas/arena_select",
+      arenas: (@arenas || Arena.order(created_at: :desc).limit(100)),
+      selected_id: @arena.id %>
+<% end %>
+
+<%= turbo_stream.replace "modal", "" %>
+
+<%= turbo_stream.prepend "flash" do %>
+  <div class="alert alert-success alert-dismissible fade show mb-2" role="alert" 
+       data-controller="flash-message">
+    <i class="fas fa-check-circle me-2"></i>
+    Arena "<%= @arena.name %>" creada y seleccionada exitosamente.
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+<% end %>
+
+<%= turbo_stream.append "body" do %>
+  <script nonce="<%= content_security_policy_nonce %>">
+    // Cerrar modal usando el controller Stimulus
+    document.addEventListener('DOMContentLoaded', function() {
+      const modalController = application.getControllerForElementAndIdentifier(
+        document.querySelector('[data-controller="modal"]'), 
+        'modal'
+      );
+      
+      if (modalController) {
+        console.log('Cerrando modal desde turbo_stream');
+        modalController.close();
+      } else {
+        console.log('No se encontró el controlador modal');
+      }
+      
+      // Focus en el select actualizado y asegurar que esté seleccionado
+      setTimeout(() => {
+        const select = document.getElementById('duel_arena_id');
+        if (select) {
+          console.log('Actualizando select con arena ID: <%= @arena.id %>');
+          select.focus();
+          // Asegurar que la opción esté seleccionada
+          select.value = '<%= @arena.id %>';
+          
+          // Disparar evento change para activar cualquier listener
+          const event = new Event('change', { bubbles: true });
+          select.dispatchEvent(event);
+          console.log('Select actualizado correctamente');
+        } else {
+          console.log('No se encontró el select duel_arena_id');
+        }
+      }, 100);
+    });
+  </script>
 <% end %>

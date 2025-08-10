@@ -1,0 +1,12 @@
+<%# app/views/arenas/_arena_select.html.erb %>
+<div class="mb-3">
+  <label for="duel_arena_id" class="form-label">Arena (Opcional)</label>
+  <select name="duel[arena_id]" id="duel_arena_id" class="form-select">
+    <option value="">Selecciona una arena</option>
+    <% arenas.each do |arena| %>
+      <option value="<%= arena.id %>" <%= "selected" if arena.id == selected_id %>>
+        <%= arena.name %> — <%= [arena.city, arena.country].compact.join(", ") %>
+      </option>
+    <% end %>
+  </select>
+</div>

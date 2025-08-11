@@ -65,7 +65,7 @@
               <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                   <% if current_user.avatar.attached? %>
-                    <%= image_tag current_user.avatar.variant(resize_to_fill: [30, 30]), class: "rounded-circle me-2", alt: "Avatar", size: "30x30" %>
+                    <%= image_tag current_user.avatar, class: "rounded-circle me-2", alt: "Avatar", size: "30x30" %>
                   <% end %>
                   <%= current_user.firstname.presence || current_user.email %>
                 </a>

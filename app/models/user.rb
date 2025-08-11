@@ -1,4 +1,5 @@
 require "open-uri"
+
 class User < ApplicationRecord
   # Devise
   attr_writer :login
@@ -11,9 +12,13 @@ class User < ApplicationRecord
   # FriendlyId
   extend FriendlyId
   friendly_id :slug_candidates, use: :slugged
+  def should_generate_new_friendly_id?
+    slug.blank?  # genera solo si está vacío
+  end
 
   # Callbacks
   before_validation :set_uuid, on: :create
+  before_validation :ensure_unique_slug, on: :create   # <-- asegura unicidad
   before_save :set_avatar_from_url, if: -> { image_url.present? && avatar.blank? }
 
   # Validations
@@ -44,7 +49,6 @@ class User < ApplicationRecord
   has_many :sent_reservations, class_name: "Reservation", foreign_key: :payer_id, dependent: :nullify
   has_many :received_reservations, class_name: "Reservation", foreign_key: :receiver_id, dependent: :nullify
 
-
   # Métodos de líder
   def leader?
     team_memberships.exists?(leader: true)
@@ -71,7 +75,7 @@ class User < ApplicationRecord
     duels.joins(:results).where(results: { team_id: teams.ids, outcome: "draw" }).count
   end
 
-  # Avatar
+  # Avatar URL helper
   def avatar_url
     if avatar.attached?
       Rails.application.routes.url_helpers.rails_blob_url(avatar, only_path: true)
@@ -86,44 +90,50 @@ class User < ApplicationRecord
     n.presence || slug.presence || email
   end
 
-  # Omniauth
+  # ================= Omniauth =================
   def self.from_omniauth(auth)
-    where(provider: auth.provider, uid: auth.uid).first_or_initialize.tap do |user|
-      user.email       = auth.info.email
-      user.firstname   = auth.info.first_name || auth.info.name&.split&.first
-      user.lastname    = auth.info.last_name  || auth.info.name&.split&.last
-
-      if user.slug.blank?
-        slug_candidate = [user.firstname, user.lastname].compact.join("-").parameterize
-        user.slug = slug_candidate.presence || "google-#{SecureRandom.hex(4)}"
-      end
-
-      if user.phone_number.blank? || User.exists?(phone_number: user.phone_number)
-        user.phone_number = "+000000#{rand(1000..9999)}"
-      end
-
-      user.password = Devise.friendly_token[0, 20] if user.encrypted_password.blank?
-      user.save!
-
-      if auth.info.image.present?
-        downloaded_image = URI.open(auth.info.image)
-        extension = File.extname(auth.info.image).downcase
-        unless %w[.jpg .jpeg .png .gif].include?(extension)
-          mime_type = downloaded_image.content_type
-          extension = ".jpg" if mime_type == "image/jpeg"
-          extension = ".png" if mime_type == "image/png"
-          extension = ".gif" if mime_type == "image/gif"
-        end
-
-        user.avatar.attach(
-          io: downloaded_image,
-          filename: "avatar-#{user.id}#{extension}",
-          content_type: downloaded_image.content_type
-        )
-      end
-
-      user
+    user = find_by(provider: auth.provider, uid: auth.uid)
+    unless user
+      user = find_or_initialize_by(email: auth.info.email)
+      user.provider = auth.provider
+      user.uid      = auth.uid
     end
+
+    user.firstname ||= auth.info.first_name || auth.info.name&.split&.first
+    user.lastname  ||= auth.info.last_name  || auth.info.name&.split&.last
+
+    # Fuerza generación via ensure_unique_slug/FriendlyId en persistencia
+    user.slug = nil if user.slug.blank?
+
+    # Teléfono dummy si falta o colisiona
+    if user.phone_number.blank? || User.exists?(phone_number: user.phone_number)
+      user.phone_number = "+000000#{rand(1000..9999)}"
+    end
+
+    user.password = Devise.friendly_token[0, 20] if user.encrypted_password.blank?
+    user.save!  # ya no chocará por slug
+
+    user.attach_google_avatar(auth)
+    user
+  end
+
+  # Descarga y adjunta avatar de Google si no existe
+  def attach_google_avatar(auth)
+    return if avatar.attached?
+    url = auth.info.image.to_s
+    return if url.blank?
+
+    # Normaliza tamaño (Google) p.ej. ...=s96-c -> s256-c
+    url = url.gsub(/=s\d+-c\z/, '=s256-c')
+
+    file = URI.open(url)
+    file.rewind
+    content_type = file.content_type.presence || "image/jpeg"
+    ext = content_type.split("/").last
+
+    avatar.attach(io: file, filename: "avatar-#{id}.#{ext}", content_type: content_type)
+  rescue => e
+    Rails.logger.warn("Avatar Google no adjuntado: #{e.class} #{e.message}")
   end
 
   private
@@ -132,12 +142,30 @@ class User < ApplicationRecord
     self.id ||= SecureRandom.uuid
   end
 
+  # Candidatos FriendlyId (se usa solo si slug está vacío)
   def slug_candidates
     [
       :lastname,
-      [:lastname, :firstname],
-      [:lastname, :firstname, SecureRandom.hex(4)]
+      [:lastname, :firstname]
     ]
+  end
+
+  # Genera slug base y lo hace único: base, base-1a2b, ...
+  def ensure_unique_slug
+    base = (slug.presence ||
+            [firstname, lastname].compact.join("-").presence ||
+            email.to_s.split("@").first).to_s.parameterize.presence || "u"
+
+    self.slug = unique_slug_for(base)
+  end
+
+  def unique_slug_for(base)
+    try = base
+    0.upto(20) do
+      return try unless User.where.not(id: id).exists?(slug: try)
+      try = "#{base}-#{SecureRandom.alphanumeric(4).downcase}"
+    end
+    "#{base}-#{SecureRandom.alphanumeric(8).downcase}"
   end
 
   def set_avatar_from_url

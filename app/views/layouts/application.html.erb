@@ -122,7 +122,7 @@
                   <li><%= link_to 'Mi perfil', user_path(current_user), class: 'dropdown-item' %></li>
                   <li><%= link_to 'Notificaciones', notifications_path, class: 'dropdown-item' %></li>
                   <li><hr class="dropdown-divider"></li>
-                  <li><%= link_to 'Cerrar sesión', destroy_user_session_path, method: :delete, class: 'dropdown-item text-danger' %></li>
+                  <li><%= link_to 'Cerrar sesión', destroy_user_session_path, method: :delete, class: 'dropdown-item text-danger', data: { controller: 'sign-out', action: 'click->sign-out#handleSignOut', 'sign-out-target': 'link' } %></li>
                 </ul>
               </li>
             <% else %>

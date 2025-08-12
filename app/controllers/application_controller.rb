@@ -1,5 +1,6 @@
 class ApplicationController < ActionController::Base
   include DetectsLocation
+  include GuestLocationCache
   
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
@@ -40,24 +41,35 @@ class ApplicationController < ActionController::Base
     end
   end
 
-  # Backfill de ubicación desde cookies de invitados para usuarios logueados
+  # Rellena current_* solo cuando el usuario esté logueado y falten país/ciudad.
+  # Nunca bloquea el request; si algo falla, solo loguea debug y sigue.
   def backfill_user_location_from_cookies
     return unless user_signed_in?
-    return unless current_user.current_country.blank? || current_user.current_city.blank?
+
+    # Solo si alguno falta
+    needs_country = current_user.respond_to?(:current_country) && current_user.current_country.blank?
+    needs_city    = current_user.respond_to?(:current_city)    && current_user.current_city.blank?
+    needs_latlng  = (current_user.respond_to?(:current_latitude)  && current_user.current_latitude.blank?) ||
+                    (current_user.respond_to?(:current_longitude) && current_user.current_longitude.blank?)
+
+    return unless needs_country || needs_city || needs_latlng
     return unless has_guest_location_cookies?
-    
-    begin
-      changes = {}
-      changes[:current_country] = guest_country_from_cookie if current_user.current_country.blank? && guest_country_from_cookie.present?
-      changes[:current_city] = guest_city_from_cookie if current_user.current_city.blank? && guest_city_from_cookie.present?
-      changes[:current_country_code] = guest_country_code_from_cookie if current_user.current_country_code.blank? && guest_country_code_from_cookie.present?
-      
-      if changes.any?
-        current_user.update_columns(changes)
-        Rails.logger.debug "Backfill de ubicación completado para usuario #{current_user.id}: #{changes.inspect}"
-      end
-    rescue => e
-      Rails.logger.error "Error en backfill de ubicación para usuario #{current_user.id}: #{e.message}"
+
+    changes = {}
+    changes[:current_country]   = guest_country if needs_country && guest_country.present?
+    changes[:current_city]      = guest_city    if needs_city    && guest_city.present?
+
+    # Guarda lat/lng si están disponibles y faltan
+    if needs_latlng && guest_lat.present? && guest_lng.present?
+      changes[:current_latitude]  = guest_lat
+      changes[:current_longitude] = guest_lng
     end
+
+    return if changes.empty?
+
+    # Persistimos sin validaciones para no bloquear
+    current_user.update_columns(changes)
+  rescue => e
+    Rails.logger.debug("[geo-backfill] skip: #{e.class}: #{e.message}")
   end
 end

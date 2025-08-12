@@ -465,6 +465,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_10_050001) do
     t.decimal "cross", precision: 8, scale: 2
     t.decimal "dribbling", precision: 8, scale: 2
     t.decimal "defense", precision: 8, scale: 2
+    t.string "current_country"
+    t.string "current_city"
+    t.string "current_neighborhood"
+    t.string "current_address"
+    t.string "current_zip"
+    t.string "current_latitude"
+    t.string "current_longitude"
+    t.string "current_timezone"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true

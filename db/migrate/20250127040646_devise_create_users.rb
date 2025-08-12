@@ -70,6 +70,15 @@ class DeviseCreateUsers < ActiveRecord::Migration[8.0]
       t.decimal  :dribbling, precision: 8, scale: 2
       t.decimal  :defense, precision: 8, scale: 2
 
+      t.string   :current_country
+      t.string   :current_city
+      t.string   :current_neighborhood
+      t.string   :current_address
+      t.string   :current_zip
+      t.string   :current_latitude
+      t.string   :current_longitude
+      t.string   :current_timezone            
+
       t.timestamps null: false
     end
 

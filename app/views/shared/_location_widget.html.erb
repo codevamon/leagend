@@ -1,0 +1,52 @@
+<div class="location-widget" data-controller="location" data-location-enabled-value="false" data-location-user-signed-in-value="<%= user_signed_in? %>">
+  <h6 class="mb-3">
+    <i class="fas fa-map-marker-alt me-2"></i>
+    Ubicación
+  </h6>
+  
+  <div class="mb-3">
+    <button 
+      type="button" 
+      class="btn btn-primary btn-sm location-button" 
+      data-location-target="button"
+      data-action="click->location#requestLocation">
+      <i class="fas fa-location-arrow me-2"></i>
+      Habilitar ubicación
+    </button>
+    
+    <small class="text-muted">
+      Opcional • Mejora la experiencia
+    </small>
+  </div>
+  
+  <div data-location-target="status" class="location-status location-status--info">
+    Haz clic para habilitar ubicación
+  </div>
+  
+  <% if user_signed_in? %>
+    <div class="location-info">
+      <strong>Ubicación actual:</strong><br>
+      <% if current_user.current_country.present? || current_user.current_city.present? %>
+        <% if current_user.current_city.present? %>
+          <%= current_user.current_city %><%= ", " if current_user.current_country.present? %>
+        <% end %>
+        <% if current_user.current_country.present? %>
+          <%= current_user.current_country %>
+        <% end %>
+      <% else %>
+        <em>No configurada</em>
+      <% end %>
+    </div>
+    
+    <% if current_user.current_latitude.present? && current_user.current_longitude.present? %>
+      <div class="location-info mt-2">
+        <strong>Coordenadas:</strong><br>
+        <%= current_user.current_latitude %>, <%= current_user.current_longitude %>
+      </div>
+    <% end %>
+  <% else %>
+    <div class="location-info">
+      <em>Inicia sesión para guardar tu ubicación</em>
+    </div>
+  <% end %>
+</div>

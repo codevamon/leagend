@@ -8,12 +8,16 @@ import ArenaLocationController from "./arena_location_controller"
 import ArenaMapController from "./arena_map_controller"
 import DuelFormController from "./duel_form_controller"
 import DuelStepsController from "./duel_steps_controller"
+import LocationController from "./location_controller"
+import LocationDisplayController from "./location_display_controller"
 
 application.register("modal", ModalController)
 application.register("arena-location", ArenaLocationController)
 application.register("arena-map", ArenaMapController)
 application.register("duel-form", DuelFormController)
 application.register("duel-steps", DuelStepsController)
+application.register("location", LocationController)
+application.register("location-display", LocationDisplayController)
 
 window.Stimulus = Application.start()
 eagerLoadControllersFrom("controllers", Stimulus)

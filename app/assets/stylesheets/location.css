@@ -1,0 +1,179 @@
+/* Estilos para el componente de ubicación */
+
+/* Barra de información de ubicación en el layout principal */
+.location-info-bar {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-bottom: 1px solid #dee2e6;
+  padding: 0.5rem 0;
+  font-size: 0.8rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+.location-info-bar:hover {
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.location-info-bar .text-muted {
+  color: #6c757d !important;
+  font-weight: 500;
+  text-shadow: 0 1px 1px rgba(255,255,255,0.8);
+}
+
+.location-info-bar .fas {
+  color: #28a745;
+  font-size: 0.9rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.location-info-bar em {
+  color: #adb5bd;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+/* Efecto de actualización de ubicación */
+.location-info-bar.location-updated {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  border-bottom-color: #28a745;
+  animation: locationUpdate 2s ease-in-out;
+}
+
+@keyframes locationUpdate {
+  0% { transform: translateY(0); }
+  25% { transform: translateY(-2px); }
+  75% { transform: translateY(-1px); }
+  100% { transform: translateY(0); }
+}
+
+/* Responsive para dispositivos móviles */
+@media (max-width: 768px) {
+  .location-info-bar {
+    padding: 0.4rem 0;
+    font-size: 0.75rem;
+  }
+  
+  .location-info-bar .container-fluid {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+/* Estilos para el componente de ubicación */
+.location-widget {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.location-status {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.location-status--info {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+.location-status--success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.location-status--warning {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.location-status--error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.location-button {
+  margin-right: 0.5rem;
+}
+
+.location-info {
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin-top: 0.5rem;
+}
+
+.location-info strong {
+  color: #495057;
+}
+
+/* Estilos para el botón de ubicación */
+.btn-location {
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-location:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-location:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Estilos para el indicador de ubicación activa */
+.location-active-indicator {
+  display: inline-flex;
+  align-items: center;
+  color: #28a745;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.location-active-indicator::before {
+  content: "📍";
+  margin-right: 0.25rem;
+  font-size: 1rem;
+}
+
+/* Estilos para mensajes de estado */
+.location-message {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.location-message.info {
+  background-color: #e7f3ff;
+  color: #0066cc;
+  border-left: 3px solid #0066cc;
+}
+
+.location-message.success {
+  background-color: #e7f7e7;
+  color: #2d5a2d;
+  border-left: 3px solid #28a745;
+}
+
+.location-message.warning {
+  background-color: #fff8e7;
+  color: #856404;
+  border-left: 3px solid #ffc107;
+}
+
+.location-message.error {
+  background-color: #ffe7e7;
+  color: #721c24;
+  border-left: 3px solid #dc3545;
+}

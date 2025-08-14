@@ -155,10 +155,12 @@ export default class extends Controller {
       this.checkStep3ArenaSelection()
     }
 
-    // Si estamos en Step 1 y existe el mapa, hacer resize para evitar cortes
-    if (this.currentStepValue === 1 && window.leagendMap) {
+    // Si estamos en Step 1, forzar resize del mapa que maneja arena_location_controller
+    if (this.currentStepValue === 1) {
       setTimeout(() => {
-        window.leagendMap.resize()
+        if (window.leagendMap && typeof window.leagendMap.resize === 'function') {
+          window.leagendMap.resize()
+        }
       }, 100)
     }
   }
@@ -450,12 +452,33 @@ export default class extends Controller {
   initFlatpickr() {
     const startsAtInput = document.getElementById('duel_starts_at')
     if (startsAtInput && typeof flatpickr !== 'undefined') {
+      // Configurar locale español
+      const spanishLocale = {
+        firstDayOfWeek: 1,
+        weekdays: {
+          shorthand: ['Dom', 'Lun', 'Mar', 'Mié', 'Juv', 'Vie', 'Sáb'],
+          longhand: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+        },
+        months: {
+          shorthand: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+          longhand: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+        },
+        rangeSeparator: ' hasta ',
+        weekAbbreviation: 'Sem',
+        amPM: ['AM', 'PM'],
+        yearAriaLabel: 'Año',
+        monthAriaLabel: 'Mes',
+        hourAriaLabel: 'Hora',
+        minuteAriaLabel: 'Minuto',
+        time_24hr: true
+      }
+
       flatpickr(startsAtInput, {
         enableTime: true,
         dateFormat: "Y-m-d H:i",
         minDate: "today",
         time_24hr: true,
-        locale: "es",
+        locale: spanishLocale,
         minuteIncrement: 15,
         placeholder: "Selecciona fecha y hora",
         onChange: () => {
@@ -469,43 +492,29 @@ export default class extends Controller {
   initMapbox() {
     const token = this.mapboxToken()
     if (!token) return // Fallback silencioso si no hay token
-
+    // Evitar geocoder duplicado si arena_location_controller ya lo renderiza
     const addressInput = document.getElementById('duel_address')
-    if (addressInput && typeof MapboxGeocoder !== 'undefined') {
+    const arenaGeocoderExists = document.querySelector('[data-arena-location-target="geocoderAddress"]')
+    if (addressInput && typeof MapboxGeocoder !== 'undefined' && !arenaGeocoderExists) {
       const geocoder = new MapboxGeocoder({
         accessToken: token,
         types: 'address',
-        countries: ['co'], // Colombia por defecto
+        countries: ['co'],
         language: 'es',
         placeholder: 'Busca una dirección...'
       })
-
       geocoder.addTo(`#${addressInput.id}`)
-      
       geocoder.on('result', (e) => {
         const result = e.result
         addressInput.value = result.place_name
-        
-        // Extraer componentes de la ubicación
-        const context = result.context || []
-        const country = context.find(c => c.id.startsWith('country'))?.text || ''
-        const city = context.find(c => c.id.startsWith('place'))?.text || ''
-        
-        // Actualizar campos de país y ciudad si están vacíos
+        const ctx = result.context || []
+        const country = ctx.find(c => c.id.startsWith('country'))?.text || ''
+        const city = ctx.find(c => c.id.startsWith('place'))?.text || ''
         const countryInput = document.getElementById('duel_country')
         const cityInput = document.getElementById('duel_city')
-        
-        if (countryInput && !countryInput.value) {
-          countryInput.value = country
-        }
-        if (cityInput && !cityInput.value) {
-          cityInput.value = city
-        }
-        
-        // Actualizar resumen
+        if (countryInput && !countryInput.value) countryInput.value = country
+        if (cityInput && !cityInput.value) cityInput.value = city
         this.updateSummary()
-        
-        // Llamar a onAddressCoordsChanged después de obtener coordenadas
         this.onAddressCoordsChanged()
       })
     }
@@ -528,7 +537,7 @@ export default class extends Controller {
   // Crear mapa Mapbox
   createMap() {
     const token = this.mapboxToken()
-    if (!token || typeof mapboxgl === 'undefined') return
+    if (!token || typeof mapboxgl === 'undefined' || !this.hasMapContainerTarget) return
 
     // Obtener coordenadas iniciales (de campos hidden o por defecto)
     const latInput = document.getElementById('duel_latitude')
@@ -694,7 +703,7 @@ export default class extends Controller {
   // Nuevo método para recalcular y renderizar todo
   recomputeAndRender() {
     // proteger si no hay mapa aún
-    const map = window.leagendMap || null
+    const map = this.map || null
     // texto búsqueda
     const q = (this.arenaSearchTarget?.value || "").trim().toLowerCase()
     // calcular distancia y visibilidad
@@ -758,11 +767,11 @@ export default class extends Controller {
     
     // opcional: centrar mapa en el marker si existe
     const m = this.arenaMarkers.get(id)
-    if (m && window.leagendMap) {
+    if (m && this.map) {
       try {
-        window.leagendMap.flyTo({ 
+        this.map.flyTo({ 
           center: m.getLngLat(), 
-          zoom: Math.max(window.leagendMap.getZoom(), 13), 
+          zoom: Math.max(this.map.getZoom(), 13), 
           speed: 0.6 
         })
       } catch(e) {}
@@ -1059,5 +1068,15 @@ export default class extends Controller {
       clearTimeout(timeout)
       timeout = setTimeout(later, wait)
     }
+  }
+
+  // Preparar formulario antes del submit para asegurar que los campos hidden estén habilitados
+  prepareSubmit() {
+    // Asegura que hidden fields existen y no están deshabilitados
+    ['duel_country','duel_city','duel_address','duel_neighborhood','duel_latitude','duel_longitude']
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.removeAttribute('disabled');
+      });
   }
 }

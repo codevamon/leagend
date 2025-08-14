@@ -25,7 +25,9 @@
   position: relative;
   margin-bottom: 10px;
 }
-
+div#location-map{
+  height:450px !important;
+}
 /* Estilos para los widgets de geocodificación */
 .mapboxgl-ctrl-geocoder {
   width: 100% !important;

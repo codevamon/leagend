@@ -4,7 +4,9 @@
 <!-- Meta tag para token de Mapbox -->
 <meta name="mapbox-token" content="<%= Rails.application.credentials.dig(:mapbox, :public_token) %>">
 
-<div class="container mt-4" data-controller="duel-steps modal arena-location">
+<div class="container mt-4"
+     data-controller="duel-steps modal arena-location"
+     data-arena-location-editable-value="true">
   <div class="row justify-content-center">
     <div class="col-lg-10">
       <!-- Header -->
@@ -116,8 +118,14 @@
                       </div>
 
                       <!-- Campos hidden para lat/lng -->
-                      <%= f.hidden_field :latitude, data: { arena_location_target: "latitude" } %>
-                      <%= f.hidden_field :longitude, data: { arena_location_target: "longitude" } %>
+                      <%= f.hidden_field :latitude, id: 'duel_latitude', data: { arena_location_target: "latitude" } %>
+                      <%= f.hidden_field :longitude, id: 'duel_longitude', data: { arena_location_target: "longitude" } %>
+                      
+                      <!-- Campos hidden adicionales para persistencia -->
+                      <%= f.hidden_field :country, id: 'duel_country' %>
+                      <%= f.hidden_field :city, id: 'duel_city' %>
+                      <%= f.hidden_field :address, id: 'duel_address' %>
+                      <%= f.hidden_field :neighborhood, id: 'duel_neighborhood' %>
                     </div>
 
                     <!-- Búsqueda de arenas -->
@@ -156,7 +164,7 @@
                         <i class="fas fa-map me-2"></i>Mapa
                       </h6>
                       <div id="location-map" 
-                           data-arena-location-target="map" 
+                           data-arena-location-target="map"  data-arena-location-editable-value="true"
                            style="height:420px;border-radius:8px"></div>
                       <small class="text-muted d-block mt-2">
                         <i class="fas fa-info-circle me-1"></i>Arrastra el marcador o usa las sugerencias
@@ -340,7 +348,10 @@
 
                 <%= f.submit "Crear Duelo", 
                     class: "btn btn-success btn-lg",
-                    data: { duel_steps_target: "submitBtn" } %>
+                    data: { 
+                      duel_steps_target: "submitBtn",
+                      action: "click->duel-steps#prepareSubmit"
+                    } %>
               </div>
             </div>
           <% end %>

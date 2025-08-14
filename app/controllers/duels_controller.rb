@@ -13,6 +13,9 @@ class DuelsController < ApplicationController
     ActiveRecord::Base.transaction do
       # Crear duelo sin equipo asignado inicialmente
       duel_attributes = duel_params
+      
+      # Log temporal para verificar parámetros de ubicación
+      Rails.logger.info("[Duels#create] incoming location params: #{duel_params.slice(:country,:city,:address,:neighborhood,:latitude,:longitude)}")
       # Limpiar arena_id si está vacío
       duel_attributes[:arena_id] = nil if duel_attributes[:arena_id].blank?
       @duel = Duel.new(duel_attributes)
@@ -523,7 +526,8 @@ class DuelsController < ApplicationController
 
   def duel_params
     params.require(:duel).permit(
-      :away_team_id, :arena_id, :starts_at, :duration, :duel_type, :private, :status, :challenge_type
+      :away_team_id, :arena_id, :starts_at, :duration, :duel_type, :private, :status, :challenge_type,
+      :country, :city, :address, :neighborhood, :latitude, :longitude
     )
   end
 

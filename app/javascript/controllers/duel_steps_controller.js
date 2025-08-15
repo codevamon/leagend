@@ -42,6 +42,10 @@ export default class extends Controller {
     console.log('🔍 BOOT: Resolviendo coordenadas iniciales...')
     this.resolveInitialCoordinates()
     
+    // BOOT DE GEOLOCALIZACIÓN ANTICIPADA: No bloqueante, en paralelo al flujo actual
+    console.log('🚀 BOOT: Iniciando geolocalización anticipada...')
+    this.attemptGeolocationAnticipated()
+    
     // Verificar si hay arenas en el DOM y mostrar mensaje si no las hay
     if (this.hasArenaListTarget) {
       const arenaItems = this.arenaListTarget.querySelectorAll('.arena-item')
@@ -1811,6 +1815,143 @@ export default class extends Controller {
       console.log('✅ BOOT: Coordenadas persistidas en localStorage')
     } catch (e) {
       console.warn('⚠️ BOOT: Error al persistir coordenadas:', e)
+    }
+  }
+
+  // BOOT DE GEOLOCALIZACIÓN ANTICIPADA: No bloqueante, en paralelo al flujo actual
+  attemptGeolocationAnticipated() {
+    console.log('🚀 BOOT: Iniciando geolocalización anticipada...')
+    console.trace('📍 TRACE: attemptGeolocationAnticipated() llamado desde:')
+    
+    // Verificar que el navegador soporte geolocalización
+    if (!navigator.geolocation) {
+      console.warn('⚠️ BOOT: Navegador no soporta geolocalización')
+      return
+    }
+    
+    // Mostrar estado de carga suave
+    this.showGeolocationStatus('Buscando tu ubicación...')
+    
+    // Configuración de alta precisión con timeout razonable
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000, // 10 segundos
+      maximumAge: 0 // No usar cache, siempre obtener posición fresca
+    }
+    
+    console.log('📍 BOOT: Solicitando geolocalización con opciones:', options)
+    
+    // Solicitar geolocalización de forma no bloqueante
+    navigator.geolocation.getCurrentPosition(
+      (position) => this.onGeolocationAnticipatedSuccess(position),
+      (error) => this.onGeolocationAnticipatedError(error),
+      options
+    )
+    
+    console.log('✅ BOOT: Solicitud de geolocalización enviada (no bloqueante)')
+  }
+  
+  // Éxito en geolocalización anticipada - SIEMPRE completa ubicación
+  onGeolocationAnticipatedSuccess(position) {
+    const startTime = new Date().toISOString()
+    console.log(`⏰ [${startTime}] BOOT: onGeolocationAnticipatedSuccess() - INICIO`)
+    console.trace('📍 TRACE: onGeolocationAnticipatedSuccess() llamado desde:')
+    
+    const { latitude, longitude } = position.coords
+    
+    // VERIFICAR que las coordenadas son numéricas válidas
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      console.warn('❌ BOOT: Geolocalización anticipada devolvió coordenadas no válidas:', position.coords)
+      this.hideGeolocationStatus()
+      return
+    }
+    
+    console.log(`✅ BOOT: Geolocalización anticipada exitosa: (${latitude}, ${longitude})`)
+    
+    // SIEMPRE actualizar coordenadas actuales del controller
+    this.currentLat = latitude
+    this.currentLng = longitude
+    
+    // SIEMPRE escribir en campos hidden
+    this.writeHiddenCoordinates(latitude, longitude)
+    
+    // SIEMPRE persistir en localStorage
+    this.persistCoordinates(latitude, longitude)
+    
+    // SIEMPRE hacer reverse geocoding para completar country/city/address
+    this.reverseGeocode(latitude, longitude)
+    
+    // ÚLTIMA PALABRA: Emitir evento para que el mapa se centre y se ejecute el filtro de 3km
+    console.log('🔄 BOOT: Emitiendo evento leagend:location_changed tras geolocalización anticipada')
+    this.dispatchLocationChangedEvent(latitude, longitude, null, null, null, 'geoloc_anticipated')
+    
+    // Ocultar estado de carga
+    this.hideGeolocationStatus()
+    
+    const endTime = new Date().toISOString()
+    console.log(`⏰ [${endTime}] BOOT: onGeolocationAnticipatedSuccess() - FIN`)
+  }
+  
+  // Error en geolocalización anticipada - NO romper flujo actual
+  onGeolocationAnticipatedError(error) {
+    console.log('⚠️ BOOT: Error en geolocalización anticipada:', error.message)
+    console.log('ℹ️ BOOT: Continuando con flujo normal (cache/hidden)')
+    
+    // Ocultar estado de carga
+    this.hideGeolocationStatus()
+    
+    // NO romper nada - el flujo actual (resolveInitialCoordinates) maneja fallbacks
+    switch (error.code) {
+      case error.PERMISSION_DENIED:
+        console.log('ℹ️ BOOT: Usuario denegó permisos de geolocalización')
+        break
+      case error.POSITION_UNAVAILABLE:
+        console.log('ℹ️ BOOT: Información de ubicación no disponible')
+        break
+      case error.TIMEOUT:
+        console.log('ℹ️ BOOT: Timeout en geolocalización anticipada')
+        break
+      default:
+        console.log('ℹ️ BOOT: Error desconocido en geolocalización anticipada')
+    }
+  }
+  
+  // Mostrar estado de carga de geolocalización
+  showGeolocationStatus(message) {
+    console.log('📱 BOOT: Mostrando estado de geolocalización:', message)
+    
+    // Buscar o crear elemento de estado
+    let statusEl = document.getElementById('geolocation-status')
+    if (!statusEl) {
+      statusEl = document.createElement('div')
+      statusEl.id = 'geolocation-status'
+      statusEl.className = 'alert alert-info text-center mt-2'
+      statusEl.innerHTML = `
+        <i class="fas fa-spinner fa-spin me-2"></i>
+        <small>${message}</small>
+      `
+      
+      // Insertar después del header del paso
+      const stepHeader = this.element.querySelector('.step-header')
+      if (stepHeader) {
+        stepHeader.parentNode.insertBefore(statusEl, stepHeader.nextSibling)
+      }
+    } else {
+      statusEl.innerHTML = `
+        <i class="fas fa-spinner fa-spin me-2"></i>
+        <small>${message}</small>
+      `
+      statusEl.classList.remove('d-none')
+    }
+  }
+  
+  // Ocultar estado de carga de geolocalización
+  hideGeolocationStatus() {
+    console.log('📱 BOOT: Ocultando estado de geolocalización')
+    
+    const statusEl = document.getElementById('geolocation-status')
+    if (statusEl) {
+      statusEl.classList.add('d-none')
     }
   }
 }

@@ -24,9 +24,16 @@ export default class extends Controller {
     this.mapboxRetryCount = 0
     this.maxRetries = 20
     
+    // VARIABLE PARA COORDENADAS PENDIENTES: Si el mapa no está listo cuando llegan coords
+    this.pendingCenter = null
+    
     // Crear referencias a los métodos del modal
     this._onModalShown = this.handleModalShown.bind(this)
     this._onModalHidden = this.handleModalHidden.bind(this)
+    
+    // ESCUCHAR EVENTO DE CAMBIO DE UBICACIÓN: Para centrar mapa y sincronizar
+    this._onLocationChanged = this.handleLocationChanged.bind(this)
+    window.addEventListener("leagend:location_changed", this._onLocationChanged)
     
     // Escuchar eventos del modal para resize del mapa
     this.setupModalListeners()
@@ -42,6 +49,9 @@ export default class extends Controller {
       clearTimeout(this.debounceTimer)
     }
     this.mapboxRetryCount = 0 // Reset retry count
+    
+    // LIMPIAR LISTENER DE CAMBIO DE UBICACIÓN
+    window.removeEventListener("leagend:location_changed", this._onLocationChanged)
     
     // Remover listeners del modal
     this.removeModalListeners()
@@ -342,7 +352,7 @@ export default class extends Controller {
     // Disparar evento de cambio de ubicación si hay coordenadas
     if (result.center) {
       const [lng, lat] = result.center
-      this.dispatchLocationChangedEvent(lat, lng, null, countryName, null, null)
+      this.dispatchLocationChangedEvent(lat, lng, null, countryName, null, null, 'country_selection')
     }
   }
 
@@ -380,7 +390,7 @@ export default class extends Controller {
     // Disparar evento de cambio de ubicación
     if (result.center) {
       const [lng, lat] = result.center
-      this.dispatchLocationChangedEvent(lat, lng, cityName, countryName, null, null)
+      this.dispatchLocationChangedEvent(lat, lng, cityName, countryName, null, null, 'city_selection')
     }
   }
 
@@ -434,7 +444,7 @@ export default class extends Controller {
     // Disparar evento de cambio de ubicación con coordenadas
     if (result.center) {
       const [lng, lat] = result.center
-      this.dispatchLocationChangedEvent(lat, lng, cityName, countryName, addressName, neighborhood)
+      this.dispatchLocationChangedEvent(lat, lng, cityName, countryName, addressName, neighborhood, 'address_selection')
     }
   }
 
@@ -490,7 +500,7 @@ export default class extends Controller {
           this.updateMapLocation(data.lat, data.lng)
           
           // Disparar evento de cambio de ubicación
-          this.dispatchLocationChangedEvent(data.lat, data.lng)
+          this.dispatchLocationChangedEvent(data.lat, data.lng, null, null, null, null, 'backend_geocode')
           
           console.log('Geocodificación backend exitosa:', { lat: data.lat, lng: data.lng })
         } else {
@@ -649,6 +659,13 @@ export default class extends Controller {
       if (this.map) {
         this.map.resize()
       }
+      
+      // VERIFICAR COORDENADAS PENDIENTES: Si hay coordenadas esperando, centrar el mapa
+      if (this.pendingCenter) {
+        console.log('🎯 ARENA-LOCATION: Mapa listo, aplicando coordenadas pendientes:', this.pendingCenter)
+        this.centerMapToCoordinates(this.pendingCenter.lat, this.pendingCenter.lng)
+        this.pendingCenter = null // Limpiar pendiente
+      }
     })
     
     console.log('Mapa inicializado exitosamente');
@@ -660,9 +677,16 @@ export default class extends Controller {
     // Usar arrow function para mantener el binding de this
     this.marker.on("dragend", () => {
       const { lat, lng } = this.marker.getLngLat()
+      console.log('📍 ARENA-LOCATION: Marcador arrastrado a:', { lat, lng })
+      
+      // Actualizar coordenadas en campos hidden
       this.updateCoordinates(lat, lng)
+      
+      // Hacer reverse geocoding para completar country/city/address
       this.reverseGeocode(lat, lng)
-      this.dispatchLocationChangedEvent(lat, lng)
+      
+      // EMITIR EVENTO DE CAMBIO DE UBICACIÓN: Para que el paso recalcule filtro de 3km
+      this.dispatchLocationChangedEvent(lat, lng, null, null, null, 'marker_drag')
     })
   }
 
@@ -727,21 +751,22 @@ export default class extends Controller {
       })
       
       // Disparar evento de cambio de ubicación
-      this.dispatchLocationChangedEvent(lat, lng, city, country, feat.place_name, null)
+      this.dispatchLocationChangedEvent(lat, lng, city, country, feat.place_name, null, 'reverse_geocode')
     } catch(error) {
       console.warn("Error en geocodificación inversa:", error)
     }
   }
   
   // Disparar evento global de cambio de ubicación con información completa
-  dispatchLocationChangedEvent(lat, lng, city = null, country = null, address = null, neighborhood = null) {
+  dispatchLocationChangedEvent(lat, lng, city = null, country = null, address = null, neighborhood = null, source = 'unknown') {
     const eventData = {
       lat: lat,
       lng: lng,
       city: city || this.cityTarget?.value || null,
       country: country || this.countryTarget?.value || null,
       address: address || this.addressTarget?.value || null,
-      neighborhood: neighborhood || null
+      neighborhood: neighborhood || null,
+      source: source
     }
     
     console.log('Disparando evento leagend:location_changed:', eventData)
@@ -822,5 +847,62 @@ export default class extends Controller {
     } else {
       console.log('No hay mapa disponible para hacer resize');
     }
+  }
+
+  // MANEJAR CAMBIO DE UBICACIÓN: Centrar mapa y sincronizar
+  handleLocationChanged(event) {
+    console.log('📍 ARENA-LOCATION: Evento leagend:location_changed recibido')
+    console.trace('📍 TRACE: handleLocationChanged() llamado desde:')
+    
+    if (!event?.detail) {
+      console.warn('⚠️ ARENA-LOCATION: Evento sin detail')
+      return
+    }
+    
+    const { lat, lng, source } = event.detail
+    console.log(`📍 ARENA-LOCATION: Coordenadas recibidas: (${lat}, ${lng}) desde ${source}`)
+    
+    // VERIFICAR que las coordenadas son numéricas válidas
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      console.warn('⚠️ ARENA-LOCATION: Coordenadas no válidas:', event.detail)
+      return
+    }
+    
+    // SI EL MAPA ESTÁ LISTO: Centrar inmediatamente
+    if (this.map && this.map.isStyleLoaded()) {
+      console.log('✅ ARENA-LOCATION: Mapa listo, centrando inmediatamente')
+      this.centerMapToCoordinates(lat, lng)
+      this.pendingCenter = null // Limpiar pendiente
+    } else {
+      // SI EL MAPA NO ESTÁ LISTO: Cachear para cuando esté listo
+      console.log('⏳ ARENA-LOCATION: Mapa no listo, cacheando coordenadas pendientes')
+      this.pendingCenter = { lat, lng, source }
+    }
+  }
+  
+  // CENTRAR MAPA A COORDENADAS ESPECÍFICAS
+  centerMapToCoordinates(lat, lng) {
+    console.log(`🎯 ARENA-LOCATION: Centrando mapa a (${lat}, ${lng})`)
+    
+    if (!this.map) {
+      console.warn('⚠️ ARENA-LOCATION: No hay mapa para centrar')
+      return
+    }
+    
+    // Mover marcador a nuevas coordenadas
+    if (this.marker) {
+      this.marker.setLngLat([lng, lat])
+      console.log('📍 ARENA-LOCATION: Marcador movido a nuevas coordenadas')
+    }
+    
+    // Centrar mapa con animación suave
+    this.map.flyTo({
+      center: [lng, lat],
+      zoom: 14,
+      duration: 2000,
+      essential: true
+    })
+    
+    console.log('✅ ARENA-LOCATION: Mapa centrado exitosamente')
   }
 }

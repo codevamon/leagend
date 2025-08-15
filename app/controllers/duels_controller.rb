@@ -12,10 +12,27 @@ class DuelsController < ApplicationController
     def create
     ActiveRecord::Base.transaction do
       # Crear duelo sin equipo asignado inicialmente
-      duel_attributes = duel_params
+      duel_attributes = normalized_duel_params
       
       # Log temporal para verificar parámetros de ubicación
-      Rails.logger.info("[Duels#create] incoming location params: #{duel_params.slice(:country,:city,:address,:neighborhood,:latitude,:longitude)}")
+      Rails.logger.info("[Duels#create] loc=#{normalized_duel_params.slice(:country,:city,:address,:neighborhood,:latitude,:longitude)}")
+      
+      # Si hay arena seleccionada, copiar su ubicación al duelo
+      if duel_attributes[:arena_id].present?
+        arena = Arena.find(duel_attributes[:arena_id])
+        if arena
+          # Sobrescribir ubicación del duelo con la de la arena
+          duel_attributes[:country] = arena.country
+          duel_attributes[:city] = arena.city
+          duel_attributes[:address] = arena.address
+          duel_attributes[:neighborhood] = arena.neighborhood
+          duel_attributes[:latitude] = arena.latitude
+          duel_attributes[:longitude] = arena.longitude
+          
+          Rails.logger.info("[Duels#create] Arena seleccionada: #{arena.name}, ubicación copiada")
+        end
+      end
+      
       # Limpiar arena_id si está vacío
       duel_attributes[:arena_id] = nil if duel_attributes[:arena_id].blank?
       @duel = Duel.new(duel_attributes)
@@ -38,6 +55,21 @@ class DuelsController < ApplicationController
         
         # Asignar el equipo temporal al duelo
         @duel.update!(home_team: team)
+        
+        # Crear Reservation si hay arena seleccionada
+        if duel_attributes[:arena_id].present? && arena
+          Reservation.create!(
+            reservable: arena,
+            payer: current_user,
+            receiver: arena.owner.user,
+            starts_at: @duel.starts_at,
+            ends_at: @duel.ends_at,
+            status: 'held',
+            amount_cents: 0,
+            currency: 'COP'
+          )
+          Rails.logger.info("[Duels#create] Reservation creada para Arena: #{arena.name}")
+        end
         
         # Asignar árbitro si se solicita
         RefereeAssigner.assign_to_duel(@duel) if params[:assign_referee] == '1'
@@ -95,7 +127,7 @@ class DuelsController < ApplicationController
       respond_to do |format|
         format.turbo_stream { 
           render turbo_stream: turbo_stream.update("flash_messages", 
-            partial: "shared/flash", locals: { alert: "No tienes permisos para autoconvocarte." })
+            partial: "shared/flash", locals: { type: "alert", message: "No tienes permisos para autoconvocarte." })
         }
         format.html { redirect_to available_players_duel_path(@duel), alert: "No tienes permisos para autoconvocarte." }
       end
@@ -125,7 +157,7 @@ class DuelsController < ApplicationController
             locals: { player: current_user, team: @team, duel: @duel }
           ),
           turbo_stream.update("flash_messages", 
-            partial: "shared/flash", locals: { notice: "Te has autoconvocado exitosamente como capitán." })
+            partial: "shared/flash", locals: { type: "notice", message: "Te has autoconvocado exitosamente como capitán." })
         ]
       }
       format.html { redirect_to available_players_duel_path(@duel), notice: "Te has autoconvocado exitosamente como capitán." }
@@ -190,7 +222,7 @@ class DuelsController < ApplicationController
       respond_to do |format|
         format.turbo_stream { 
           render turbo_stream: turbo_stream.update("flash_messages", 
-            partial: "shared/flash", locals: { alert: "No se puede postergar este duelo en este momento." })
+            partial: "shared/flash", locals: { type: "alert", message: "No se puede postergar este duelo en este momento." })
         }
         format.html { redirect_to manage_duel_path(@duel), alert: "No se puede postergar este duelo en este momento." }
       end
@@ -203,7 +235,7 @@ class DuelsController < ApplicationController
       respond_to do |format|
         format.turbo_stream { 
           render turbo_stream: turbo_stream.update("flash_messages", 
-            partial: "shared/flash", locals: { alert: "Tiempo de postergación inválido." })
+            partial: "shared/flash", locals: { type: "alert", message: "Tiempo de postergación inválido." })
         }
         format.html { redirect_to manage_duel_path(@duel), alert: "Tiempo de postergación inválido." }
       end
@@ -236,7 +268,7 @@ class DuelsController < ApplicationController
                 locals: { duel: @duel }
               ),
               turbo_stream.update("flash_messages", 
-                partial: "shared/flash", locals: { notice: "Duelo postergado exitosamente por #{hours_to_add} horas." })
+                partial: "shared/flash", locals: { type: "notice", message: "Duelo postergado exitosamente por #{hours_to_add} horas." })
             ]
           }
           format.html { redirect_to manage_duel_path(@duel), notice: "Duelo postergado exitosamente por #{hours_to_add} horas." }
@@ -250,7 +282,7 @@ class DuelsController < ApplicationController
     respond_to do |format|
       format.turbo_stream { 
         render turbo_stream: turbo_stream.update("flash_messages", 
-          partial: "shared/flash", locals: { alert: "Error al postergar el duelo: #{e.message}" })
+          partial: "shared/flash", locals: { type: "alert", message: "Error al postergar el duelo: #{e.message}" })
       }
       format.html { redirect_to manage_duel_path(@duel), alert: "Error al postergar el duelo: #{e.message}" }
     end
@@ -305,7 +337,7 @@ class DuelsController < ApplicationController
       respond_to do |format|
         format.turbo_stream { 
           render turbo_stream: turbo_stream.update("flash_messages", 
-            partial: "shared/flash", locals: { alert: "No hay equipo asignado." })
+            partial: "shared/flash", locals: { type: "alert", message: "No hay equipo asignado." })
         }
         format.html { redirect_to manage_duel_path(@duel), alert: "No hay equipo asignado." }
         format.json { render json: { status: 'error', message: 'No hay equipo asignado.' } }
@@ -321,7 +353,7 @@ class DuelsController < ApplicationController
         respond_to do |format|
           format.turbo_stream { 
             render turbo_stream: turbo_stream.update("flash_messages", 
-              partial: "shared/flash", locals: { alert: 'Jugador ya convocado' })
+              partial: "shared/flash", locals: { type: "alert", message: 'Jugador ya convocado' })
           }
           format.html { redirect_to available_players_duel_path(@duel), alert: 'Jugador ya convocado' }
           format.json { render json: { status: 'already_pending', message: 'Jugador ya convocado' } }
@@ -330,7 +362,7 @@ class DuelsController < ApplicationController
         respond_to do |format|
           format.turbo_stream { 
             render turbo_stream: turbo_stream.update("flash_messages", 
-              partial: "shared/flash", locals: { alert: 'Jugador ya confirmado' })
+              partial: "shared/flash", locals: { type: "alert", message: 'Jugador ya confirmado' })
           }
           format.html { redirect_to available_players_duel_path(@duel), alert: 'Jugador ya confirmado' }
           format.json { render json: { status: 'already_accepted', message: 'Jugador ya confirmado' } }
@@ -349,7 +381,7 @@ class DuelsController < ApplicationController
                 locals: { player: @user, team: @team, duel: @duel }
               ),
               turbo_stream.update("flash_messages", 
-                partial: "shared/flash", locals: { notice: 'Jugador convocado nuevamente' })
+                partial: "shared/flash", locals: { type: "notice", message: 'Jugador convocado nuevamente' })
             ]
           }
           format.html { redirect_to available_players_duel_path(@duel), notice: 'Jugador convocado nuevamente' }
@@ -374,7 +406,7 @@ class DuelsController < ApplicationController
               locals: { player: @user, team: @team, duel: @duel }
             ),
             turbo_stream.update("flash_messages", 
-              partial: "shared/flash", locals: { notice: 'Jugador convocado exitosamente' })
+              partial: "shared/flash", locals: { type: "notice", message: 'Jugador convocado exitosamente' })
           ]
         }
         format.html { redirect_to available_players_duel_path(@duel), notice: 'Jugador convocado exitosamente' }
@@ -388,7 +420,7 @@ class DuelsController < ApplicationController
     respond_to do |format|
       format.turbo_stream { 
         render turbo_stream: turbo_stream.update("flash_messages", 
-          partial: "shared/flash", locals: { alert: "Error al convocar jugador: #{e.message}" })
+          partial: "shared/flash", locals: { type: "alert", message: "Error al convocar jugador: #{e.message}" })
       }
       format.html { redirect_to available_players_duel_path(@duel), alert: "Error al convocar jugador: #{e.message}" }
       format.json { render json: { status: 'error', message: e.message } }
@@ -526,9 +558,26 @@ class DuelsController < ApplicationController
 
   def duel_params
     params.require(:duel).permit(
-      :away_team_id, :arena_id, :starts_at, :duration, :duel_type, :private, :status, :challenge_type,
-      :country, :city, :address, :neighborhood, :latitude, :longitude
+      :away_team_id, :arena_id, :starts_at, :ends_at, :duration, :duel_type, :private, :status, :challenge_type,
+      :country, :city, :address, :neighborhood, :latitude, :longitude,
+      :price, :budget, :budget_place, :assign_referee, :type_of_duel
     )
+  end
+
+  def normalized_duel_params
+    p = duel_params.to_h
+
+    # Normaliza strings vacíos a nil en campos de ubicación
+    %w[country city address neighborhood].each do |k|
+      v = p[k]
+      p[k] = v.present? ? v.to_s.strip : nil
+    end
+
+    # Cast numérico y redondeo razonable
+    p['latitude']  = p['latitude'].presence  && BigDecimal(p['latitude'].to_s).round(6)
+    p['longitude'] = p['longitude'].presence && BigDecimal(p['longitude'].to_s).round(6)
+
+    p.symbolize_keys
   end
 
   def load_arenas_for_form

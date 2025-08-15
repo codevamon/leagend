@@ -6,7 +6,8 @@
 
 <div class="container mt-4"
      data-controller="duel-steps modal arena-location"
-     data-arena-location-editable-value="true">
+     data-arena-location-editable-value="true"
+     data-context="duel">
   <div class="row justify-content-center">
     <div class="col-lg-10">
       <!-- Header -->
@@ -117,15 +118,19 @@
                         <div data-arena-location-target="geocoderAddress" class="geocoder-container"></div>
                       </div>
 
+                      <div class="mb-3">
+                        <%= f.label :neighborhood, "Barrio", class: "form-label fw-semibold" %>
+                        <%= f.text_field :neighborhood, 
+                            class: "form-control", 
+                            placeholder: "Ej: Chapinero",
+                            data: { 
+                              arena_location_target: "neighborhood"
+                            } %>
+                      </div>
+
                       <!-- Campos hidden para lat/lng -->
-                      <%= f.hidden_field :latitude, id: 'duel_latitude', data: { arena_location_target: "latitude" } %>
-                      <%= f.hidden_field :longitude, id: 'duel_longitude', data: { arena_location_target: "longitude" } %>
-                      
-                      <!-- Campos hidden adicionales para persistencia -->
-                      <%= f.hidden_field :country, id: 'duel_country' %>
-                      <%= f.hidden_field :city, id: 'duel_city' %>
-                      <%= f.hidden_field :address, id: 'duel_address' %>
-                      <%= f.hidden_field :neighborhood, id: 'duel_neighborhood' %>
+                      <%= f.hidden_field :latitude, data: { arena_location_target: "latitude" } %>
+                      <%= f.hidden_field :longitude, data: { arena_location_target: "longitude" } %>
                     </div>
 
                     <!-- Búsqueda de arenas -->
@@ -143,6 +148,13 @@
                     <!-- Grid de arenas -->
                     <div class="row g-3" data-duel-steps-target="arenaGrid">
                       <%= render partial: "arenas/arena_card", collection: @arenas, as: :arena, locals: { selectable: true } %>
+                    </div>
+
+                    <!-- Mensaje cuando no hay arenas cercanas -->
+                    <div id="no-arenas-message" class="alert alert-info text-center mt-3 d-none">
+                      <i class="fas fa-info-circle me-2"></i>
+                      <strong>No hay arenas cercanas en un radio de 3 km.</strong><br>
+                      <small class="text-muted">Se muestran las 5 arenas más cercanas disponibles.</small>
                     </div>
 
                     <!-- Checkbox árbitro -->
@@ -258,8 +270,11 @@
                         <p class="mb-1">
                           <strong>Ciudad:</strong> <span id="summary-city">-</span>
                         </p>
-                        <p class="mb-0">
+                        <p class="mb-1">
                           <strong>Dirección:</strong> <span id="summary-address">-</span>
+                        </p>
+                        <p class="mb-0">
+                          <strong>Barrio:</strong> <span id="summary-neighborhood">-</span>
                         </p>
                       </div>
                     </div>
@@ -348,10 +363,7 @@
 
                 <%= f.submit "Crear Duelo", 
                     class: "btn btn-success btn-lg",
-                    data: { 
-                      duel_steps_target: "submitBtn",
-                      action: "click->duel-steps#prepareSubmit"
-                    } %>
+                    data: { duel_steps_target: "submitBtn" } %>
               </div>
             </div>
           <% end %>

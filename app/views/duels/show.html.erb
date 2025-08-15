@@ -138,6 +138,57 @@
         </div>
       <% end %>
 
+      <!-- Ubicación del Duelo -->
+      <% if @duel.country.present? || @duel.city.present? || @duel.address.present? %>
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0">
+              <i class="fas fa-map-marker-alt me-2"></i>Ubicación del Duelo
+            </h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-8">
+                <% if @duel.address.present? %>
+                  <h6 class="mb-1"><%= @duel.address %></h6>
+                <% end %>
+                <p class="text-muted mb-2">
+                  <% if @duel.city.present? %>
+                    <i class="fas fa-city me-1"></i><%= @duel.city %>
+                  <% end %>
+                  <% if @duel.country.present? %>
+                    <% if @duel.city.present? %>, <% end %>
+                    <i class="fas fa-flag me-1"></i><%= @duel.country %>
+                  <% end %>
+                </p>
+                <% if @duel.neighborhood.present? %>
+                  <small class="text-muted">
+                    <i class="fas fa-map-pin me-1"></i><%= @duel.neighborhood %>
+                  </small>
+                <% end %>
+              </div>
+            </div>
+            
+            <% if @duel.latitude.present? && @duel.longitude.present? %>
+              <div class="col-12 my-3">
+                <div 
+                  id="duel-location-map"
+                  class="w-full h-64 rounded"
+                  data-controller="static-map"
+                  data-static-map-lat-value="<%= @duel.latitude %>"
+                  data-static-map-lng-value="<%= @duel.longitude %>"
+                  style="height: 300px;">
+                </div>
+                <small class="text-muted d-block mt-2">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Lat: <%= @duel.latitude.round(6) %>, Lng: <%= @duel.longitude.round(6) %>
+                </small>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
       <!-- Equipos -->
       <div class="card mb-4">
         <div class="card-header">

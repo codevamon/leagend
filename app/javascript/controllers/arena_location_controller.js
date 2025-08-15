@@ -1,12 +1,18 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["country", "city", "address", "latitude", "longitude", "map", "geocoderCountry", "geocoderCity", "geocoderAddress"]
+  static targets = ["country", "city", "address", "neighborhood", "latitude", "longitude", "map", "geocoderCountry", "geocoderCity", "geocoderAddress"]
   static values = { 
     editable: { type: Boolean, default: false },
     centerLat: { type: Number, default: 4.7110 },
     centerLng: { type: Number, default: -74.0721 },
     zoom: { type: Number, default: 13 }
+  }
+
+  // Helper para determinar el contexto del formulario
+  formContext() {
+    const contextEl = this.element.closest('[data-context]');
+    return contextEl ? contextEl.dataset.context : 'arena';
   }
 
   connect() {
@@ -44,16 +50,16 @@ export default class extends Controller {
   // Configurar listeners para eventos del modal
   setupModalListeners() {
     // Escuchar cuando el modal se abre
-    document.addEventListener('shown.bs.modal', this.handleModalShown.bind(this))
+    document.addEventListener('shown.bs.modal', this._onModalShown)
     
     // Escuchar cuando el modal se oculta
-    document.addEventListener('hidden.bs.modal', this.handleModalHidden.bind(this))
+    document.addEventListener('hidden.bs.modal', this._onModalHidden)
   }
 
   // Remover listeners del modal
   removeModalListeners() {
-    document.removeEventListener('shown.bs.modal', this.handleModalShown.bind(this))
-    document.removeEventListener('hidden.bs.modal', this.handleModalHidden.bind(this))
+    document.removeEventListener('shown.bs.modal', this._onModalShown)
+    document.removeEventListener('hidden.bs.modal', this._onModalHidden)
   }
 
   // Manejar cuando el modal se abre
@@ -171,7 +177,28 @@ export default class extends Controller {
   // Helper para escribir valores en campos hidden de forma segura
   setVal(id, v) {
     const el = document.getElementById(id);
-    if (el) el.value = v ?? "";
+    if (el) el.value = (v ?? "").toString();
+  }
+
+  // Función principal para escribir en campos hidden
+  writeHidden({ country, city, address, neighborhood, lat, lng }) {
+    const p = this.formContext(); // 'duel' | 'arena'
+    if (p === 'duel') {
+      // Para duelos, usar los campos del formulario directamente
+      if (this.hasCountryTarget) this.countryTarget.value = country || '';
+      if (this.hasCityTarget) this.cityTarget.value = city || '';
+      if (this.hasAddressTarget) this.addressTarget.value = address || '';
+      if (typeof lat === 'number') this.latitudeTarget.value = lat.toFixed(6);
+      if (typeof lng === 'number') this.longitudeTarget.value = lng.toFixed(6);
+    } else {
+      // Para arenas, usar el formato anterior
+      this.setVal(`${p}_country`, country);
+      this.setVal(`${p}_city`, city);
+      this.setVal(`${p}_address`, address);
+      this.setVal(`${p}_neighborhood`, neighborhood);
+      if (typeof lat === 'number') this.setVal(`${p}_latitude`, lat.toFixed(6));
+      if (typeof lng === 'number') this.setVal(`${p}_longitude`, lng.toFixed(6));
+    }
   }
 
   // Inicialización de los tres geocoders independientes
@@ -283,8 +310,15 @@ export default class extends Controller {
     const countryName = result.text
     this.countryTarget.value = countryName
     
-    // Actualizar campo hidden del formulario
-    this.setVal('duel_country', countryName)
+    // Actualizar campos hidden del formulario
+    this.writeHidden({ 
+      country: countryName, 
+      city: null, 
+      address: null, 
+      neighborhood: null, 
+      lat: null, 
+      lng: null 
+    })
     
     // Limpiar ciudad si no pertenece al país seleccionado
     if (this.cityTarget.value) {
@@ -308,7 +342,7 @@ export default class extends Controller {
     // Disparar evento de cambio de ubicación si hay coordenadas
     if (result.center) {
       const [lng, lat] = result.center
-      this.dispatchLocationChangedEvent(lat, lng)
+      this.dispatchLocationChangedEvent(lat, lng, null, countryName, null, null)
     }
   }
 
@@ -318,12 +352,19 @@ export default class extends Controller {
     const countryName = this.getContextText(result.context || [], ["country"])
     
     this.cityTarget.value = cityName
-    this.setVal('duel_city', cityName)
-    
     if (countryName) {
       this.countryTarget.value = countryName
-      this.setVal('duel_country', countryName)
     }
+    
+    // Actualizar campos hidden del formulario
+    this.writeHidden({ 
+      country: countryName || this.countryTarget.value, 
+      city: cityName, 
+      address: null, 
+      neighborhood: null, 
+      lat: null, 
+      lng: null 
+    })
     
     // Actualizar bias para geocoder de direcciones
     this.updateGeocoderBias()
@@ -339,43 +380,61 @@ export default class extends Controller {
     // Disparar evento de cambio de ubicación
     if (result.center) {
       const [lng, lat] = result.center
-      this.dispatchLocationChangedEvent(lat, lng)
+      this.dispatchLocationChangedEvent(lat, lng, cityName, countryName, null, null)
     }
   }
 
-  // Manejar selección de dirección
+  // Manejar selección de dirección - actualiza #duel_city de forma confiable
   handleAddressSelection(result) {
     const addressName = result.place_name
-    const cityName = this.getContextText(result.context || [], ["place", "locality"])
     const countryName = this.getContextText(result.context || [], ["country"])
+    
+    // PRIORIDAD para ciudad: place → locality → region
+    let cityName = this.getContextText(result.context || [], ["place", "locality"])
+    if (!cityName) {
+      cityName = this.getContextText(result.context || [], ["region"])
+    }
+    
     const neighborhood = this.getContextText(result.context || [], ["neighborhood"])
     
-    this.addressTarget.value = addressName
-    this.setVal('duel_address', addressName)
+    console.log(`Dirección seleccionada: ${addressName}`)
+    console.log(`Ciudad extraída: ${cityName} (prioridad: place/locality → region)`)
+    console.log(`País: ${countryName}`)
     
+    // Actualizar campos del formulario
+    this.addressTarget.value = addressName
     if (cityName) {
       this.cityTarget.value = cityName
-      this.setVal('duel_city', cityName)
     }
     if (countryName) {
       this.countryTarget.value = countryName
-      this.setVal('duel_country', countryName)
-    }
-    if (neighborhood) {
-      this.setVal('duel_neighborhood', neighborhood)
     }
     
-    // Actualizar coordenadas y mapa
+    // Actualizar campos hidden del formulario
+    this.writeHidden({ 
+      country: countryName || this.countryTarget.value, 
+      city: cityName || this.cityTarget.value, 
+      address: addressName, 
+      neighborhood: neighborhood, 
+      lat: null, 
+      lng: null 
+    })
+    
+    // Actualizar bias para otros geocoders
+    this.updateGeocoderBias()
+    
+    // Centrar mapa en la dirección
+    if (result.center && this.map) {
+      this.map.flyTo({ 
+        center: result.center, 
+        zoom: 15 
+      })
+    }
+    
+    // Disparar evento de cambio de ubicación con coordenadas
     if (result.center) {
       const [lng, lat] = result.center
-      this.latitudeTarget.value = lat
-      this.longitudeTarget.value = lng
-      
-      // Mover marker y centrar mapa
-      this.updateMapLocation(lat, lng)
-      
-      // Disparar evento de cambio de ubicación
-      this.dispatchLocationChangedEvent(lat, lng)
+      this.dispatchLocationChangedEvent(lat, lng, cityName, countryName, addressName, neighborhood)
     }
   }
 
@@ -418,8 +477,14 @@ export default class extends Controller {
           this.longitudeTarget.value = data.lng
           
           // Actualizar también los campos hidden del formulario
-          this.setVal('duel_latitude', data.lat)
-          this.setVal('duel_longitude', data.lng)
+          this.writeHidden({ 
+            country: this.countryTarget?.value || null, 
+            city: this.cityTarget?.value || null, 
+            address: this.addressTarget?.value || null, 
+            neighborhood: null, 
+            lat: data.lat, 
+            lng: data.lng 
+          })
           
           // Actualizar el mapa si está disponible
           this.updateMapLocation(data.lat, data.lng)
@@ -432,22 +497,40 @@ export default class extends Controller {
           console.log('No se encontraron coordenadas para la dirección')
           this.latitudeTarget.value = ''
           this.longitudeTarget.value = ''
-          this.setVal('duel_latitude', '')
-          this.setVal('duel_longitude', '')
+          this.writeHidden({ 
+            country: this.countryTarget?.value || null, 
+            city: this.cityTarget?.value || null, 
+            address: this.addressTarget?.value || null, 
+            neighborhood: null, 
+            lat: null, 
+            lng: null 
+          })
         }
       } else {
         console.warn('Error en geocodificación backend:', response.status)
         this.latitudeTarget.value = ''
         this.longitudeTarget.value = ''
-        this.setVal('duel_latitude', '')
-        this.setVal('duel_longitude', '')
+        this.writeHidden({ 
+          country: this.countryTarget?.value || null, 
+          city: this.cityTarget?.value || null, 
+          address: this.addressTarget?.value || null, 
+          neighborhood: null, 
+          lat: null, 
+          lng: null 
+        })
       }
     } catch (error) {
       console.error('Error en geocodificación backend:', error)
       this.latitudeTarget.value = ''
       this.longitudeTarget.value = ''
-      this.setVal('duel_latitude', '')
-      this.setVal('duel_longitude', '')
+      this.writeHidden({ 
+        country: this.countryTarget?.value || null, 
+        city: this.cityTarget?.value || null, 
+        address: this.addressTarget?.value || null, 
+        neighborhood: null, 
+        lat: null, 
+        lng: null 
+      })
     }
   }
 
@@ -574,6 +657,7 @@ export default class extends Controller {
   setupMarkerEvents() {
     if (!this.marker) return
     
+    // Usar arrow function para mantener el binding de this
     this.marker.on("dragend", () => {
       const { lat, lng } = this.marker.getLngLat()
       this.updateCoordinates(lat, lng)
@@ -587,11 +671,17 @@ export default class extends Controller {
     if (this.hasLongitudeTarget) this.longitudeTarget.value = lng
     
     // Actualizar también los campos hidden del formulario
-    this.setVal('duel_latitude', lat.toFixed(6))
-    this.setVal('duel_longitude', lng.toFixed(6))
+    this.writeHidden({ 
+      country: this.countryTarget?.value || null, 
+      city: this.cityTarget?.value || null, 
+      address: this.addressTarget?.value || null, 
+      neighborhood: null, 
+      lat: lat, 
+      lng: lng 
+    })
   }
   
-  // Geocodificación inversa cuando se mueve el marker
+  // Geocodificación inversa cuando se mueve el marker - actualiza #duel_city de forma confiable
   async reverseGeocode(lat, lng) {
     try {
       const token = mapboxgl.accessToken
@@ -602,34 +692,62 @@ export default class extends Controller {
       
       if (!feat) return
       
-      const city = this.getContextText(feat.context || [], ["place", "locality"])
+      console.log(`Reverse geocoding para (${lat}, ${lng}): ${feat.place_name}`)
+      
+      // PRIORIDAD para ciudad: place → locality → region
+      let city = this.getContextText(feat.context || [], ["place", "locality"])
+      if (!city) {
+        city = this.getContextText(feat.context || [], ["region"])
+      }
+      
       const country = this.getContextText(feat.context || [], ["country"])
+      
+      console.log(`Ciudad extraída: ${city} (prioridad: place/locality → region)`)
+      console.log(`País: ${country}`)
       
       // Solo actualizar si no están ya llenos o si son diferentes
       if (country && (!this.countryTarget.value || this.countryTarget.value !== country)) {
         this.countryTarget.value = country
-        this.setVal('duel_country', country)
       }
       if (city && (!this.cityTarget.value || this.cityTarget.value !== city)) {
         this.cityTarget.value = city
-        this.setVal('duel_city', city)
       }
       if (feat.place_name && (!this.addressTarget.value || this.addressTarget.value !== feat.place_name)) {
         this.addressTarget.value = feat.place_name
-        this.setVal('duel_address', feat.place_name)
       }
       
+      // Actualizar campos hidden del formulario
+      this.writeHidden({ 
+        country: country || this.countryTarget.value, 
+        city: city || this.cityTarget.value, 
+        address: feat.place_name || this.addressTarget.value, 
+        neighborhood: null, 
+        lat: lat, 
+        lng: lng 
+      })
+      
       // Disparar evento de cambio de ubicación
-      this.dispatchLocationChangedEvent(lat, lng)
+      this.dispatchLocationChangedEvent(lat, lng, city, country, feat.place_name, null)
     } catch(error) {
       console.warn("Error en geocodificación inversa:", error)
     }
   }
   
-  // Disparar evento global de cambio de ubicación
-  dispatchLocationChangedEvent(lat, lng) {
+  // Disparar evento global de cambio de ubicación con información completa
+  dispatchLocationChangedEvent(lat, lng, city = null, country = null, address = null, neighborhood = null) {
+    const eventData = {
+      lat: lat,
+      lng: lng,
+      city: city || this.cityTarget?.value || null,
+      country: country || this.countryTarget?.value || null,
+      address: address || this.addressTarget?.value || null,
+      neighborhood: neighborhood || null
+    }
+    
+    console.log('Disparando evento leagend:location_changed:', eventData)
+    
     window.dispatchEvent(new CustomEvent("leagend:location_changed", {
-      detail: { lat: lat, lng: lng }
+      detail: eventData
     }))
   }
   

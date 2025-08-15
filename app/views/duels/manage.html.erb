@@ -208,18 +208,7 @@
   
   <!-- Flash messages para Turbo -->
   <div id="flash_messages">
-    <% if flash[:notice] %>
-      <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <%= flash[:notice] %>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    <% end %>
-    <% if flash[:alert] %>
-      <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <%= flash[:alert] %>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    <% end %>
+    <%= render partial: "shared/flash" %>
   </div>
 </div>
 

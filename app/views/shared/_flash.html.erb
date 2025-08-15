@@ -1,13 +1,61 @@
-<% if notice %>
-  <div class="alert alert-<%= type == 'notice' ? 'success' : type %> alert-dismissible fade show" role="alert">
-    <%= message %>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-  </div>
-<% end %>
+<%# Flash messages partial - Resiliente para HTML y Turbo Stream %>
+<%# Soporta dos modos:
+    1. Autoscan de flash (notice/alert/error/success/info/warning) para HTML
+    2. Override por locals { type:, message: } para Turbo Stream específicos %>
 
-<% if alert %>
+<%# Modo 1: Si se pasan locals explícitos (para Turbo Stream) %>
+<% if local_assigns.key?(:type) && local_assigns.key?(:message) %>
   <div class="alert alert-<%= type == 'notice' ? 'success' : type %> alert-dismissible fade show" role="alert">
     <%= message %>
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
   </div>
+<%# Modo 2: Autoscan de flash (para HTML y cuando no hay locals) %>
+<% else %>
+  <%# Notice/Success %>
+  <% if notice %>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+      <%= notice %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  <% end %>
+
+  <%# Alert/Error %>
+  <% if alert %>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+      <%= alert %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  <% end %>
+
+  <%# Error %>
+  <% if flash[:error] %>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+      <%= flash[:error] %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  <% end %>
+
+  <%# Success %>
+  <% if flash[:success] %>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+      <%= flash[:success] %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  <% end %>
+
+  <%# Info %>
+  <% if flash[:info] %>
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+      <%= flash[:info] %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  <% end %>
+
+  <%# Warning %>
+  <% if flash[:warning] %>
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+      <%= flash[:warning] %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  <% end %>
 <% end %> 

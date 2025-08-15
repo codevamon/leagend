@@ -1,7 +1,16 @@
 <%# locals: arena (Arena), selectable: true/false %>
 <% selectable = true if local_assigns[:selectable].nil? %>
 <div class="col-md-6 col-lg-4">
-  <div class="arena-card" data-arena-id="<%= arena.id %>" data-arena-name="<%= arena.name %>" data-city="<%= arena.city %>" data-lat="<%= arena.latitude %>" data-lng="<%= arena.longitude %>" data-action="<%= selectable ? 'click->duel-steps#selectArenaCard' : '' %>">
+  <div class="arena-card" 
+       data-arena-id="<%= arena.id %>" 
+       data-arena-name="<%= arena.name %>" 
+       data-country="<%= arena.country %>"
+       data-city="<%= arena.city %>" 
+       data-address="<%= arena.address %>"
+       data-neighborhood="<%= arena.neighborhood %>"
+       data-lat="<%= arena.latitude %>" 
+       data-lng="<%= arena.longitude %>" 
+       data-action="<%= selectable ? 'click->duel-steps#selectArenaCard' : '' %>">
     <div class="arena-card__media mb-2">
       <% if arena.photos.attached? %>
         <% photo = arena.photos.first %>

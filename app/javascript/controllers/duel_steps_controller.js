@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
+  // VERSION TAG: DUEL-STEP v2025-08-15T10:45Z - VERIFICAR QUE SE EJECUTA ESTE CÓDIGO
   static targets = ["step", "progress", "nextBtn", "prevBtn", "submitBtn", "arenaId", "mapContainer", "arenaList", "arenaGrid", "arenaSearch", "latitude", "longitude"]
   static values = { 
     currentStep: { type: Number, default: 1 },
@@ -16,12 +17,19 @@ export default class extends Controller {
   searchDebounceTimer = null
 
   connect() {
-    // Inicializar debouncedRecompute
-    this.debouncedRecompute = this.debounce(this.recomputeAndRender.bind(this), 250)
+    // VERSION TAG: DUEL-STEP v2025-08-15T10:45Z - VERIFICAR QUE SE EJECUTA ESTE CÓDIGO
+    console.info("🚀 DUEL-STEP v2025-08-15T10:45Z - Controller conectado")
+    console.info("📁 Archivo fuente:", import.meta.url)
     
+    // Inicializar debouncedRecompute
+    this.debouncedRecompute = this.debounce(this.recomputeAndRenderNearby.bind(this), 250)
+    
+    // BOOT LIMPIO: Configurar paso y progreso
     this.showCurrentStep()
     this.updateProgress()
     this.updateButtons()
+    
+    // CONFIGURAR EVENT LISTENERS (sin ejecutar lógica de ubicación)
     this.setupEventListeners()
     
     // Configurar evento de submit del formulario
@@ -30,25 +38,106 @@ export default class extends Controller {
       form.addEventListener('turbo:submit-start', () => this.prepareSubmit());
     }
     
-    // Inicializar componentes después de un breve delay para asegurar que el DOM esté listo
-    setTimeout(() => {
-      this.initFlatpickr()
-      this.initMapbox()
+    // BOOT DE UBICACIÓN: Resolver coordenadas iniciales UNA SOLA VEZ
+    console.log('🔍 BOOT: Resolviendo coordenadas iniciales...')
+    this.resolveInitialCoordinates()
+    
+    // Verificar si hay arenas en el DOM y mostrar mensaje si no las hay
+    if (this.hasArenaListTarget) {
+      const arenaItems = this.arenaListTarget.querySelectorAll('.arena-item')
+      if (arenaItems.length === 0) {
+        this.toggleNoArenasMessage(true)
+      }
+    }
+    
+    console.log('✅ BOOT: Controller conectado y configurado')
+  }
+
+  // BOOT DE UBICACIÓN: Resolver coordenadas iniciales UNA SOLA VEZ
+  // Orden de prioridad: hidden → cache → geoloc → reverse geocode
+  resolveInitialCoordinates() {
+    const startTime = new Date().toISOString()
+    console.log(`⏰ [${startTime}] BOOT: resolveInitialCoordinates() - INICIO`)
+    console.log('🔍 BOOT: Resolviendo coordenadas iniciales para cálculo de radio de 3km...')
+    console.log('NOTA: Solo se usan coordenadas numéricas, NO centroides de país/ciudad/address')
+    console.trace('📍 TRACE: resolveInitialCoordinates() llamado desde:')
+    
+    // PRIORIDAD 1: Valores en campos hidden si ya existen y son numéricos
+    const latInput = document.getElementById('duel_latitude')
+    const lngInput = document.getElementById('duel_longitude')
+    
+    console.log('🔍 BOOT: Verificando campos hidden...')
+    console.log('🔍 BOOT: duel_latitude =', latInput?.value)
+    console.log('🔍 BOOT: duel_longitude =', lngInput?.value)
+
+    if (latInput?.value && lngInput?.value) {
+      const lat = parseFloat(latInput.value)
+      const lng = parseFloat(lngInput.value)
       
-      // Resolver coordenadas iniciales con prioridad
-      this.resolveInitialCoordinates()
+      console.log('🔍 BOOT: Valores parseados:', lat, lng)
       
-      // Verificar si hay arenas en el DOM y mostrar mensaje si no las hay
-      if (this.hasArenaListTarget) {
-        const arenaItems = this.arenaListTarget.querySelectorAll('.arena-item')
-        if (arenaItems.length === 0) {
-          this.toggleNoArenasMessage(true)
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        console.log(`✅ BOOT: Coordenadas encontradas en campos hidden: (${lat}, ${lng})`)
+        this.currentLat = lat
+        this.currentLng = lng
+        
+        // BOOT COMPLETO: Escribir en localStorage y disparar evento
+        this.persistCoordinates(lat, lng)
+        this.dispatchLocationChangedEvent(lat, lng, null, null, null, 'boot')
+        
+        const endTime = new Date().toISOString()
+        console.log(`⏰ [${endTime}] BOOT: resolveInitialCoordinates() - FIN (coordenadas en hidden)`)
+        return
+      } else {
+        console.warn('⚠️ BOOT: Coordenadas en campos hidden no son numéricas válidas:', latInput.value, lngInput.value)
+      }
+    }
+
+    // PRIORIDAD 2: Ubicación cacheada en localStorage
+    console.log('🔍 BOOT: Verificando localStorage...')
+    try {
+      const cachedLat = localStorage.getItem('leagend:lastLat')
+      const cachedLng = localStorage.getItem('leagend:lastLng')
+      
+      console.log('🔍 BOOT: Cache localStorage:', cachedLat, cachedLng)
+      
+      if (cachedLat && cachedLng) {
+        const lat = parseFloat(cachedLat)
+        const lng = parseFloat(cachedLng)
+        
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          console.log(`✅ BOOT: Coordenadas encontradas en localStorage: (${lat}, ${lng})`)
+          this.currentLat = lat
+          this.currentLng = lng
+          
+          // BOOT COMPLETO: Escribir en hidden y disparar evento
+          this.writeHiddenCoordinates(lat, lng)
+          this.persistCoordinates(lat, lng)
+          this.dispatchLocationChangedEvent(lat, lng, null, null, null, 'boot')
+          
+          const endTime = new Date().toISOString()
+          console.log(`⏰ [${endTime}] BOOT: resolveInitialCoordinates() - FIN (coordenadas cacheadas)`)
+          return
+        } else {
+          console.warn('⚠️ BOOT: Coordenadas en localStorage no son numéricas válidas:', cachedLat, cachedLng)
         }
       }
-    }, 100)
+    } catch (e) {
+      console.warn('⚠️ BOOT: Error al leer coordenadas del localStorage:', e)
+    }
+
+    // PRIORIDAD 3: Geolocalización del navegador (asíncrona)
+    console.log('🔄 BOOT: No hay coordenadas válidas, intentando geolocalización...')
+    this.attemptGeolocation()
+    
+    const endTime = new Date().toISOString()
+    console.log(`⏰ [${endTime}] BOOT: resolveInitialCoordinates() - FIN (geolocalización)`)
   }
 
   setupEventListeners() {
+    console.log('🔧 setupEventListeners() - Configurando event listeners')
+    console.trace('📍 TRACE: setupEventListeners() llamado desde:')
+    
     // Escuchar cambios en campos para actualizar resumen
     this.element.addEventListener('change', (e) => {
       if (e.target.matches('input, select')) {
@@ -82,16 +171,18 @@ export default class extends Controller {
     // Cargar arenas desde el DOM
     this.buildArenasFromDOM()
     
-    // Si hay lat/lng en hidden, llamar onLocationChanged
+    // Si hay lat/lng en hidden, disparar evento de ubicación
     // NOTA: Solo se usan coordenadas numéricas, NO centroides de país/ciudad/address
     if (this.hasLatitudeTarget && this.hasLongitudeTarget) {
       const lat = parseFloat(this.latitudeTarget.value)
       const lng = parseFloat(this.longitudeTarget.value)
       if (lat && lng) {
         console.log('🔄 Coordenadas iniciales encontradas, disparando evento de ubicación')
-        this.onLocationChanged({ detail: { lat, lng } })
+        this.onLocationChanged({ detail: { lat, lng, source: 'setup' } })
       }
     }
+    
+    console.log('✅ Event listeners configurados correctamente')
   }
 
   // Navegar al siguiente paso
@@ -501,50 +592,71 @@ export default class extends Controller {
     }
   }
 
-  // Inicializar Mapbox Geocoder para autocompletado de ubicación
+  // Inicializar Mapbox
   initMapbox() {
-    const token = this.mapboxToken()
-    if (!token) return // Fallback silencioso si no hay token
-    // Evitar geocoder duplicado si arena_location_controller ya lo renderiza
-    const addressInput = document.getElementById('duel_address')
-    const arenaGeocoderExists = document.querySelector('[data-arena-location-target="geocoderAddress"]')
-    if (addressInput && typeof MapboxGeocoder !== 'undefined' && !arenaGeocoderExists) {
-      const geocoder = new MapboxGeocoder({
-        accessToken: token,
-        types: 'address',
-        countries: ['co'],
-        language: 'es',
-        placeholder: 'Busca una dirección...'
-      })
-      geocoder.addTo(`#${addressInput.id}`)
-      geocoder.on('result', (e) => {
-        const result = e.result
-        addressInput.value = result.place_name
-        const ctx = result.context || []
-        const country = ctx.find(c => c.id.startsWith('country'))?.text || ''
-        const city = ctx.find(c => c.id.startsWith('place'))?.text || ''
-        const countryInput = document.querySelector('[name="duel[country]"]')
-        const cityInput = document.querySelector('[name="duel[city]"]')
-        if (countryInput && !countryInput.value) countryInput.value = country
-        if (cityInput && !cityInput.value) cityInput.value = city
-        this.updateSummary()
-        this.onAddressCoordsChanged()
-      })
-    }
+    console.log(`⏰ [${new Date().toISOString()}] initMapbox() - INICIO`)
     
-    // Crear mapa si existe mapContainerTarget
-    if (this.hasMapContainerTarget) {
-      this.createMap()
+    // Verificar que tenemos el token de Mapbox
+    const token = this.getMapboxToken()
+    if (!token) {
+      console.error('❌ Token de Mapbox no encontrado')
+      return
     }
 
-    // Si hay lat/lng en hidden, llamar onLocationChanged
-    if (this.hasLatitudeTarget && this.hasLongitudeTarget) {
-      const lat = parseFloat(this.latitudeTarget.value)
-      const lng = parseFloat(this.longitudeTarget.value)
-      if (lat && lng) {
-        this.onLocationChanged({ detail: { lat, lng } })
+    // Configurar token
+    mapboxgl.accessToken = token
+
+    // Crear mapa
+    this.map = new mapboxgl.Map({
+      container: this.mapContainerTarget,
+      style: 'mapbox://styles/mapbox/streets-v11',
+      center: [-74.006, 4.710], // Bogotá por defecto
+      zoom: 10
+    })
+
+    // Obtener coordenadas iniciales del formulario
+    const latInput = document.getElementById('duel_latitude')
+    const lngInput = document.getElementById('duel_longitude')
+    
+    let initialLat = 4.710
+    let initialLng = -74.006
+    
+    if (latInput?.value && lngInput?.value) {
+      const lat = parseFloat(latInput.value)
+      const lng = parseFloat(lngInput.value)
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        initialLat = lat
+        initialLng = lng
+        console.log(`📍 Coordenadas iniciales del formulario: (${initialLat}, ${initialLng})`)
       }
     }
+
+    // Crear marcador de ubicación
+    this.locationMarker = new mapboxgl.Marker({ color: '#007bff' })
+      .setLngLat([initialLng, initialLat])
+      .addTo(this.map)
+
+    // Cargar arenas y dibujar marcadores
+    this.loadArenasFromDOM()
+    this.drawArenaMarkers()
+    
+    // DEPRECATED: updateNearbyList() - reemplazado por recomputeAndRender() con radio de 3km
+    // this.updateNearbyList()
+    
+    // Usar el nuevo motor de filtrado por radio de 3km
+    if (Number.isFinite(this.currentLat) && Number.isFinite(this.currentLng)) {
+      console.log('initMapbox: Coordenadas válidas, aplicando filtro de radio de 3km')
+      this.recomputeAndRender()
+    } else {
+      console.log('initMapbox: Sin coordenadas válidas, esperando resolución...')
+    }
+    
+    // Si no hay arenas, mostrar mensaje
+    if (!this.arenas || this.arenas.length === 0) {
+      this.toggleNoArenasMessage(true)
+    }
+    
+    console.log(`⏰ [${new Date().toISOString()}] initMapbox() - FIN`)
   }
 
   // Crear mapa Mapbox
@@ -598,12 +710,20 @@ export default class extends Controller {
 
   // Cargar arenas desde el DOM
   loadArenasFromDOM() {
-    if (!this.hasArenaGridTarget) return
+    console.log('📥 loadArenasFromDOM() - Cargando arenas desde el DOM')
+    console.trace('📍 TRACE: loadArenasFromDOM() llamado desde:')
+    
+    if (!this.hasArenaGridTarget) {
+      console.warn('⚠️ No hay arenaGridTarget, no se pueden cargar arenas')
+      return
+    }
 
     this.arenas = []
     const arenaCards = this.arenaGridTarget.querySelectorAll('.arena-card')
     
-    arenaCards.forEach(card => {
+    console.log(`🔍 Encontradas ${arenaCards.length} tarjetas de arena en el DOM`)
+    
+    arenaCards.forEach((card, index) => {
       const arena = {
         id: card.dataset.arenaId,
         name: card.dataset.arenaName || "",
@@ -615,20 +735,43 @@ export default class extends Controller {
         distance: null,
         visible: true
       }
+      
+      // Verificar que las coordenadas son válidas
+      if (Number.isFinite(arena.lat) && Number.isFinite(arena.lng)) {
+        console.log(`✅ Arena ${index + 1}: ${arena.name} en (${arena.lat}, ${arena.lng})`)
+      } else {
+        console.warn(`⚠️ Arena ${index + 1}: ${arena.name} - coordenadas inválidas (${arena.lat}, ${arena.lng})`)
+      }
+      
       this.arenas.push(arena)
     })
+    
+    console.log(`✅ ${this.arenas.length} arenas cargadas desde el DOM`)
   }
 
   // Construir catálogo de arenas desde el DOM (alias para compatibilidad)
   buildArenasFromDOM() {
+    console.log('🏗️ buildArenasFromDOM() - Construyendo catálogo de arenas')
+    console.trace('📍 TRACE: buildArenasFromDOM() llamado desde:')
+    
     this.loadArenasFromDOM()
+    
+    console.log(`✅ Catálogo construido: ${this.arenas.length} arenas encontradas`)
   }
 
   // Dibujar marcadores de arenas en el mapa
   drawArenaMarkers() {
-    if (!this.map || !this.arenas) return
+    console.log('🎯 drawArenaMarkers() - Dibujando marcadores de arenas')
+    console.trace('📍 TRACE: drawArenaMarkers() llamado desde:')
+    
+    if (!this.map || !this.arenas) {
+      console.warn('⚠️ drawArenaMarkers: mapa o arenas no disponibles')
+      return
+    }
 
-    this.arenas.forEach(arena => {
+    console.log(`🎯 Creando marcadores para ${this.arenas.length} arenas`)
+
+    this.arenas.forEach((arena, index) => {
       // Crear marcador
       const marker = new mapboxgl.Marker({ color: '#28a745' })
         .setLngLat([arena.lng, arena.lat])
@@ -652,12 +795,22 @@ export default class extends Controller {
       marker.getElement().addEventListener('click', () => {
         this.selectArenaById(arena.id)
       })
+      
+      console.log(`✅ Marcador ${index + 1} creado para ${arena.name}`)
     })
+    
+    console.log(`✅ ${this.arenas.length} marcadores de arena creados`)
   }
 
   // Resaltar arena seleccionada
   highlightArena(arena) {
-    if (!arena || !this.map) return
+    console.log(`✨ highlightArena() - Resaltando arena ${arena?.name || 'desconocida'}`)
+    console.trace('📍 TRACE: highlightArena() llamado desde:')
+    
+    if (!arena || !this.map) {
+      console.warn('⚠️ highlightArena: arena o mapa no disponibles')
+      return
+    }
 
     // Remover clase active de todas las arenas
     this.arenas.forEach(a => {
@@ -669,6 +822,7 @@ export default class extends Controller {
     // Agregar clase active a la arena seleccionada
     if (arena.el) {
       arena.el.classList.add('arena-card--selected')
+      console.log(`✅ Arena ${arena.name} resaltada`)
     }
 
     // Centrar mapa en la arena
@@ -677,6 +831,8 @@ export default class extends Controller {
       zoom: 15,
       duration: 1000
     })
+    
+    console.log(`🗺️ Mapa centrado en arena ${arena.name}`)
   }
 
   // Llamado cuando cambian las coordenadas de la dirección
@@ -707,9 +863,13 @@ export default class extends Controller {
     }
   }
 
-  // Manejar cambios de ubicación desde arena_location_controller
+  // ÚLTIMA PALABRA: Manejar cambios de ubicación y ejecutar filtro de radio
   // SOLO usa coordenadas numéricas válidas para el cálculo de radio de 3km
   onLocationChanged(e) {
+    const startTime = new Date().toISOString()
+    console.log(`⏰ [${startTime}] onLocationChanged() - INICIO`)
+    console.trace('📍 TRACE: onLocationChanged() llamado desde:')
+    
     if (!e?.detail) {
       console.warn('⚠️ Evento leagend:location_changed sin detail')
       return
@@ -717,6 +877,9 @@ export default class extends Controller {
     
     const newLat = parseFloat(e.detail.lat)
     const newLng = parseFloat(e.detail.lng)
+    const source = e.detail.source || 'unknown'
+    
+    console.log(`🔍 Evento de fuente: ${source}`)
     
     // VERIFICAR que las coordenadas son numéricas válidas
     if (!Number.isFinite(newLat) || !Number.isFinite(newLng)) {
@@ -731,13 +894,11 @@ export default class extends Controller {
       this.currentLat = newLat
       this.currentLng = newLng
       
-      // Actualizar campos hidden si existen
-      const latInput = document.getElementById('duel_latitude')
-      const lngInput = document.getElementById('duel_longitude')
-      if (latInput && lngInput) {
-        latInput.value = newLat.toFixed(6)
-        lngInput.value = newLng.toFixed(6)
-      }
+      // SIEMPRE actualizar campos hidden
+      this.writeHiddenCoordinates(newLat, newLng)
+      
+      // SIEMPRE persistir en localStorage
+      this.persistCoordinates(newLat, newLng)
       
       // Actualizar campos de ubicación si se proporcionan en el evento
       if (e.detail.city) {
@@ -764,52 +925,38 @@ export default class extends Controller {
         }
       }
       
-      // Guardar en localStorage para futuras visitas
-      try {
-        localStorage.setItem('leagend:lastLat', newLat.toString())
-        localStorage.setItem('leagend:lastLng', newLng.toString())
-        console.log('💾 Coordenadas guardadas en localStorage')
-      } catch (e) {
-        console.warn('⚠️ Error al guardar coordenadas en localStorage:', e)
-      }
-      
-      // Recalcular y renderizar arenas cercanas con nuevo radio de 3km
-      console.log('🔄 Ejecutando recomputeAndRender() con nuevas coordenadas')
+      // ÚLTIMA PALABRA: Ejecutar filtro de radio de 3km
+      console.log('🔄 Ejecutando recomputeAndRenderNearby(3) con nuevas coordenadas')
       this.debouncedRecompute()
     } else {
       console.log('ℹ️ Coordenadas no cambiaron, no se ejecuta recompute')
     }
+    
+    const endTime = new Date().toISOString()
+    console.log(`⏰ [${endTime}] onLocationChanged() - FIN`)
   }
 
-  // Nuevo método para manejar búsqueda de arenas
+  // Búsqueda por texto - integrada con filtro de radio de 3km
   onSearchInput() {
-    // Aplicar debounce para evitar recálculos excesivos
-    if (this.searchDebounceTimer) {
-      clearTimeout(this.searchDebounceTimer)
-    }
+    console.log('🔍 onSearchInput() - Búsqueda por texto')
+    console.trace('📍 TRACE: onSearchInput() llamado desde:')
     
-    this.searchDebounceTimer = setTimeout(() => {
-      this.debouncedRecompute()
-    }, 300)
+    // Ejecutar filtro de radio de 3km con búsqueda
+    console.log('🔄 Ejecutando recomputeAndRenderNearby(3) con búsqueda')
+    this.debouncedRecompute()
   }
 
-  // Método para recalcular y renderizar arenas cercanas basado EXCLUSIVAMENTE en lat/lng
+  // ÚNICO MOTOR DE FILTRADO: Radio de 3km exactos basado SOLO en lat/lng
   // NO usa centroides de país/ciudad/address para el cálculo de distancia
-  // El radio de 3km se calcula SOLO desde currentLat/currentLng usando fórmula de Haversine
-  recomputeAndRender() {
-    console.log('=== RECOMPUTE AND RENDER - RADIO DE 3KM ===')
+  recomputeAndRenderNearby(radiusKm = 3) {
+    const startTime = new Date().toISOString()
+    console.log(`⏰ [${startTime}] === RECOMPUTE NEARBY - RADIO DE ${radiusKm}KM - INICIO ===`)
     
-    // proteger si no hay mapa aún
-    const map = this.map || null
-    // texto búsqueda
-    const q = (this.arenaSearchTarget?.value || "").trim().toLowerCase()
-    
-    // VERIFICAR que currentLat/currentLng son finitos - fuente única de coordenadas
-    // IMPORTANTE: NO se usan centroides de país/ciudad/address para el cálculo
+    // GUARD: Verificar que currentLat/currentLng son finitos
     const hasValidCoords = Number.isFinite(this.currentLat) && Number.isFinite(this.currentLng)
     
     if (!hasValidCoords) {
-      console.log('❌ Coordenadas no válidas, no se puede calcular radio de 3km')
+      console.log('❌ GUARD: Coordenadas no válidas, no se puede calcular radio de 3km')
       console.log('NOTA: El radio se calcula EXCLUSIVAMENTE desde currentLat/currentLng')
       console.log('Estado actual: currentLat =', this.currentLat, 'currentLng =', this.currentLng)
       
@@ -818,17 +965,25 @@ export default class extends Controller {
         a.visible = false
         a.distance = null
         a.el.classList.add("d-none")
+        a.el.setAttribute('data-out-of-range', 'true')
       })
       
       // Mostrar mensaje de espera
       this.toggleNoArenasMessage(true)
+      
+      console.log(`⏰ [${new Date().toISOString()}] === RECOMPUTE NEARBY - FIN (sin coordenadas válidas) ===`)
       return
     }
     
-    console.log(`✅ Coordenadas válidas: (${this.currentLat}, ${this.currentLng})`)
+    console.log(`✅ GUARD: Coordenadas válidas: (${this.currentLat}, ${this.currentLng})`)
     console.log('NOTA: Radio basado EXCLUSIVAMENTE en coordenadas, NO en centroides de país/ciudad/address')
     
+    // texto búsqueda
+    const q = (this.arenaSearchTarget?.value || "").trim().toLowerCase()
+    console.log('🔍 Búsqueda:', q || '(vacía)')
+    
     // CALCULAR DISTANCIA HAVERSINE para cada arena usando SOLO currentLat/currentLng
+    console.log('📏 Calculando distancias Haversine...')
     this.arenas.forEach(a => {
       if (Number.isFinite(a.lat) && Number.isFinite(a.lng)) {
         // Usar exclusivamente las coordenadas del duelo, no centroides de país/ciudad/address
@@ -840,7 +995,7 @@ export default class extends Controller {
       }
       
       // FILTRO DE RADIO FIJO: solo arenas <= 3km
-      const inRadius = a.distance <= 3
+      const inRadius = a.distance <= radiusKm
       const matchesSearch = q.length === 0 || a.name.toLowerCase().includes(q) || (a.city||"").toLowerCase().includes(q)
       
       // Visibilidad: debe estar en radio Y coincidir con búsqueda
@@ -853,54 +1008,48 @@ export default class extends Controller {
     this.arenas.sort((a, b) => a.distance - b.distance)
     
     // APLICAR VISIBILIDAD EN DOM - RESPETAR .d-none
+    console.log('👁️ Aplicando visibilidad en DOM...')
     this.arenas.forEach(a => {
       if (a.el) {
         // Usar classList.toggle para mantener consistencia con CSS
         a.el.classList.toggle("d-none", !a.visible)
+        
+        // Marcar arenas fuera de radio para debug
+        if (a.distance > radiusKm) {
+          a.el.setAttribute('data-out-of-range', 'true')
+        } else {
+          a.el.removeAttribute('data-out-of-range')
+        }
         
         // NO usar style.display para evitar conflictos
         // a.el.style.display = a.visible ? '' : 'none' // ❌ NO USAR
       }
     })
     
-    // FALLBACK UX: si no hay arenas en radio de 3km, mostrar top 5 más cercanas
+    // NO HAY FALLBACK AUTOMÁTICO: Si no hay arenas en radio, mostrar mensaje claro
     const visibles = this.arenas.filter(a => a.visible)
     if (visibles.length === 0) {
-      console.log('⚠️ No hay arenas en radio de 3km, mostrando top 5 más cercanas como fallback')
-      console.log('NOTA: El radio interno sigue siendo 3km, solo se muestran más arenas para UX')
+      console.log('⚠️ No hay arenas en radio de 3km - MOSTRANDO MENSAJE CLARO')
+      console.log('NOTA: NO hay fallback automático para evitar confusión de UX')
       
-      // Mostrar top 5 más cercanas sin importar el radio (pero mantener radio interno de 3km)
-      const top5 = this.arenas
-        .filter(a => Number.isFinite(a.distance))
-        .slice(0, 5)
-        .map(a => ({ ...a, visible: true, fallback: true })) // Marcar como fallback
-      
-      // Actualizar visibilidad para top 5
-      this.arenas.forEach(a => {
-        const isInTop5 = top5.some(t => t.id === a.id)
-        a.visible = isInTop5
-        a.fallback = isInTop5
-        
-        // Aplicar visibilidad en DOM
-        if (a.el) {
-          a.el.classList.toggle("d-none", !a.visible)
-        }
-      })
-      
-      console.log('Top 5 más cercanas (fallback):', top5.map(a => `${a.name} (~${a.distance.toFixed(1)} km)`))
+      // Mostrar mensaje claro
+      this.toggleNoArenasMessage(true)
+    } else {
+      console.log(`✅ ${visibles.length} arenas visibles en radio de 3km`)
+      this.toggleNoArenasMessage(false)
     }
     
-    // REORDENAR contenedor por distancia (más cercanas primero)
+    // REORDENAR contenedor SOLO las visibles por distancia (más cercanas primero)
+    console.log('🔄 Reordenando contenedor...')
     const frag = document.createDocumentFragment()
-    const visibleArenas = this.arenas.filter(a => a.visible)
-    visibleArenas.forEach(a => frag.appendChild(a.el))
+    visibles.forEach(a => frag.appendChild(a.el))
     if (this.arenaGridTarget) this.arenaGridTarget.appendChild(frag)
     
     // ACTUALIZAR indicadores de distancia en las cards
-    this.updateDistanceIndicators(visibleArenas)
+    this.updateDistanceIndicators(visibles)
     
     // SINCRONIZAR markers con la lista filtrada
-    if (map) this.refreshMarkers(map, visibleArenas)
+    if (this.map) this.refreshMarkers(this.map, visibles)
     
     // MANEJAR arena seleccionada si quedó oculta
     const selectedId = this.arenaIdTarget?.value
@@ -909,33 +1058,51 @@ export default class extends Controller {
       this.arenas.forEach(a => a.el.classList.toggle("arena-card--selected", a && sel && a.id === sel.id && a.visible))
     }
     
-    // MOSTRAR/OCULTAR mensaje de "no hay arenas"
-    if (visibleArenas.length === 0) {
-      this.toggleNoArenasMessage(true)
-    } else {
-      this.toggleNoArenasMessage(false)
-    }
-    
-    console.log(`📊 Resumen: ${visibleArenas.length} arenas visibles, Radio: 3km, Coordenadas: (${this.currentLat}, ${this.currentLng})`)
+    // LOG FINAL CON RESUMEN COMPLETO
+    const endTime = new Date().toISOString()
+    const duration = new Date(endTime) - new Date(startTime)
+    console.log(`📊 RESUMEN: ${visibles.length} arenas visibles, Radio: ${radiusKm}km, Coordenadas: (${this.currentLat}, ${this.currentLng})`)
     console.log('NOTA: El cálculo de radio es EXCLUSIVAMENTE por coordenadas, NO por centroides')
-    console.log('=== FIN RECOMPUTE AND RENDER ===')
+    console.log(`⏰ [${endTime}] === RECOMPUTE NEARBY - FIN (duración: ${duration}ms) ===`)
+    
+    // VERIFICACIÓN FINAL: ninguna arena fuera de radio debe estar visible
+    const arenasFueraRadio = this.arenas.filter(a => a.distance > radiusKm && a.visible)
+    if (arenasFueraRadio.length > 0) {
+      console.error('❌ ERROR: Arenas fuera de radio están visibles:', arenasFueraRadio.map(a => `${a.name} (${a.distance.toFixed(1)} km)`))
+      console.trace('📍 TRACE: ERROR - Arenas fuera de radio visibles')
+    } else {
+      console.log('✅ VERIFICACIÓN: Todas las arenas fuera de radio están correctamente ocultas')
+    }
   }
 
   // Seleccionar arena desde el card
   selectArenaCard(e) {
     const arenaCard = e.currentTarget
     const arenaId = arenaCard.dataset.arenaId
+    
+    console.log(`🎯 selectArenaCard() - Click en arena ${arenaId}`)
+    console.trace('📍 TRACE: selectArenaCard() llamado desde:')
+    
     this.selectArenaById(arenaId)
   }
 
   // Seleccionar arena por ID
   selectArenaById(id) {
+    console.log(`🎯 selectArenaById(${id}) - Seleccionando arena`)
+    console.trace('📍 TRACE: selectArenaById() llamado desde:')
+    
     const a = this.arenas.find(x => x.id === id)
-    if (!a) return
+    if (!a) {
+      console.warn(`⚠️ Arena con ID ${id} no encontrada`)
+      return
+    }
     
     if (this.arenaIdTarget) this.arenaIdTarget.value = id
     
+    // Actualizar clases de selección
     this.arenas.forEach(x => x.el.classList.toggle("arena-card--selected", x.id === id))
+    
+    console.log(`✅ Arena ${a.name} seleccionada`)
     
     // opcional: centrar mapa en el marker si existe
     const m = this.arenaMarkers.get(id)
@@ -946,18 +1113,32 @@ export default class extends Controller {
           zoom: Math.max(this.map.getZoom(), 13), 
           speed: 0.6 
         })
-      } catch(e) {}
+        console.log(`🗺️ Mapa centrado en arena ${a.name}`)
+      } catch(e) {
+        console.warn('⚠️ Error al centrar mapa:', e)
+      }
     }
     
     // refrescar resumen si ya tienes updateSummary()
     if (this.updateSummary) this.updateSummary()
   }
 
-  // Actualizar distancias de arenas y filtrar por proximidad
+  // Actualizar distancias de arenas y ejecutar filtro de radio
   updateArenaDistances() {
-    if (this.arenas && this.arenas.length > 0) {
-      this.debouncedRecompute()
+    console.log('📏 updateArenaDistances() - Actualizando distancias de arenas')
+    console.trace('📍 TRACE: updateArenaDistances() llamado desde:')
+    
+    if (!Number.isFinite(this.currentLat) || !Number.isFinite(this.currentLng)) {
+      console.warn('⚠️ No hay coordenadas válidas para calcular distancias')
+      return
     }
+    
+    console.log(`📍 Calculando distancias desde (${this.currentLat}, ${this.currentLng})`)
+    
+    // Calcular distancias y ejecutar filtro de radio
+    this.debouncedRecompute()
+    
+    console.log('✅ Distancias de arenas actualizadas y filtro ejecutado')
   }
 
   // Actualizar indicadores de distancia en las cards - SOLO cuando hay coordenadas válidas
@@ -1000,27 +1181,66 @@ export default class extends Controller {
   }
 
   // Helper para obtener token de Mapbox
-  mapboxToken() {
+  getMapboxToken() {
+    console.log('🔑 getMapboxToken() - Obteniendo token de Mapbox')
+    console.trace('📍 TRACE: getMapboxToken() llamado desde:')
+    
+    // Prioridad 1: data-mapbox-token del elemento del controlador
+    if (this.element.dataset.mapboxToken) {
+      console.log('✅ Token encontrado en data-mapbox-token del controlador')
+      return this.element.dataset.mapboxToken
+    }
+    
+    // Prioridad 2: meta tag en el documento actual
     const metaTag = document.querySelector('meta[name="mapbox-token"]')
-    return metaTag ? metaTag.getAttribute('content') : null
+    if (metaTag?.content) {
+      console.log('✅ Token encontrado en meta tag')
+      return metaTag.content
+    }
+    
+    // Prioridad 3: buscar en el turbo-frame modal si estamos en uno
+    const modalFrame = document.querySelector('turbo-frame[src*="modal"]')
+    if (modalFrame) {
+      const modalMetaTag = modalFrame.querySelector('meta[name="mapbox-token"]')
+      if (modalMetaTag?.content) {
+        console.log('✅ Token encontrado en meta tag del modal')
+        return modalMetaTag.content
+      }
+    }
+    
+    console.warn('⚠️ No se encontró token de Mapbox')
+    return null
   }
 
   // Intentar geolocalización del navegador
   attemptGeolocation() {
-    if (!navigator.geolocation) return
-
+    console.log('📍 attemptGeolocation() - Intentando geolocalización del navegador')
+    console.trace('📍 TRACE: attemptGeolocation() llamado desde:')
+    
+    if (!navigator.geolocation) {
+      console.warn('⚠️ Geolocalización no soportada por el navegador')
+      return
+    }
+    
+    console.log('🔄 Solicitando permisos de geolocalización...')
+    
     navigator.geolocation.getCurrentPosition(
-      (position) => this.onGeolocationSuccess(position),
-      () => this.onGeolocationError(),
-      { 
-        enableHighAccuracy: true, 
-        timeout: 8000 
+      this.onGeolocationSuccess.bind(this),
+      this.onGeolocationError.bind(this),
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
       }
     )
   }
 
-  // Éxito en geolocalización - SOLO usa coordenadas numéricas válidas
+  // Éxito en geolocalización - SIEMPRE completa ubicación
   onGeolocationSuccess(position) {
+    const startTime = new Date().toISOString()
+    console.log(`⏰ [${startTime}] onGeolocationSuccess() - INICIO`)
+    console.trace('📍 TRACE: onGeolocationSuccess() llamado desde:')
+    
     const { latitude, longitude } = position.coords
     
     // VERIFICAR que las coordenadas son numéricas válidas
@@ -1031,59 +1251,97 @@ export default class extends Controller {
     
     console.log(`✅ Geolocalización exitosa: (${latitude}, ${longitude})`)
     
-    // Actualizar campos hidden de lat/lng
-    const latInput = document.getElementById('duel_latitude')
-    const lngInput = document.getElementById('duel_longitude')
-    
-    if (latInput && lngInput) {
-      latInput.value = latitude
-      lngInput.value = longitude
-    }
-
-    // Actualizar coordenadas actuales del controller
+    // SIEMPRE actualizar coordenadas actuales del controller
     this.currentLat = latitude
     this.currentLng = longitude
-
-    // Guardar en localStorage para futuras visitas
-    try {
-      localStorage.setItem('leagend:lastLat', latitude.toString())
-      localStorage.setItem('leagend:lastLng', longitude.toString())
-      console.log('💾 Coordenadas de geolocalización guardadas en localStorage')
-    } catch (e) {
-      console.warn('⚠️ Error al guardar coordenadas en localStorage:', e)
-    }
-
-    // Intentar reverse geocoding con Mapbox
+    
+    // SIEMPRE escribir en campos hidden
+    this.writeHiddenCoordinates(latitude, longitude)
+    
+    // SIEMPRE persistir en localStorage
+    this.persistCoordinates(latitude, longitude)
+    
+    // SIEMPRE hacer reverse geocoding para completar country/city/address
     this.reverseGeocode(latitude, longitude)
     
-    // Recalcular y renderizar arenas cercanas con radio de 3km
-    console.log('🔄 Ejecutando recomputeAndRender() tras geolocalización')
+    // ÚLTIMA PALABRA: Ejecutar filtro de radio de 3km
+    console.log('🔄 Ejecutando recomputeAndRenderNearby(3) tras geolocalización')
     this.debouncedRecompute()
+    
+    const endTime = new Date().toISOString()
+    console.log(`⏰ [${endTime}] onGeolocationSuccess() - FIN`)
   }
 
-  // Error en geolocalización (fallback silencioso)
-  onGeolocationError() {
-    // No hacer nada, dejar inputs como están
+  // Error en geolocalización
+  onGeolocationError(error) {
+    console.log('❌ onGeolocationError() - Error en geolocalización')
+    console.trace('📍 TRACE: onGeolocationError() llamado desde:')
+    
+    console.warn('❌ Error en geolocalización:', error.message || 'Error desconocido')
+    console.log('ℹ️ Continuando sin coordenadas de geolocalización')
   }
 
-  // Reverse geocoding usando Mapbox API
-  async reverseGeocode(lat, lng) {
-    const token = this.mapboxToken()
-    if (!token) return
-
-    try {
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}&language=es&types=address,place,country`
-      
-      const response = await fetch(url)
-      if (!response.ok) return
-      
-      const data = await response.json()
-      if (data.features && data.features.length > 0) {
-        this.parseReverseGeocodeResult(data.features, lat, lng)
-      }
-    } catch (error) {
-      // Fallback silencioso si falla la API
+  // Reverse geocoding con Mapbox - SIEMPRE completa country/city/address
+  reverseGeocode(lat, lng) {
+    console.log('🔄 reverseGeocode() - Reverse geocoding con Mapbox')
+    console.trace('📍 TRACE: reverseGeocode() llamado desde:')
+    
+    const token = this.getMapboxToken()
+    if (!token) {
+      console.warn('⚠️ No hay token de Mapbox para reverse geocoding')
+      return
     }
+    
+    console.log(`📍 Reverse geocoding para (${lat}, ${lng})`)
+    
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}&language=es&types=address,poi,place`
+    
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        if (data.features && data.features.length > 0) {
+          const feature = data.features[0]
+          console.log(`✅ Reverse geocoding exitoso: ${feature.place_name}`)
+          
+          // Extraer información de ubicación con prioridades robustas
+          const context = feature.context || []
+          
+          // PRIORIDAD: country → place → locality → region
+          const country = context.find(c => c.id?.startsWith('country'))?.text || ''
+          let city = context.find(c => c.id?.startsWith('place'))?.text || ''
+          if (!city) {
+            city = context.find(c => c.id?.startsWith('locality'))?.text || ''
+          }
+          if (!city) {
+            city = context.find(c => c.id?.startsWith('region'))?.text || ''
+          }
+          
+          const address = feature.place_name || feature.text || ''
+          
+          console.log(`🏙️ Ciudad extraída: ${city} (prioridad: place → locality → region)`)
+          console.log(`🌍 País: ${country}`)
+          console.log(`📍 Dirección: ${address}`)
+          
+          // SIEMPRE actualizar campos del formulario
+          this.updateLocationFields(country, city, address)
+          
+          // SIEMPRE escribir coordenadas en hidden
+          this.writeHiddenCoordinates(lat, lng)
+          
+          // SIEMPRE persistir en localStorage
+          this.persistCoordinates(lat, lng)
+          
+          // SIEMPRE disparar evento de cambio de ubicación
+          this.dispatchLocationChangedEvent(lat, lng, city, country, address, 'reverse_geocode')
+          
+          console.log('✅ BOOT: Ubicación completamente actualizada')
+        } else {
+          console.warn('⚠️ No se encontraron resultados en reverse geocoding')
+        }
+      })
+      .catch(error => {
+        console.error('❌ Error en reverse geocoding:', error)
+      })
   }
 
   // Parsear resultado del reverse geocoding
@@ -1163,19 +1421,25 @@ export default class extends Controller {
 
   // Limpieza al desconectar el controller
   disconnect() {
-    // Remover event listener global
-    window.removeEventListener("leagend:location_changed", this.onLocationChanged)
+    console.log('🔌 disconnect() - Desconectando controller')
     
     // Limpiar timers
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer)
     }
     
-    // Eliminar markers
-    for (const m of this.arenaMarkers.values()) {
-      m.remove()
+    // Limpiar event listeners
+    window.removeEventListener("leagend:location_changed", this.onLocationChanged.bind(this))
+    
+    // Limpiar markers del mapa
+    if (this.arenaMarkers) {
+      for (const marker of this.arenaMarkers.values()) {
+        marker.remove()
+      }
+      this.arenaMarkers.clear()
     }
-    this.arenaMarkers.clear()
+    
+    console.log('✅ Controller desconectado correctamente')
   }
 
   // DEPRECATED: Este método usa radio de 20km y pisaba el filtro de 3km
@@ -1184,6 +1448,7 @@ export default class extends Controller {
   updateNearbyList(radiusKm = 20, limit = 20) {
     console.warn('DEPRECATED: updateNearbyList() no debe usarse. Radio ahora es 3km exactos por lat/lng')
     console.warn('Usar recomputeAndRender() en su lugar')
+    console.trace('❌ TRACE: updateNearbyList() fue llamado desde:')
     return // Bloquear ejecución
     
     /* CÓDIGO LEGACY COMENTADO - NO USAR
@@ -1200,7 +1465,7 @@ export default class extends Controller {
       // Mostrar top N por nombre como fallback
       this.arenas.slice(0, limit).forEach((arena, index) => {
         if (arena.el) {
-          arena.el.style.display = ''
+          // arena.el.style.display = '' // ❌ COMENTADO: NO USAR style.display
           arena.distance = null
           const distanceEl = arena.el.querySelector('[data-distance]')
           if (distanceEl) {
@@ -1230,7 +1495,7 @@ export default class extends Controller {
         const isWithinLimit = index < limit
         
         if (isWithinRadius && isWithinLimit) {
-          arena.el.style.display = ''
+          // arena.el.style.display = '' // ❌ COMENTADO: NO USAR style.display
           visibleCount++
           
           // Actualizar texto de distancia
@@ -1239,7 +1504,7 @@ export default class extends Controller {
             distanceEl.textContent = `~ ${arena.distance.toFixed(1)} km`
           }
         } else {
-          arena.el.style.display = 'none'
+          // arena.el.style.display = 'none' // ❌ COMENTADO: NO USAR style.display
         }
       }
     })
@@ -1248,7 +1513,7 @@ export default class extends Controller {
     if (visibleCount === 0) {
       this.arenas.slice(0, limit).forEach((arena, index) => {
         if (arena.el) {
-          arena.el.style.display = ''
+          // arena.el.style.display = '' // ❌ COMENTADO: NO USAR style.display
           const distanceEl = arena.el.querySelector('[data-distance]')
           if (distanceEl) {
             distanceEl.textContent = `~ ${arena.distance.toFixed(1)} km`
@@ -1269,13 +1534,20 @@ export default class extends Controller {
 
   // Mostrar/ocultar mensaje de "no hay arenas"
   toggleNoArenasMessage(show) {
+    console.log(`📢 toggleNoArenasMessage(${show}) - ${show ? 'MOSTRAR' : 'OCULTAR'} mensaje`)
+    console.trace('📍 TRACE: toggleNoArenasMessage() llamado desde:')
+    
     const noArenasMessage = document.getElementById('no-arenas-message')
     if (noArenasMessage) {
       if (show) {
         noArenasMessage.classList.remove('d-none')
+        console.log('✅ Mensaje "no hay arenas" mostrado')
       } else {
         noArenasMessage.classList.add('d-none')
+        console.log('✅ Mensaje "no hay arenas" ocultado')
       }
+    } else {
+      console.warn('⚠️ Elemento #no-arenas-message no encontrado')
     }
   }
 
@@ -1383,8 +1655,11 @@ export default class extends Controller {
   // NO usa centroides de país/ciudad/address para el cálculo de distancia
   // El radio de 3km se calcula EXCLUSIVAMENTE desde estas coordenadas
   resolveInitialCoordinates() {
+    const startTime = new Date().toISOString()
+    console.log(`⏰ [${startTime}] resolveInitialCoordinates() - INICIO`)
     console.log('🔍 Resolviendo coordenadas iniciales para cálculo de radio de 3km...')
     console.log('NOTA: Solo se usan coordenadas numéricas, NO centroides de país/ciudad/address')
+    console.trace('📍 TRACE: resolveInitialCoordinates() llamado desde:')
     
     // Prioridad 1: Valores en campos hidden si ya existen y son numéricos
     const latInput = document.getElementById('duel_latitude')
@@ -1399,6 +1674,9 @@ export default class extends Controller {
         this.currentLng = lng
         console.log('🔄 Ejecutando recomputeAndRender() con coordenadas iniciales')
         this.debouncedRecompute()
+        
+        const endTime = new Date().toISOString()
+        console.log(`⏰ [${endTime}] resolveInitialCoordinates() - FIN (coordenadas en hidden)`)
         return
       } else {
         console.warn('⚠️ Coordenadas en campos hidden no son numéricas válidas:', latInput.value, lngInput.value)
@@ -1425,6 +1703,9 @@ export default class extends Controller {
           
           console.log('🔄 Ejecutando recomputeAndRender() con coordenadas cacheadas')
           this.debouncedRecompute()
+          
+          const endTime = new Date().toISOString()
+          console.log(`⏰ [${endTime}] resolveInitialCoordinates() - FIN (coordenadas cacheadas)`)
           return
         } else {
           console.warn('⚠️ Coordenadas en localStorage no son numéricas válidas:', cachedLat, cachedLng)
@@ -1437,5 +1718,99 @@ export default class extends Controller {
     // Prioridad 3: Geolocalización del navegador (asíncrona)
     console.log('🔄 No hay coordenadas válidas, intentando geolocalización...')
     this.attemptGeolocation()
+    
+    const endTime = new Date().toISOString()
+    console.log(`⏰ [${endTime}] resolveInitialCoordinates() - FIN (geolocalización)`)
+  }
+
+  // Actualizar campos de ubicación del formulario
+  updateLocationFields(country, city, address) {
+    console.log('📝 updateLocationFields() - Actualizando campos de ubicación')
+    console.trace('📍 TRACE: updateLocationFields() llamado desde:')
+    
+    console.log(`🌍 País: ${country}`)
+    console.log(`🏙️ Ciudad: ${city}`)
+    console.log(`📍 Dirección: ${address}`)
+    
+    // Actualizar campo de país
+    if (country) {
+      const countryInput = document.querySelector('[name="duel[country]"]')
+      if (countryInput) {
+        countryInput.value = country
+        console.log('✅ Campo país actualizado')
+      }
+    }
+    
+    // Actualizar campo de ciudad
+    if (city) {
+      const cityInput = document.querySelector('[name="duel[city]"]')
+      if (cityInput) {
+        cityInput.value = city
+        console.log('✅ Campo ciudad actualizado')
+      }
+    }
+    
+    // Actualizar campo de dirección
+    if (address) {
+      const addressInput = document.querySelector('[name="duel[address]"]')
+      if (addressInput) {
+        addressInput.value = address
+        console.log('✅ Campo dirección actualizado')
+      }
+    }
+    
+    console.log('✅ Campos de ubicación actualizados')
+  }
+
+  // Disparar evento de cambio de ubicación con source
+  dispatchLocationChangedEvent(lat, lng, city = null, country = null, address = null, source = 'unknown') {
+    console.log('📡 dispatchLocationChangedEvent() - Disparando evento de cambio de ubicación')
+    console.trace('📍 TRACE: dispatchLocationChangedEvent() llamado desde:')
+    
+    const eventData = {
+      lat: lat,
+      lng: lng,
+      city: city,
+      country: country,
+      address: address,
+      source: source
+    }
+    
+    console.log('📡 Datos del evento:', eventData)
+    
+    window.dispatchEvent(new CustomEvent("leagend:location_changed", {
+      detail: eventData
+    }))
+    
+    console.log('✅ Evento leagend:location_changed disparado')
+  }
+
+  // BOOT COMPLETO: Escribir coordenadas en campos hidden
+  writeHiddenCoordinates(lat, lng) {
+    console.log('📝 BOOT: Escribiendo coordenadas en campos hidden')
+    
+    const latInput = document.getElementById('duel_latitude')
+    const lngInput = document.getElementById('duel_longitude')
+    
+    if (latInput && lngInput) {
+      latInput.value = lat.toFixed(6)
+      lngInput.value = lng.toFixed(6)
+      console.log('✅ BOOT: Coordenadas escritas en campos hidden')
+    } else {
+      console.warn('⚠️ BOOT: Campos hidden no encontrados')
+    }
+  }
+
+  // BOOT COMPLETO: Persistir coordenadas en localStorage
+  persistCoordinates(lat, lng) {
+    console.log('💾 BOOT: Persistiendo coordenadas en localStorage')
+    
+    try {
+      localStorage.setItem('leagend:lastLat', lat.toString())
+      localStorage.setItem('leagend:lastLng', lng.toString())
+      console.log('✅ BOOT: Coordenadas persistidas en localStorage')
+    } catch (e) {
+      console.warn('⚠️ BOOT: Error al persistir coordenadas:', e)
+    }
   }
 }

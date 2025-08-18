@@ -1,8 +1,4 @@
-<%= turbo_stream.replace "arena_select" do %>
-  <%= render "arenas/arena_select",
-      arenas: (@arenas || Arena.order(created_at: :desc).limit(100)),
-      selected_id: @arena.id %>
-<% end %>
+<%= turbo_stream.replace "modal", "" %>
 
 <%= turbo_stream.replace "modal", "" %>
 
@@ -31,21 +27,28 @@
         console.log('No se encontró el controlador modal');
       }
       
-      // Focus en el select actualizado y asegurar que esté seleccionado
+      // Actualizar el wizard con la nueva arena creada
       setTimeout(() => {
-        const select = document.getElementById('duel_arena_id');
-        if (select) {
-          console.log('Actualizando select con arena ID: <%= @arena.id %>');
-          select.focus();
-          // Asegurar que la opción esté seleccionada
-          select.value = '<%= @arena.id %>';
+        // Buscar el controlador duel-steps
+        const duelStepsController = application.getControllerForElementAndIdentifier(
+          document.querySelector('[data-controller="duel-steps"]'), 
+          'duel-steps'
+        );
+        
+        if (duelStepsController) {
+          console.log('Actualizando wizard con arena ID: <%= @arena.id %>');
           
-          // Disparar evento change para activar cualquier listener
-          const event = new Event('change', { bubbles: true });
-          select.dispatchEvent(event);
-          console.log('Select actualizado correctamente');
+          // Seleccionar la nueva arena en el wizard
+          duelStepsController.selectArenaById('<%= @arena.id %>');
+          
+          // Actualizar el resumen
+          if (duelStepsController.updateSummary) {
+            duelStepsController.updateSummary();
+          }
+          
+          console.log('Wizard actualizado correctamente con la nueva arena');
         } else {
-          console.log('No se encontró el select duel_arena_id');
+          console.log('No se encontró el controlador duel-steps');
         }
       }, 100);
     });

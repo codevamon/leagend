@@ -289,6 +289,28 @@
   margin-bottom: 0;
 }
 
+/* Estilos para el mapa en miniatura del resumen */
+.summary-map-section {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid #dee2e6;
+  margin-top: 1.5rem;
+}
+
+.summary-map-section .summary-title {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+#summary-map {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
 /* Tarjetas de Arena */
 .arenas-grid {
   margin-top: 1.5rem;

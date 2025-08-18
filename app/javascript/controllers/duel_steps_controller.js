@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   // VERSION TAG: DUEL-STEP v2025-08-15T10:45Z - VERIFICAR QUE SE EJECUTA ESTE CÓDIGO
-  static targets = ["step", "progress", "nextBtn", "prevBtn", "submitBtn", "arenaId", "mapContainer", "arenaList", "arenaGrid", "arenaSearch", "latitude", "longitude"]
+  static targets = ["step", "progress", "nextBtn", "prevBtn", "submitBtn", "arenaId", "mapContainer", "arenaList", "arenaGrid", "arenaSearch", "latitude", "longitude", "summaryMap"]
   static values = { 
     currentStep: { type: Number, default: 1 },
     totalSteps: { type: Number, default: 4 }
@@ -149,6 +149,14 @@ export default class extends Controller {
       }
     })
 
+    // Escuchar cambios en campos de fecha y hora para validación en tiempo real
+    this.element.addEventListener('input', (e) => {
+      if (e.target.matches('#duel_starts_at, #duel_duration, #duel_duel_type')) {
+        this.updateSummary()
+        this.validateFieldInRealTime(e.target)
+      }
+    })
+
     // Escuchar cambios en campos de ubicación (solo para UI, NO para cálculo de distancia)
     this.element.addEventListener('input', (e) => {
       if (e.target.matches('[name="duel[country]"], [name="duel[city]"], [name="duel[address]"]')) {
@@ -199,9 +207,10 @@ export default class extends Controller {
       this.updateSummary()
       this.scrollToTop()
       
-      // Si llegamos al Step 3, verificar selección de arena
+      // Si llegamos al Step 3, verificar selección de arena y inicializar mapa
       if (this.currentStepValue === 3) {
         this.checkStep3ArenaSelection()
+        this.initSummaryMap()
       }
     }
   }
@@ -227,9 +236,10 @@ export default class extends Controller {
       this.updateButtons()
       this.scrollToTop()
       
-      // Si llegamos al Step 3, verificar selección de arena
+      // Si llegamos al Step 3, verificar selección de arena y inicializar mapa
       if (this.currentStepValue === 3) {
         this.checkStep3ArenaSelection()
+        this.initSummaryMap()
       }
     }
   }
@@ -261,6 +271,8 @@ export default class extends Controller {
     // Si llegamos al Step 3, verificar si ya hay una arena seleccionada
     if (this.currentStepValue === 3) {
       this.checkStep3ArenaSelection()
+      this.initSummaryMap()
+      this.updateSummary()
     }
 
     // Si estamos en Step 1, forzar resize del mapa que maneja arena_location_controller
@@ -311,6 +323,13 @@ export default class extends Controller {
     if (this.hasNextBtnTarget) {
       const isLastStep = this.currentStepValue === this.totalStepsValue
       this.nextBtnTarget.classList.toggle('d-none', isLastStep)
+      
+      // Deshabilitar botón si no se puede avanzar
+      if (!isLastStep) {
+        this.nextBtnTarget.disabled = !this.canProceedToNext()
+        this.nextBtnTarget.classList.toggle('btn-primary', this.nextBtnTarget.disabled === false)
+        this.nextBtnTarget.classList.toggle('btn-secondary', this.nextBtnTarget.disabled === true)
+      }
     }
 
     // Botón submit
@@ -357,10 +376,120 @@ export default class extends Controller {
     const country = document.querySelector('[name="duel[country]"]')?.value || '-'
     const city = document.querySelector('[name="duel[city]"]')?.value || '-'
     const address = document.querySelector('[name="duel[address]"]')?.value || '-'
+    const neighborhood = document.querySelector('[name="duel[neighborhood]"]')?.value || '-'
 
     document.getElementById('summary-country').textContent = country
     document.getElementById('summary-city').textContent = city
     document.getElementById('summary-address').textContent = address
+    document.getElementById('summary-neighborhood').textContent = neighborhood
+    
+    // Validar campos de ubicación en tiempo real
+    const countryField = document.querySelector('[name="duel[country]"]')
+    const cityField = document.querySelector('[name="duel[city]"]')
+    const addressField = document.querySelector('[name="duel[address]"]')
+    
+    if (countryField) this.validateFieldInRealTime(countryField)
+    if (cityField) this.validateFieldInRealTime(cityField)
+    if (addressField) this.validateFieldInRealTime(addressField)
+    
+    // Validar campos de coordenadas en tiempo real
+    if (this.hasLatitudeTarget) this.validateFieldInRealTime(this.latitudeTarget)
+    if (this.hasLongitudeTarget) this.validateFieldInRealTime(this.longitudeTarget)
+    
+    // Validar que las coordenadas estén presentes
+    const lat = this.latitudeTarget?.value
+    const lng = this.longitudeTarget?.value
+    
+    if (!lat || !lng) {
+      console.log('⚠️ No hay coordenadas válidas para validar')
+    } else {
+      console.log(`✅ Coordenadas válidas: (${lat}, ${lng})`)
+    }
+    
+    // Validar que las coordenadas sean numéricas
+    if (lat && lng) {
+      const latNum = parseFloat(lat)
+      const lngNum = parseFloat(lng)
+      
+      if (Number.isFinite(latNum) && Number.isFinite(lngNum)) {
+        console.log(`✅ Coordenadas numéricas válidas: (${latNum}, ${lngNum})`)
+        
+        // Actualizar coordenadas actuales del controller
+        this.currentLat = latNum
+        this.currentLng = lngNum
+        
+        // Recalcular distancias de arenas si es necesario
+        if (this.arenas.length > 0) {
+          this.updateArenaDistances()
+        }
+        
+        // Actualizar mapa en miniatura si estamos en el paso 3
+        if (this.currentStepValue === 3 && this.hasSummaryMapTarget) {
+          this.initSummaryMap()
+        }
+        
+        // Emitir evento de cambio de ubicación
+        this.dispatchLocationChangedEvent(latNum, lngNum, null, null, null, 'summary_update')
+      } else {
+        console.warn('⚠️ Coordenadas no son numéricas válidas')
+      }
+    }
+    
+    // Validar que las coordenadas estén en rango válido
+    if (lat && lng) {
+      const latNum = parseFloat(lat)
+      const lngNum = parseFloat(lng)
+      
+      if (latNum < -90 || latNum > 90) {
+        console.warn('⚠️ Latitud fuera de rango válido (-90 a 90)')
+      }
+      
+      if (lngNum < -180 || lngNum > 180) {
+        console.warn('⚠️ Longitud fuera de rango válido (-180 a 180)')
+      }
+    }
+    
+    // Validar que las coordenadas estén en Colombia (opcional)
+    if (lat && lng) {
+      const latNum = parseFloat(lat)
+      const lngNum = parseFloat(lng)
+      
+      // Colombia está aproximadamente entre lat: -4.2 a 13.5, lng: -81.7 a -66.9
+      if (latNum >= -4.2 && latNum <= 13.5 && lngNum >= -81.7 && lngNum <= -66.9) {
+        console.log('✅ Coordenadas dentro de Colombia')
+      } else {
+        console.log('ℹ️ Coordenadas fuera de Colombia')
+      }
+    }
+    
+    // Validar que las coordenadas no estén en el océano (aproximado)
+    if (lat && lng) {
+      const latNum = parseFloat(lat)
+      const lngNum = parseFloat(lng)
+      
+      // Coordenadas aproximadas de tierra en Colombia
+      const isLand = (latNum >= -4.2 && latNum <= 13.5 && lngNum >= -81.7 && lngNum <= -66.9) ||
+                     (latNum >= 8.0 && latNum <= 12.0 && lngNum >= -78.0 && lngNum <= -71.0) ||
+                     (latNum >= -2.0 && latNum <= 2.0 && lngNum >= -80.0 && lngNum <= -75.0)
+      
+      if (isLand) {
+        console.log('✅ Coordenadas en tierra firme')
+      } else {
+        console.log('ℹ️ Coordenadas posiblemente en el océano')
+      }
+    }
+    
+    // Validar que las coordenadas no estén en el mismo lugar
+    if (lat && lng) {
+      const latNum = parseFloat(lat)
+      const lngNum = parseFloat(lng)
+      
+      if (this.currentLat === latNum && this.currentLng === lngNum) {
+        console.log('ℹ️ Coordenadas no han cambiado')
+      } else {
+        console.log('🔄 Coordenadas han cambiado')
+      }
+    }
 
     // Fecha y Hora
     const startsAt = document.getElementById('duel_starts_at')?.value
@@ -379,13 +508,35 @@ export default class extends Controller {
 
       document.getElementById('summary-date').textContent = formattedDate
       document.getElementById('summary-time').textContent = formattedTime
+      
+      // Validar campo de fecha en tiempo real
+      const startsAtField = document.getElementById('duel_starts_at')
+      if (startsAtField) this.validateFieldInRealTime(startsAtField)
+    } else {
+      document.getElementById('summary-date').textContent = 'No seleccionada'
+      document.getElementById('summary-time').textContent = 'No seleccionada'
     }
 
     // Duración
     const duration = document.getElementById('duel_duration')?.value
     if (duration) {
-      const durationText = duration === '1' ? '1 hora' : `${duration} horas`
+      let durationText
+      if (duration === '1.5') {
+        durationText = '90 minutos'
+      } else if (duration === '2.5') {
+        durationText = '2.5 horas'
+      } else if (duration === '3.5') {
+        durationText = '3.5 horas'
+      } else {
+        durationText = duration === '1' ? '1 hora' : `${duration} horas`
+      }
       document.getElementById('summary-duration').textContent = durationText
+      
+      // Validar campo de duración en tiempo real
+      const durationField = document.getElementById('duel_duration')
+      if (durationField) this.validateFieldInRealTime(durationField)
+    } else {
+      document.getElementById('summary-duration').textContent = '90 minutos (por defecto)'
     }
 
     // Tipo de duelo
@@ -393,6 +544,12 @@ export default class extends Controller {
     if (duelType) {
       const typeText = duelType.charAt(0).toUpperCase() + duelType.slice(1)
       document.getElementById('summary-duel-type').textContent = typeText
+      
+      // Validar campo de tipo de duelo en tiempo real
+      const duelTypeField = document.getElementById('duel_duel_type')
+      if (duelTypeField) this.validateFieldInRealTime(duelTypeField)
+    } else {
+      document.getElementById('summary-duel-type').textContent = 'Amistoso (1 hora)'
     }
 
     // Arena
@@ -427,6 +584,12 @@ export default class extends Controller {
         disclaimer.classList.remove('d-none')
       }
     }
+    
+    // Validar campo de arena en tiempo real
+    if (this.hasArenaIdTarget) {
+      const arenaField = this.arenaIdTarget
+      if (arenaField) this.validateFieldInRealTime(arenaField)
+    }
 
     // Árbitro
     const assignReferee = document.getElementById('assign_referee')?.checked
@@ -435,6 +598,13 @@ export default class extends Controller {
     } else {
       document.getElementById('summary-referee').textContent = 'Sin árbitro asignado'
     }
+    
+    // Validar campo de árbitro en tiempo real
+    const assignRefereeField = document.getElementById('assign_referee')
+    if (assignRefereeField) this.validateFieldInRealTime(assignRefereeField)
+    
+    // Actualizar estado del botón siguiente
+    this.updateButtons()
   }
 
   // Validar si se puede avanzar al siguiente paso
@@ -477,6 +647,15 @@ export default class extends Controller {
       return false
     }
 
+    // Validar que las coordenadas estén presentes
+    const lat = this.latitudeTarget?.value
+    const lng = this.longitudeTarget?.value
+    
+    if (!lat || !lng) {
+      this.showValidationError('Por favor selecciona una ubicación válida en el mapa')
+      return false
+    }
+
     return true
   }
 
@@ -484,9 +663,10 @@ export default class extends Controller {
   validateDateTimeStep() {
     const startsAt = document.getElementById('duel_starts_at')
     const duration = document.getElementById('duel_duration')
+    const duelType = document.getElementById('duel_duel_type')
 
-    if (!startsAt?.value || !duration?.value) {
-      this.showValidationError('Por favor completa la fecha, hora y duración')
+    if (!startsAt?.value || !duration?.value || !duelType?.value) {
+      this.showValidationError('Por favor completa la fecha, hora, duración y tipo de duelo')
       return false
     }
 
@@ -528,6 +708,19 @@ export default class extends Controller {
         errorDiv.remove()
       }
     }, 5000)
+  }
+
+  // Validar campo en tiempo real
+  validateFieldInRealTime(field) {
+    // Remover clases de validación previas
+    field.classList.remove('is-valid', 'is-invalid')
+    
+    // Validar el campo
+    if (field.checkValidity()) {
+      field.classList.add('is-valid')
+    } else {
+      field.classList.add('is-invalid')
+    }
   }
 
   // Scroll suave hacia arriba
@@ -1125,6 +1318,27 @@ export default class extends Controller {
     
     // refrescar resumen si ya tienes updateSummary()
     if (this.updateSummary) this.updateSummary()
+    
+    // Actualizar campos de ubicación si la arena tiene ubicación
+    if (a.country || a.city || a.address) {
+      const countryField = document.querySelector('[name="duel[country]"]')
+      const cityField = document.querySelector('[name="duel[city]"]')
+      const addressField = document.querySelector('[name="duel[address]"]')
+      const neighborhoodField = document.querySelector('[name="duel[neighborhood]"]')
+      
+      if (countryField && a.country) countryField.value = a.country
+      if (cityField && a.city) cityField.value = a.city
+      if (addressField && a.address) addressField.value = a.address
+      if (neighborhoodField && a.neighborhood) neighborhoodField.value = a.neighborhood
+      
+      // Actualizar coordenadas si la arena las tiene
+      if (a.lat && a.lng) {
+        if (this.hasLatitudeTarget) this.latitudeTarget.value = a.lat
+        if (this.hasLongitudeTarget) this.longitudeTarget.value = a.lng
+      }
+      
+      console.log(`📍 Ubicación de arena ${a.name} copiada al formulario`)
+    }
   }
 
   // Actualizar distancias de arenas y ejecutar filtro de radio
@@ -1952,6 +2166,52 @@ export default class extends Controller {
     const statusEl = document.getElementById('geolocation-status')
     if (statusEl) {
       statusEl.classList.add('d-none')
+    }
+  }
+
+  // Inicializar mapa en miniatura para el resumen
+  initSummaryMap() {
+    if (!this.hasSummaryMapTarget) return
+    
+    console.log('🗺️ Inicializando mapa en miniatura para el resumen')
+    
+    // Verificar si ya hay un mapa en este elemento
+    if (this.summaryMapTarget._mapboxgl) {
+      console.log('✅ Mapa en miniatura ya inicializado')
+      return
+    }
+    
+    // Obtener coordenadas del duelo
+    const lat = parseFloat(this.latitudeTarget?.value || 0)
+    const lng = parseFloat(this.longitudeTarget?.value || 0)
+    
+    if (!lat || !lng) {
+      console.log('⚠️ No hay coordenadas para mostrar en el mapa en miniatura')
+      return
+    }
+    
+    // Crear mapa en miniatura simple
+    try {
+      const map = new mapboxgl.Map({
+        container: this.summaryMapTarget,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [lng, lat],
+        zoom: 12,
+        interactive: false,
+        attributionControl: false
+      })
+      
+      // Agregar marcador
+      new mapboxgl.Marker()
+        .setLngLat([lng, lat])
+        .addTo(map)
+      
+      // Guardar referencia
+      this.summaryMapTarget._mapboxgl = map
+      
+      console.log('✅ Mapa en miniatura inicializado correctamente')
+    } catch (error) {
+      console.warn('⚠️ Error al inicializar mapa en miniatura:', error)
     }
   }
 }

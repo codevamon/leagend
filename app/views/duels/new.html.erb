@@ -150,6 +150,20 @@
                       <%= render partial: "arenas/arena_card", collection: @arenas, as: :arena, locals: { selectable: true } %>
                     </div>
 
+                    <!-- Botón Crear Arena -->
+                    <div class="text-center mt-3">
+                      <%= link_to "Crear Nueva Arena", new_arena_path(quick: true), 
+                          class: "btn btn-outline-primary",
+                          data: { 
+                            turbo_frame: "modal",
+                            action: "click->modal#open"
+                          } %>
+                      <small class="d-block text-muted mt-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Crea una arena personalizada para tu duelo
+                      </small>
+                    </div>
+
                     <!-- Mensaje cuando no hay arenas cercanas -->
                     <div id="no-arenas-message" class="alert alert-info text-center mt-3 d-none">
                       <i class="fas fa-info-circle me-2"></i>
@@ -213,18 +227,22 @@
                 
                 <div class="col-md-6">
                   <div class="mb-4">
-                    <%= f.label :duration, "Duración (horas)", class: "form-label fw-semibold" %>
+                    <%= f.label :duration, "Duración", class: "form-label fw-semibold" %>
                     <%= f.select :duration, 
                         options_for_select([
-                          ['1 hora', 1],
+                          ['90 minutos', 1.5],
                           ['2 horas', 2],
+                          ['2.5 horas', 2.5],
                           ['3 horas', 3],
-                          ['4 horas', 4],
-                          ['5 horas', 5],
-                          ['6 horas', 6]
-                        ], 2),
+                          ['3.5 horas', 3.5],
+                          ['4 horas', 4]
+                        ], 1.5),
                         {},
                         { class: "form-select", required: true } %>
+                    <small class="text-muted">
+                      <i class="fas fa-info-circle me-1"></i>
+                      Duración por defecto: 90 minutos
+                    </small>
                   </div>
                 </div>
               </div>
@@ -333,6 +351,20 @@
                       </div>
                     </div>
                   </div>
+                </div>
+
+                <!-- Mapa en miniatura -->
+                <div class="summary-map-section mt-4">
+                  <h6 class="summary-title text-primary">
+                    <i class="fas fa-map me-2"></i>Ubicación del Duelo
+                  </h6>
+                  <div id="summary-map" 
+                       data-arena-location-target="summaryMap"
+                       style="height: 200px; border-radius: 8px; border: 1px solid #dee2e6;">
+                  </div>
+                  <small class="text-muted d-block mt-2">
+                    <i class="fas fa-info-circle me-1"></i>Ubicación seleccionada para el duelo
+                  </small>
                 </div>
 
                 <!-- Disclaimer si no hay arena -->

@@ -1,7 +1,5 @@
 <%= turbo_stream.replace "modal", "" %>
 
-<%= turbo_stream.replace "modal", "" %>
-
 <%= turbo_stream.prepend "flash" do %>
   <div class="alert alert-success alert-dismissible fade show mb-2" role="alert" 
        data-controller="flash-message">
@@ -10,6 +8,26 @@
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
   </div>
 <% end %>
+
+<%= turbo_stream.replace "arena-select-frame" do %>
+  <div id="arena-select-frame">
+    <div class="row g-3" data-duel-steps-target="arenaGrid">
+      <%= render partial: "arenas/arena_card", collection: @arenas, as: :arena, locals: { selectable: true, selected_arena_id: @arena.id } %>
+    </div>
+  </div>
+<% end %>
+
+<%= turbo_stream.update "duel_arena_id" do %>
+  <%= @arena.id %>
+<% end %>
+
+<%= turbo_stream.append "body" do %>
+  <script nonce="<%= content_security_policy_nonce %>">
+    document.dispatchEvent(new CustomEvent('leagend:arena_selected', { detail: { id: '<%= @arena.id %>' } }));
+  </script>
+<% end %>
+
+<%= turbo_stream.invoke "document.dispatchEvent", args: ["leagend:arena_created", { detail: { id: <%= @arena.id %>, name: "<%= @arena.name %>" } }] %>
 
 <%= turbo_stream.append "body" do %>
   <script nonce="<%= content_security_policy_nonce %>">

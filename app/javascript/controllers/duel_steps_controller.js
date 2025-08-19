@@ -8,6 +8,42 @@ export default class extends Controller {
     totalSteps: { type: Number, default: 4 }
   }
 
+  // Helpers seguros para acceder a campos del formulario
+  getInput(name) { 
+    return document.querySelector(`[name="duel[${name}]"]`); 
+  }
+  
+  getValue(name) { 
+    const el = this.getInput(name); 
+    return el ? el.value?.trim() : ""; 
+  }
+
+  // Localizador robusto de contenedores de paso (scope = this.element)
+  getStepElement(n) {
+    // 1) Preferir Stimulus targets en orden
+    if (this.stepTargets && this.stepTargets[n - 1]) return this.stepTargets[n - 1];
+
+    const scope = this.element;
+
+    // 2) Probar variantes comunes dentro del scope del controller
+    let el =
+      scope.querySelector(`[data-duel-steps-target="step"][data-step="${n}"]`) ||
+      scope.querySelector(`.duel-step[data-step="${n}"]`) ||
+      scope.querySelector(`[data-step="${n}"]`);
+
+    if (el) return el;
+
+    // 3) Si no hay data-step en el DOM, asumir orden visual
+    const candidates = scope.querySelectorAll('[data-duel-steps-target="step"], .duel-step, [data-step]');
+    if (candidates && candidates.length >= n) return candidates[n - 1];
+
+    // 4) Fallback: el visible/activo
+    el = scope.querySelector('.step-active') || scope.querySelector('[data-step]:not(.d-none)');
+    return el || null;
+  }
+
+
+
   // Campos/estado internos
   arenas = []
   arenaMarkers = new Map()
@@ -15,17 +51,24 @@ export default class extends Controller {
   currentLng = null
   debouncedRecompute = null
   searchDebounceTimer = null
+  
+  // Estado de navegación corregido
+  totalSteps = 3
+  currentStep = null
 
   connect() {
     // VERSION TAG: DUEL-STEP v2025-08-15T10:45Z - VERIFICAR QUE SE EJECUTA ESTE CÓDIGO
     console.info("🚀 DUEL-STEP v2025-08-15T10:45Z - Controller conectado")
     console.info("📁 Archivo fuente:", import.meta.url)
     
+    // Inicializar estado de navegación
+    if (this.currentStep == null) this.currentStep = 1
+    
     // Inicializar debouncedRecompute
     this.debouncedRecompute = this.debounce(this.recomputeAndRenderNearby.bind(this), 250)
     
     // BOOT LIMPIO: Configurar paso y progreso
-    this.showCurrentStep()
+    this.showStep(this.currentStep)
     this.updateProgress()
     this.updateButtons()
     
@@ -67,8 +110,17 @@ export default class extends Controller {
     console.trace('📍 TRACE: resolveInitialCoordinates() llamado desde:')
     
     // PRIORIDAD 1: Valores en campos hidden si ya existen y son numéricos
-    const latInput = document.getElementById('duel_latitude')
-    const lngInput = document.getElementById('duel_longitude')
+    let latInput, lngInput
+    
+    if (this.hasLatitudeTarget && this.hasLongitudeTarget) {
+      latInput = this.latitudeTarget
+      lngInput = this.longitudeTarget
+    } else {
+      // Fallback: usar helpers seguros
+      latInput = this.getInput('latitude')
+      lngInput = this.getInput('longitude')
+      console.debug('duel-steps: latitude/longitude targets not found, using fallback')
+    }
     
     console.log('🔍 BOOT: Verificando campos hidden...')
     console.log('🔍 BOOT: duel_latitude =', latInput?.value)
@@ -142,6 +194,10 @@ export default class extends Controller {
     console.log('🔧 setupEventListeners() - Configurando event listeners')
     console.trace('📍 TRACE: setupEventListeners() llamado desde:')
     
+    // CONFIGURACIÓN DE VALIDACIÓN EN TIEMPO REAL DEL PASO 1:
+    // Se configuran listeners para habilitar/deshabilitar el botón "Siguiente"
+    // cuando cambien los campos: country, city, address, latitude, longitude
+    
     // Escuchar cambios en campos para actualizar resumen
     this.element.addEventListener('change', (e) => {
       if (e.target.matches('input, select')) {
@@ -164,6 +220,12 @@ export default class extends Controller {
         // NOTA: Los cambios en country/city/address NO afectan el cálculo de radio de 3km
         // El radio se calcula EXCLUSIVAMENTE desde currentLat/currentLng
         console.log('ℹ️ Campo de ubicación cambiado (solo UI, no afecta radio de 3km)')
+        
+        // Validar Paso 1 en tiempo real para habilitar/deshabilitar botón Siguiente
+        // cuando cambien los campos country, city o address
+        if (this.currentStep === 1) {
+          this.updateButtons()
+        }
       }
     })
 
@@ -173,12 +235,67 @@ export default class extends Controller {
       if (e.target.matches('[name="duel[latitude]"], [name="duel[longitude]"]')) {
         console.log('🔄 Campo de coordenadas cambiado, recalculando distancias')
         this.updateArenaDistances()
+        
+        // Validar Paso 1 en tiempo real para habilitar/deshabilitar botón Siguiente
+        // cuando cambien los campos latitude o longitude (evento change)
+        if (this.currentStep === 1) {
+          this.updateButtons()
+        }
+      }
+    })
+    
+    // Escuchar cambios en campos de coordenadas también en input para validación en tiempo real
+    this.element.addEventListener('input', (e) => {
+      if (e.target.matches('[name="duel[latitude]"], [name="duel[longitude]"]')) {
+        // Validar Paso 1 en tiempo real para habilitar/deshabilitar botón Siguiente
+        // cuando cambien los campos latitude o longitude (evento input)
+        if (this.currentStep === 1) {
+          this.updateButtons()
+        }
+      }
+    })
+
+    // Escuchar cambios en campos del Paso 2 para validación en tiempo real
+    this.element.addEventListener('input', (e) => {
+      if (e.target.matches('input, select, textarea')) {
+        // Validar Paso 2 en tiempo real si estamos en ese paso
+        if (this.currentStep === 2) {
+          this.updateButtons()
+        }
+      }
+    })
+
+    // Escuchar cambios en campos del Paso 2 también en change
+    this.element.addEventListener('change', (e) => {
+      if (e.target.matches('input, select, textarea')) {
+        // Validar Paso 2 en tiempo real si estamos en ese paso
+        if (this.currentStep === 2) {
+          this.updateButtons()
+        }
       }
     })
 
     // Suscribirse a cambios de ubicación desde arena_location_controller
     // Este evento proporciona coordenadas numéricas válidas para el cálculo de radio
     window.addEventListener("leagend:location_changed", this.onLocationChanged.bind(this))
+    
+    // Escuchar leagend:location_changed para revalidar Paso 1
+    window.addEventListener("leagend:location_changed", () => {
+      if (this.currentStep === 1) {
+        this.updateButtons()
+      }
+    })
+    
+    // Suscribirse a eventos de arena creada desde el modal
+    window.addEventListener("leagend:arena_created", this.onArenaCreated.bind(this))
+    
+    // Suscribirse a eventos de cambio de fecha/hora para validación del Paso 2
+    window.addEventListener("leagend:datetime_selected", () => {
+      if (this.currentStep === 2) {
+        console.log('🔧 Evento leagend:datetime_selected recibido en connect() - revalidando Paso 2')
+        this.updateButtons()
+      }
+    })
     
     // Cargar arenas desde el DOM
     this.buildArenasFromDOM()
@@ -192,6 +309,15 @@ export default class extends Controller {
         console.log('🔄 Coordenadas iniciales encontradas, disparando evento de ubicación')
         this.onLocationChanged({ detail: { lat, lng, source: 'setup' } })
       }
+    } else {
+      // Fallback: usar helpers seguros si no hay targets
+      const lat = parseFloat(this.getValue('latitude'))
+      const lng = parseFloat(this.getValue('longitude'))
+      if (lat && lng) {
+        console.debug('duel-steps: latitude/longitude targets not found, using fallback')
+        console.log('🔄 Coordenadas iniciales encontradas (fallback), disparando evento de ubicación')
+        this.onLocationChanged({ detail: { lat, lng, source: 'setup_fallback' } })
+      }
     }
     
     console.log('✅ Event listeners configurados correctamente')
@@ -199,56 +325,83 @@ export default class extends Controller {
 
   // Navegar al siguiente paso
   next() {
-    if (this.canProceedToNext()) {
-      this.currentStepValue++
-      this.showCurrentStep()
+    console.log(`🔄 next() - Intentando avanzar desde paso ${this.currentStep}`)
+    
+    // Validar paso actual antes de avanzar
+    if (this.currentStep === 1 && !this.validStep1()) {
+      console.log('❌ next(): Paso 1 no válido, no se puede avanzar')
+      return
+    }
+    
+    if (this.currentStep === 2 && !this.validStep2()) {
+      console.log('❌ next(): Paso 2 no válido, no se puede avanzar')
+      return
+    }
+    
+    // Si pasa validación, avanzar
+    if (this.currentStep < this.totalSteps) {
+      this.currentStep++
+      console.log(`✅ next(): Avanzando al paso ${this.currentStep}`)
+      
+      this.showStep(this.currentStep)
       this.updateProgress()
       this.updateButtons()
       this.updateSummary()
       this.scrollToTop()
-      
-      // Si llegamos al Step 3, verificar selección de arena y inicializar mapa
-      if (this.currentStepValue === 3) {
-        this.checkStep3ArenaSelection()
-        this.initSummaryMap()
-      }
+    } else {
+      console.log('ℹ️ next(): Ya estamos en el último paso')
     }
   }
 
   // Navegar al paso anterior
   previous() {
-    if (this.currentStepValue > 1) {
-      this.currentStepValue--
-      this.showCurrentStep()
+    console.log(`🔄 previous() - Intentando retroceder desde paso ${this.currentStep}`)
+    
+    if (this.currentStep > 1) {
+      this.currentStep--
+      console.log(`✅ previous(): Retrocediendo al paso ${this.currentStep}`)
+      
+      this.showStep(this.currentStep)
       this.updateProgress()
       this.updateButtons()
       this.scrollToTop()
+    } else {
+      console.log('ℹ️ previous(): Ya estamos en el primer paso')
     }
   }
 
   // Ir a un paso específico
   goToStep(event) {
     const step = parseInt(event.currentTarget.dataset.step)
-    if (step >= 1 && step <= this.totalStepsValue) {
-      this.currentStepValue = step
-      this.showCurrentStep()
+    console.log(`🔄 goToStep(${step}) - Intentando ir al paso ${step}`)
+    
+    if (step >= 1 && step <= this.totalSteps) {
+      this.currentStep = step
+      console.log(`✅ goToStep(): Cambiando al paso ${this.currentStep}`)
+      
+      this.showStep(this.currentStep)
       this.updateProgress()
       this.updateButtons()
       this.scrollToTop()
-      
-      // Si llegamos al Step 3, verificar selección de arena y inicializar mapa
-      if (this.currentStepValue === 3) {
-        this.checkStep3ArenaSelection()
-        this.initSummaryMap()
-      }
+    } else {
+      console.warn(`⚠️ goToStep(): Paso ${step} fuera de rango [1..${this.totalSteps}]`)
     }
   }
 
-  // Mostrar solo el paso actual
-  showCurrentStep() {
+  // Mostrar paso específico con validación de rango
+  showStep(n) {
+    // Asegurar que n esté en el rango válido [1..3]
+    if (n < 1 || n > this.totalSteps) {
+      console.warn(`⚠️ showStep: paso ${n} fuera de rango [1..${this.totalSteps}]`)
+      return
+    }
+    
+    console.log(`🔄 showStep(${n}) - Mostrando paso ${n}`)
+    
+    // Ocultar todos los contenedores de pasos
     this.stepTargets.forEach((step, index) => {
       const stepNumber = index + 1
-      if (stepNumber === this.currentStepValue) {
+      if (stepNumber === n) {
         step.classList.remove('d-none')
         step.classList.add('step-active')
       } else {
@@ -257,31 +410,162 @@ export default class extends Controller {
       }
     })
     
-    // Actualizar barra de progreso simple
+    // Actualizar barra de progreso sin cambiar su HTML (si existe)
+    if (this.hasProgressTarget) {
+      const percentage = (n / this.totalSteps) * 100
+      this.progressTarget.style.width = `${percentage}%`
+    }
+    
+    // Actualizar dots de progreso si existen
     const dots = this.element.querySelectorAll("[data-step-dot]")
     dots.forEach(dot => {
       const stepNumber = parseInt(dot.dataset.stepDot)
-      if (stepNumber <= this.currentStepValue) {
+      if (stepNumber <= n) {
         dot.classList.add('wizard-dot--active')
       } else {
         dot.classList.remove('wizard-dot--active')
       }
     })
 
-    // Si llegamos al Step 3, verificar si ya hay una arena seleccionada
-    if (this.currentStepValue === 3) {
-      this.checkStep3ArenaSelection()
-      this.initSummaryMap()
-      this.updateSummary()
+    // Si llegamos al Step 3, disparar callback si existe
+    if (n === 3) {
+      // Llamar a onEnterStep3() después de hacer visible el contenedor
+      setTimeout(() => {
+        this.onEnterStep3()
+      }, 100)
+    }
+
+    // Si estamos en Step 2, configurar validación en tiempo real
+    if (n === 2) {
+      setTimeout(() => {
+        this.setupStep2Validation()
+      }, 100)
     }
 
     // Si estamos en Step 1, forzar resize del mapa que maneja arena_location_controller
-    if (this.currentStepValue === 1) {
+    if (n === 1) {
       setTimeout(() => {
         if (window.leagendMap && typeof window.leagendMap.resize === 'function') {
           window.leagendMap.resize()
         }
       }, 100)
+    }
+    
+    console.log(`✅ showStep(${n}) - Paso ${n} mostrado correctamente`)
+  }
+
+  // Validador puro para el Paso 1
+  validStep1() {
+    const fields = ['country', 'city', 'address', 'latitude', 'longitude']
+    return fields.every(k => this.getValue(k) !== "")
+  }
+
+  // Validador puro para el Paso 2
+  validStep2() {
+    // Buscar el contenedor del paso 2 dentro del scope del controller
+    const step2 = this.getStepElement(2);
+    if (!step2) {
+      console.warn('⚠️ validStep2: contenedor del paso 2 no encontrado (revisar targets/markup)');
+      // Fallback ultra defensivo: intentar validar por ID/global si existen
+      const starts = document.getElementById('duel_starts_at') || this.element.querySelector('[name="duel[starts_at]"]');
+      if (!starts) return false;
+      return !!(starts.value && (starts.checkValidity ? starts.checkValidity() : true));
+    }
+
+    // Campos explícitos del paso (no inspeccionar [required] genéricos)
+    const starts = step2.querySelector('#duel_starts_at') || step2.querySelector('[name="duel[starts_at]"]') ||
+                   this.element.querySelector('#duel_starts_at') || this.element.querySelector('[name="duel[starts_at]"]');
+
+    const dur    = step2.querySelector('#duel_duration') || step2.querySelector('[name="duel[duration_minutes]"], [name="duel[duration]"]');
+    const type   = step2.querySelector('#duel_duel_type') || step2.querySelector('[name="duel[duel_type]"], [name="duel[type]"]');
+
+    // starts_at es el único obligatorio
+    const okStarts = !!(starts && starts.value && (starts.checkValidity ? starts.checkValidity() : true));
+
+    // Si existen, deben tener valor; si no, no bloquean
+    const okDur  = dur  ? (dur.value?.trim() !== '')  : true;
+    const okType = type ? (type.value?.trim() !== '') : true;
+
+    const result = !!(okStarts && okDur && okType);
+    console.debug('✅ validStep2:', { okStarts, okDur, okType, result, startsValue: starts?.value });
+    return result;
+  }
+
+  // Configurar validación en tiempo real para el Paso 2
+  setupStep2Validation() {
+    console.log('🔧 setupStep2Validation() - Configurando validación en tiempo real para Paso 2');
+
+    const step2 = this.getStepElement(2);
+    if (!step2) {
+      console.warn('⚠️ setupStep2Validation: contenedor del paso 2 no encontrado (revisar targets/markup)');
+      return;
+    }
+
+    // Localizar el botón "Siguiente"
+    let nextButton = null;
+
+    // 1) Si hay target de Stimulus, úsalo
+    if (this.hasNextBtnTarget) nextButton = this.nextBtnTarget;
+
+    // 2) Si no, buscar dentro del contenedor del paso 2 por convenciones
+    if (!nextButton) {
+      nextButton = step2.querySelector('.btn-next, [data-action*="next"]');
+    }
+
+    // 3) Si aún no, buscar por texto de forma segura (no usar :contains)
+    if (!nextButton) {
+      const buttons = (this.element.querySelectorAll('button') || []);
+      nextButton = Array.from(buttons).find(btn => {
+        const t = (btn.textContent || '').toLowerCase();
+        return t.includes('siguiente') || t.includes('next');
+      }) || null;
+    }
+
+    if (!nextButton) {
+      console.warn('⚠️ setupStep2Validation: botón "Siguiente" no encontrado');
+      return;
+    }
+
+    console.log('✅ Botón "Siguiente" del Paso 2 localizado:', nextButton);
+
+    // Función central de actualización
+    const updateNextButtonState = () => {
+      const isValid = this.validStep2();
+      nextButton.disabled = !isValid;
+      nextButton.classList.toggle('btn-primary', isValid);
+      nextButton.classList.toggle('btn-secondary', !isValid);
+    };
+
+    // Escucha directa al starts_at
+    const startsAtEl =
+      step2.querySelector('#duel_starts_at') ||
+      step2.querySelector('[name="duel[starts_at]"]') ||
+      this.element.querySelector('#duel_starts_at') ||
+      this.element.querySelector('[name="duel[starts_at]"]');
+
+    ['input', 'change', 'blur'].forEach(evt => startsAtEl?.addEventListener(evt, updateNextButtonState));
+
+    // Si un widget externo setea la fecha/hora
+    document.addEventListener('leagend:datetime_selected', updateNextButtonState);
+
+    // Listener genérico a todos los campos del paso 2
+    const formFields = step2.querySelectorAll('input, select, textarea');
+    formFields.forEach(field => {
+      field.addEventListener('input', updateNextButtonState);
+      field.addEventListener('change', updateNextButtonState);
+    });
+
+    // Evaluación inicial
+    updateNextButtonState();
+
+    console.log('✅ Validación en tiempo real del Paso 2 configurada correctamente');
+  }
+  
+  // Forzar revalidación del Paso 2 (útil para widgets externos)
+  forceStep2Validation() {
+    if (this.currentStep === 2) {
+      console.log('🔧 forceStep2Validation() - Forzando revalidación del Paso 2')
+      this.updateButtons()
     }
   }
 
@@ -305,7 +589,7 @@ export default class extends Controller {
   // Actualizar barra de progreso
   updateProgress() {
     if (this.hasProgressTarget) {
-      const percentage = (this.currentStepValue / this.totalStepsValue) * 100
+      const percentage = (this.currentStep / this.totalSteps) * 100
       this.progressTarget.style.width = `${percentage}%`
     }
   }
@@ -314,27 +598,48 @@ export default class extends Controller {
   updateButtons() {
     // Botón anterior
     if (this.hasPrevBtnTarget) {
-      this.prevBtnTarget.disabled = this.currentStepValue === 1
-      this.prevBtnTarget.classList.toggle('btn-secondary', this.currentStepValue === 1)
-      this.prevBtnTarget.classList.toggle('btn-outline-secondary', this.currentStepValue > 1)
+      this.prevBtnTarget.disabled = this.currentStep === 1
+      this.prevBtnTarget.classList.toggle('btn-secondary', this.currentStep === 1)
+      this.prevBtnTarget.classList.toggle('btn-outline-secondary', this.currentStep > 1)
     }
 
     // Botón siguiente
     if (this.hasNextBtnTarget) {
-      const isLastStep = this.currentStepValue === this.totalStepsValue
+      const isLastStep = this.currentStep === this.totalSteps
       this.nextBtnTarget.classList.toggle('d-none', isLastStep)
       
       // Deshabilitar botón si no se puede avanzar
       if (!isLastStep) {
-        this.nextBtnTarget.disabled = !this.canProceedToNext()
-        this.nextBtnTarget.classList.toggle('btn-primary', this.nextBtnTarget.disabled === false)
-        this.nextBtnTarget.classList.toggle('btn-secondary', this.nextBtnTarget.disabled === true)
+        // Para el Paso 1, usar validación específica en tiempo real
+        if (this.currentStep === 1) {
+          const hasRequiredData = this.validStep1()
+          this.nextBtnTarget.disabled = !hasRequiredData
+          this.nextBtnTarget.classList.toggle('btn-primary', hasRequiredData)
+          this.nextBtnTarget.classList.toggle('btn-secondary', !hasRequiredData)
+        } else if (this.currentStep === 2) {
+          // Para el Paso 2, usar validación específica
+          const hasRequiredData = this.validStep2()
+          this.nextBtnTarget.disabled = !hasRequiredData
+          this.nextBtnTarget.classList.toggle('btn-primary', hasRequiredData)
+          this.nextBtnTarget.classList.toggle('btn-secondary', !hasRequiredData)
+          
+          // Si el botón está deshabilitado, asegurar que se actualice la UI
+          if (!hasRequiredData) {
+            this.nextBtnTarget.classList.add('btn-secondary')
+            this.nextBtnTarget.classList.remove('btn-primary')
+          }
+        } else {
+          // Para otros pasos, usar la validación general
+          this.nextBtnTarget.disabled = !this.canProceedToNext()
+          this.nextBtnTarget.classList.toggle('btn-primary', this.nextBtnTarget.disabled === false)
+          this.nextBtnTarget.classList.toggle('btn-secondary', this.nextBtnTarget.disabled === true)
+        }
       }
     }
 
     // Botón submit
     if (this.hasSubmitBtnTarget) {
-      this.submitBtnTarget.classList.toggle('d-none', this.currentStepValue !== this.totalStepsValue)
+      this.submitBtnTarget.classList.toggle('d-none', this.currentStep !== this.totalSteps)
     }
   }
 
@@ -373,10 +678,10 @@ export default class extends Controller {
   // Actualizar resumen del duelo
   updateSummary() {
     // Ubicación
-    const country = document.querySelector('[name="duel[country]"]')?.value || '-'
-    const city = document.querySelector('[name="duel[city]"]')?.value || '-'
-    const address = document.querySelector('[name="duel[address]"]')?.value || '-'
-    const neighborhood = document.querySelector('[name="duel[neighborhood]"]')?.value || '-'
+    const country = this.getValue('country') || '-'
+    const city = this.getValue('city') || '-'
+    const address = this.getValue('address') || '-'
+    const neighborhood = this.getValue('neighborhood') || '-'
 
     document.getElementById('summary-country').textContent = country
     document.getElementById('summary-city').textContent = city
@@ -384,9 +689,9 @@ export default class extends Controller {
     document.getElementById('summary-neighborhood').textContent = neighborhood
     
     // Validar campos de ubicación en tiempo real
-    const countryField = document.querySelector('[name="duel[country]"]')
-    const cityField = document.querySelector('[name="duel[city]"]')
-    const addressField = document.querySelector('[name="duel[address]"]')
+    const countryField = this.getInput('country')
+    const cityField = this.getInput('city')
+    const addressField = this.getInput('address')
     
     if (countryField) this.validateFieldInRealTime(countryField)
     if (cityField) this.validateFieldInRealTime(cityField)
@@ -397,8 +702,8 @@ export default class extends Controller {
     if (this.hasLongitudeTarget) this.validateFieldInRealTime(this.longitudeTarget)
     
     // Validar que las coordenadas estén presentes
-    const lat = this.latitudeTarget?.value
-    const lng = this.longitudeTarget?.value
+    const lat = this.hasLatitudeTarget ? this.latitudeTarget.value : this.getValue('latitude')
+    const lng = this.hasLongitudeTarget ? this.longitudeTarget.value : this.getValue('longitude')
     
     if (!lat || !lng) {
       console.log('⚠️ No hay coordenadas válidas para validar')
@@ -424,7 +729,7 @@ export default class extends Controller {
         }
         
         // Actualizar mapa en miniatura si estamos en el paso 3
-        if (this.currentStepValue === 3 && this.hasSummaryMapTarget) {
+        if (this.currentStep === 3 && this.hasSummaryMapTarget) {
           this.initSummaryMap()
         }
         
@@ -609,7 +914,7 @@ export default class extends Controller {
 
   // Validar si se puede avanzar al siguiente paso
   canProceedToNext() {
-    const currentStepElement = this.stepTargets[this.currentStepValue - 1]
+    const currentStepElement = this.stepTargets[this.currentStep - 1]
     if (!currentStepElement) return false
 
     // Obtener campos requeridos del paso actual
@@ -627,36 +932,65 @@ export default class extends Controller {
     })
 
     // Validaciones específicas por paso
-    if (this.currentStepValue === 1) {
+    if (this.currentStep === 1) {
       isValid = this.validateLocationStep()
-    } else if (this.currentStepValue === 2) {
+    } else if (this.currentStep === 2) {
       isValid = this.validateDateTimeStep()
     }
 
     return isValid
   }
 
+  // Función pura para verificar si el Paso 1 tiene todos los datos requeridos
+  // NOTA: El botón "Siguiente" del Paso 1 se encuentra en app/views/duels/new.html.erb línea 392
+  hasStep1RequiredData() {
+    // Usar helpers seguros para acceder a los campos
+    const countryField = this.getInput('country')
+    const cityField = this.getInput('city')
+    const addressField = this.getInput('address')
+    const latitudeField = this.getInput('latitude')
+    const longitudeField = this.getInput('longitude')
+    
+    // Protección: si algún selector no existe, registrar debug y salir
+    if (!countryField) {
+      console.debug('⚠️ Campo country no encontrado en hasStep1RequiredData()')
+      return false
+    }
+    if (!cityField) {
+      console.debug('⚠️ Campo city no encontrado en hasStep1RequiredData()')
+      return false
+    }
+    if (!addressField) {
+      console.debug('⚠️ Campo address no encontrado en hasStep1RequiredData()')
+      return false
+    }
+    if (!latitudeField) {
+      console.debug('⚠️ Campo latitude no encontrado en hasStep1RequiredData()')
+      return false
+    }
+    if (!longitudeField) {
+      console.debug('⚠️ Campo longitude no encontrado en hasStep1RequiredData()')
+      return false
+    }
+    
+    // Verificar que todos los campos tengan valores no vacíos
+    const hasCountry = countryField.value.trim() !== ''
+    const hasCity = cityField.value.trim() !== ''
+    const hasAddress = addressField.value.trim() !== ''
+    const hasLatitude = latitudeField.value.trim() !== ''
+    const hasLongitude = longitudeField.value.trim() !== ''
+    
+    const allFieldsFilled = hasCountry && hasCity && hasAddress && hasLatitude && hasLongitude
+    
+    console.debug(`🔍 Paso 1 - Validación: country=${hasCountry}, city=${hasCity}, address=${hasAddress}, lat=${hasLatitude}, lng=${hasLongitude} => ${allFieldsFilled}`)
+    
+    return allFieldsFilled
+  }
+
   // Validar paso de ubicación
   validateLocationStep() {
-    const country = document.querySelector('[name="duel[country]"]')
-    const city = document.querySelector('[name="duel[city]"]')
-    const address = document.querySelector('[name="duel[address]"]')
-
-    if (!country?.value || !city?.value || !address?.value) {
-      this.showValidationError('Por favor completa todos los campos de ubicación')
-      return false
-    }
-
-    // Validar que las coordenadas estén presentes
-    const lat = this.latitudeTarget?.value
-    const lng = this.longitudeTarget?.value
-    
-    if (!lat || !lng) {
-      this.showValidationError('Por favor selecciona una ubicación válida en el mapa')
-      return false
-    }
-
-    return true
+    // Usar la nueva función de validación
+    return this.hasStep1RequiredData()
   }
 
   // Validar paso de fecha y hora
@@ -699,7 +1033,7 @@ export default class extends Controller {
       ${message}
     `
     
-    const currentStep = this.stepTargets[this.currentStepValue - 1]
+    const currentStep = this.stepTargets[this.currentStep - 1]
     currentStep.appendChild(errorDiv)
 
     // Auto-remover después de 5 segundos
@@ -733,8 +1067,8 @@ export default class extends Controller {
 
   // Resetear al primer paso
   reset() {
-    this.currentStepValue = 1
-    this.showCurrentStep()
+    this.currentStep = 1
+    this.showStep(this.currentStep)
     this.updateProgress()
     this.updateButtons()
     
@@ -812,19 +1146,26 @@ export default class extends Controller {
     })
 
     // Obtener coordenadas iniciales del formulario
-    const latInput = document.getElementById('duel_latitude')
-    const lngInput = document.getElementById('duel_longitude')
-    
     let initialLat = 4.710
     let initialLng = -74.006
     
-    if (latInput?.value && lngInput?.value) {
-      const lat = parseFloat(latInput.value)
-      const lng = parseFloat(lngInput.value)
+    if (this.hasLatitudeTarget && this.hasLongitudeTarget) {
+      const lat = parseFloat(this.latitudeTarget.value)
+      const lng = parseFloat(this.longitudeTarget.value)
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
         initialLat = lat
         initialLng = lng
-        console.log(`📍 Coordenadas iniciales del formulario: (${initialLat}, ${initialLng})`)
+        console.log(`📍 Coordenadas iniciales del formulario (targets): (${initialLat}, ${initialLng})`)
+      }
+    } else {
+      // Fallback: usar helpers seguros
+      const lat = parseFloat(this.getValue('latitude'))
+      const lng = parseFloat(this.getValue('longitude'))
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        initialLat = lat
+        initialLng = lng
+        console.debug('duel-steps: latitude/longitude targets not found, using fallback')
+        console.log(`📍 Coordenadas iniciales del formulario (fallback): (${initialLat}, ${initialLng})`)
       }
     }
 
@@ -862,10 +1203,18 @@ export default class extends Controller {
     if (!token || typeof mapboxgl === 'undefined' || !this.hasMapContainerTarget) return
 
     // Obtener coordenadas iniciales (de campos hidden o por defecto)
-    const latInput = document.querySelector('[name="duel[latitude]"]')
-    const lngInput = document.querySelector('[name="duel[longitude]"]')
-    const initialLat = latInput?.value ? parseFloat(latInput.value) : 0
-    const initialLng = lngInput?.value ? parseFloat(lngInput.value) : 0
+    let initialLat = 0
+    let initialLng = 0
+    
+    if (this.hasLatitudeTarget && this.hasLongitudeTarget) {
+      initialLat = this.latitudeTarget.value ? parseFloat(this.latitudeTarget.value) : 0
+      initialLng = this.longitudeTarget.value ? parseFloat(this.longitudeTarget.value) : 0
+    } else {
+      // Fallback: usar helpers seguros
+      initialLat = this.getValue('latitude') ? parseFloat(this.getValue('latitude')) : 0
+      initialLng = this.getValue('longitude') ? parseFloat(this.getValue('longitude')) : 0
+      console.debug('duel-steps: latitude/longitude targets not found, using fallback')
+    }
 
     // Crear mapa
     this.map = new mapboxgl.Map({
@@ -966,7 +1315,7 @@ export default class extends Controller {
       return
     }
 
-    console.log(`🎯 Creando marcadores para ${this.arenas.length} arenas`)
+    console.log(`�� Creando marcadores para ${this.arenas.length} arenas`)
 
     this.arenas.forEach((arena, index) => {
       // Crear marcador
@@ -1034,12 +1383,19 @@ export default class extends Controller {
 
   // Llamado cuando cambian las coordenadas de la dirección
   onAddressCoordsChanged() {
-    const latInput = document.getElementById('duel_latitude')
-    const lngInput = document.getElementById('duel_longitude')
+    let lat, lng
     
-    if (latInput?.value && lngInput?.value) {
-      const lat = parseFloat(latInput.value)
-      const lng = parseFloat(lngInput.value)
+    if (this.hasLatitudeTarget && this.hasLongitudeTarget) {
+      lat = parseFloat(this.latitudeTarget.value)
+      lng = parseFloat(this.longitudeTarget.value)
+    } else {
+      // Fallback: usar helpers seguros
+      lat = parseFloat(this.getValue('latitude'))
+      lng = parseFloat(this.getValue('longitude'))
+      console.debug('duel-steps: latitude/longitude targets not found, using fallback')
+    }
+    
+    if (lat && lng) {
 
       // Actualizar marcador de ubicación si existe
       if (this.locationMarker) {
@@ -1099,7 +1455,7 @@ export default class extends Controller {
       
       // Actualizar campos de ubicación si se proporcionan en el evento
       if (e.detail.city) {
-        const cityInput = document.querySelector('[name="duel[city]"]')
+        const cityInput = this.getInput('city')
         if (cityInput && cityInput.value !== e.detail.city) {
           cityInput.value = e.detail.city
           console.log(`🏙️ Ciudad actualizada: ${e.detail.city}`)
@@ -1107,7 +1463,7 @@ export default class extends Controller {
       }
       
       if (e.detail.country) {
-        const countryInput = document.querySelector('[name="duel[country]"]')
+        const countryInput = this.getInput('country')
         if (countryInput && countryInput.value !== e.detail.country) {
           countryInput.value = e.detail.country
           console.log(`🌍 País actualizado: ${e.detail.country}`)
@@ -1115,7 +1471,7 @@ export default class extends Controller {
       }
       
       if (e.detail.address) {
-        const addressInput = document.querySelector('[name="duel[address]"]')
+        const addressInput = this.getInput('address')
         if (addressInput && addressInput.value !== e.detail.address) {
           addressInput.value = e.detail.address
           console.log(`📍 Dirección actualizada: ${e.detail.address}`)
@@ -1125,12 +1481,58 @@ export default class extends Controller {
       // ÚLTIMA PALABRA: Ejecutar filtro de radio de 3km
       console.log('🔄 Ejecutando recomputeAndRenderNearby(3) con nuevas coordenadas')
       this.debouncedRecompute()
+      
+      // Validar Paso 1 en tiempo real para habilitar/deshabilitar botón Siguiente
+      // cuando se reciba el evento leagend:location_changed
+      if (this.currentStep === 1) {
+        this.updateButtons()
+      }
     } else {
       console.log('ℹ️ Coordenadas no cambiaron, no se ejecuta recompute')
     }
     
     const endTime = new Date().toISOString()
     console.log(`⏰ [${endTime}] onLocationChanged() - FIN`)
+  }
+
+  // Manejar eventos de arena creada desde el modal
+  onArenaCreated(e) {
+    console.log('🎯 onArenaCreated() - Arena creada desde modal')
+    console.trace('📍 TRACE: onArenaCreated() llamado desde:')
+    
+    if (!e?.detail) {
+      console.warn('⚠️ Evento leagend:arena_created sin detail')
+      return
+    }
+    
+    const { id, name } = e.detail
+    console.log(`🎯 Arena creada: ID ${id}, Nombre: ${name}`)
+    
+    // Actualizar el campo hidden duel[arena_id]
+    if (this.hasArenaIdTarget) {
+      this.arenaIdTarget.value = id
+      console.log(`✅ Campo duel[arena_id] actualizado con ID: ${id}`)
+    }
+    
+    // Buscar la arena en el DOM y marcarla como seleccionada
+    const arenaCard = this.element.querySelector(`.arena-card[data-arena-id="${id}"]`)
+    if (arenaCard) {
+      // Remover selección previa
+      this.element.querySelectorAll('.arena-card--selected').forEach(card => {
+        card.classList.remove('arena-card--selected')
+      })
+      
+      // Marcar nueva arena como seleccionada
+      arenaCard.classList.add('arena-card--selected')
+      console.log(`✅ Arena ${name} marcada como seleccionada en la UI`)
+      
+      // Actualizar el resumen si existe el método
+      if (this.updateSummary) {
+        this.updateSummary()
+      }
+    } else {
+      console.warn(`⚠️ No se encontró la arena card con ID ${id} en el DOM`)
+    }
   }
 
   // Búsqueda por texto - integrada con filtro de radio de 3km
@@ -1321,10 +1723,10 @@ export default class extends Controller {
     
     // Actualizar campos de ubicación si la arena tiene ubicación
     if (a.country || a.city || a.address) {
-      const countryField = document.querySelector('[name="duel[country]"]')
-      const cityField = document.querySelector('[name="duel[city]"]')
-      const addressField = document.querySelector('[name="duel[address]"]')
-      const neighborhoodField = document.querySelector('[name="duel[neighborhood]"]')
+      const countryField = this.getInput('country')
+      const cityField = this.getInput('city')
+      const addressField = this.getInput('address')
+      const neighborhoodField = this.getInput('neighborhood')
       
       if (countryField && a.country) countryField.value = a.country
       if (cityField && a.city) cityField.value = a.city
@@ -1333,8 +1735,21 @@ export default class extends Controller {
       
       // Actualizar coordenadas si la arena las tiene
       if (a.lat && a.lng) {
-        if (this.hasLatitudeTarget) this.latitudeTarget.value = a.lat
-        if (this.hasLongitudeTarget) this.longitudeTarget.value = a.lng
+        if (this.hasLatitudeTarget) {
+          this.latitudeTarget.value = a.lat
+        } else {
+          // Fallback: usar helper seguro
+          const latInput = this.getInput('latitude')
+          if (latInput) latInput.value = a.lat
+        }
+        
+        if (this.hasLongitudeTarget) {
+          this.longitudeTarget.value = a.lng
+        } else {
+          // Fallback: usar helper seguro
+          const lngInput = this.getInput('longitude')
+          if (lngInput) lngInput.value = a.lng
+        }
       }
       
       console.log(`📍 Ubicación de arena ${a.name} copiada al formulario`)
@@ -1597,9 +2012,9 @@ export default class extends Controller {
 
   // Rellenar campos de ubicación
   fillLocationInputs(country, city, address, lat, lng) {
-    const countryInput = document.querySelector('[name="duel[country]"]')
-    const cityInput = document.querySelector('[name="duel[city]"]')
-    const addressInput = document.querySelector('[name="duel[address]"]')
+    const countryInput = this.getInput('country')
+    const cityInput = this.getInput('city')
+    const addressInput = this.getInput('address')
 
     // Solo rellenar si están vacíos
     if (countryInput && !countryInput.value && country) {
@@ -1648,6 +2063,7 @@ export default class extends Controller {
     
     // Limpiar event listeners
     window.removeEventListener("leagend:location_changed", this.onLocationChanged.bind(this))
+    window.removeEventListener("leagend:arena_created", this.onArenaCreated.bind(this))
     
     // Limpiar markers del mapa
     if (this.arenaMarkers) {
@@ -1880,8 +2296,17 @@ export default class extends Controller {
     console.trace('📍 TRACE: resolveInitialCoordinates() llamado desde:')
     
     // Prioridad 1: Valores en campos hidden si ya existen y son numéricos
-    const latInput = document.getElementById('duel_latitude')
-    const lngInput = document.getElementById('duel_longitude')
+    let latInput, lngInput
+    
+    if (this.hasLatitudeTarget && this.hasLongitudeTarget) {
+      latInput = this.latitudeTarget
+      lngInput = this.longitudeTarget
+    } else {
+      // Fallback: usar helpers seguros
+      latInput = this.getInput('latitude')
+      lngInput = this.getInput('longitude')
+      console.debug('duel-steps: latitude/longitude targets not found, using fallback')
+    }
 
     if (latInput?.value && lngInput?.value) {
       const lat = parseFloat(latInput.value)
@@ -1952,7 +2377,7 @@ export default class extends Controller {
     
     // Actualizar campo de país
     if (country) {
-      const countryInput = document.querySelector('[name="duel[country]"]')
+      const countryInput = this.getInput('country')
       if (countryInput) {
         countryInput.value = country
         console.log('✅ Campo país actualizado')
@@ -1961,7 +2386,7 @@ export default class extends Controller {
     
     // Actualizar campo de ciudad
     if (city) {
-      const cityInput = document.querySelector('[name="duel[city]"]')
+      const cityInput = this.getInput('city')
       if (cityInput) {
         cityInput.value = city
         console.log('✅ Campo ciudad actualizado')
@@ -1970,7 +2395,7 @@ export default class extends Controller {
     
     // Actualizar campo de dirección
     if (address) {
-      const addressInput = document.querySelector('[name="duel[address]"]')
+      const addressInput = this.getInput('address')
       if (addressInput) {
         addressInput.value = address
         console.log('✅ Campo dirección actualizado')
@@ -2007,8 +2432,17 @@ export default class extends Controller {
   writeHiddenCoordinates(lat, lng) {
     console.log('📝 BOOT: Escribiendo coordenadas en campos hidden')
     
-    const latInput = document.getElementById('duel_latitude')
-    const lngInput = document.getElementById('duel_longitude')
+    let latInput, lngInput
+    
+    if (this.hasLatitudeTarget && this.hasLongitudeTarget) {
+      latInput = this.latitudeTarget
+      lngInput = this.longitudeTarget
+    } else {
+      // Fallback: usar helpers seguros
+      latInput = this.getInput('latitude')
+      lngInput = this.getInput('longitude')
+      console.debug('duel-steps: latitude/longitude targets not found, using fallback')
+    }
     
     if (latInput && lngInput) {
       latInput.value = lat.toFixed(6)
@@ -2182,8 +2616,17 @@ export default class extends Controller {
     }
     
     // Obtener coordenadas del duelo
-    const lat = parseFloat(this.latitudeTarget?.value || 0)
-    const lng = parseFloat(this.longitudeTarget?.value || 0)
+    let lat, lng
+    
+    if (this.hasLatitudeTarget && this.hasLongitudeTarget) {
+      lat = parseFloat(this.latitudeTarget.value || 0)
+      lng = parseFloat(this.longitudeTarget.value || 0)
+    } else {
+      // Fallback: usar helpers seguros
+      lat = parseFloat(this.getValue('latitude') || 0)
+      lng = parseFloat(this.getValue('longitude') || 0)
+      console.debug('duel-steps: latitude/longitude targets not found, using fallback')
+    }
     
     if (!lat || !lng) {
       console.log('⚠️ No hay coordenadas para mostrar en el mapa en miniatura')
@@ -2212,6 +2655,65 @@ export default class extends Controller {
       console.log('✅ Mapa en miniatura inicializado correctamente')
     } catch (error) {
       console.warn('⚠️ Error al inicializar mapa en miniatura:', error)
+    }
+  }
+
+  // Función llamada al entrar al Paso 3 para manejar el mapa
+  onEnterStep3() {
+    console.log('🗺️ onEnterStep3() - Entrando al Paso 3, configurando mapa')
+    
+    // Obtener coordenadas del duelo
+    const lat = parseFloat(this.getValue('latitude'))
+    const lng = parseFloat(this.getValue('longitude'))
+    
+    // Obtener el contenedor del mapa del resumen
+    const el = document.getElementById('summary-map')
+    
+    if (!el || isNaN(lat) || isNaN(lng)) {
+      console.warn('⚠️ onEnterStep3: Contenedor del mapa no encontrado o coordenadas inválidas')
+      return
+    }
+    
+    console.log(`📍 onEnterStep3: Coordenadas obtenidas (${lat}, ${lng})`)
+    
+    // Si ya existe window.leagendMap, solo centra y resizea
+    if (window.leagendMap && window.leagendMap.jumpTo) {
+      console.log('🗺️ onEnterStep3: Usando window.leagendMap existente')
+      window.leagendMap.jumpTo({ center: [lng, lat], zoom: 14 })
+      setTimeout(() => {
+        if (window.leagendMap.resize) {
+          window.leagendMap.resize()
+          console.log('✅ onEnterStep3: Mapa centrado y resizeado correctamente')
+        }
+      }, 50)
+    } else {
+      // Si no existe window.leagendMap, usar el mapa propio del resumen
+      console.log('🗺️ onEnterStep3: Inicializando mapa propio del resumen')
+      
+      // Verificar si ya existe un mapa en el contenedor
+      if (el._mapboxgl) {
+        console.log('🗺️ onEnterStep3: Mapa existente encontrado, centrando y resizeando')
+        const map = el._mapboxgl
+        map.jumpTo({ center: [lng, lat], zoom: 14 })
+        setTimeout(() => {
+          map.resize()
+          console.log('✅ onEnterStep3: Mapa propio centrado y resizeado correctamente')
+        }, 50)
+      } else {
+        // Inicializar nuevo mapa del resumen
+        console.log('🗺️ onEnterStep3: Creando nuevo mapa del resumen')
+        this.initSummaryMap()
+        
+        // Después de inicializar, centrar y resizear
+        setTimeout(() => {
+          if (el._mapboxgl) {
+            const map = el._mapboxgl
+            map.jumpTo({ center: [lng, lat], zoom: 14 })
+            map.resize()
+            console.log('✅ onEnterStep3: Nuevo mapa del resumen centrado y resizeado correctamente')
+          }
+        }, 100)
+      }
     }
   }
 }

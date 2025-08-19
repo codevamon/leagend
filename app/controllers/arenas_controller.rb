@@ -104,6 +104,7 @@ class ArenasController < ApplicationController
     if params[:quick].present?
       respond_to do |format|
         if @arena.save
+          # Para el flujo quick, cargar todas las arenas para el selector
           @arenas = Arena.order(created_at: :desc).limit(100)
           # Usará app/views/arenas/create.turbo_stream.erb
           format.turbo_stream

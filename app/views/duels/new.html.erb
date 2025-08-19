@@ -18,40 +18,6 @@
         <p class="text-muted">Configura tu duelo paso a paso</p>
       </div>
 
-      <!-- Barra de progreso simple -->
-      <div class="wizard-progress" data-duel-steps-target="progress">
-        <span class="wizard-dot" data-step-dot="1"></span>
-        <span class="wizard-dot" data-step-dot="2"></span>
-        <span class="wizard-dot" data-step-dot="3"></span>
-      </div>
-
-      <!-- Barra de progreso -->
-      <div class="progress-container mb-4">
-        <div class="progress" style="height: 8px;">
-          <div class="progress-bar bg-primary" 
-               role="progressbar" 
-               data-duel-steps-target="progress"
-               style="width: 25%; transition: width 0.3s ease;">
-          </div>
-        </div>
-        
-        <!-- Indicadores de pasos -->
-        <div class="step-indicators d-flex justify-content-between mt-2">
-          <div class="step-indicator active" data-step="1">
-            <div class="step-number">1</div>
-            <small class="step-label">Configuración</small>
-          </div>
-          <div class="step-indicator" data-step="2">
-            <div class="step-number">2</div>
-            <small class="step-label">Fecha y Hora</small>
-          </div>
-          <div class="step-indicator" data-step="3">
-            <div class="step-number">3</div>
-            <small class="step-label">Resumen</small>
-          </div>
-        </div>
-      </div>
-
       <!-- Formulario principal -->
       <div class="card shadow-sm border-0">
         <div class="card-body p-4">
@@ -146,7 +112,7 @@
                     </div>
 
                     <!-- Grid de arenas -->
-                    <div class="row g-3" data-duel-steps-target="arenaGrid">
+                    <div id="arena-select-frame" class="row g-3" data-duel-steps-target="arenaGrid">
                       <%= render partial: "arenas/arena_card", collection: @arenas, as: :arena, locals: { selectable: true } %>
                     </div>
 
@@ -180,7 +146,7 @@
                     </div>
 
                     <!-- Hidden selección de arena -->
-                    <%= hidden_field_tag "duel[arena_id]", nil, data: { duel_steps_target: "arenaId" } %>
+                    <%= hidden_field_tag "duel[arena_id]", nil, id: "duel_arena_id", data: { duel_steps_target: "arenaId" } %>
                   </div>
 
                   <!-- Columna derecha: Mapa -->
@@ -259,9 +225,7 @@
                 </small>
               </div>
             </fieldset>
-
-
-
+            
             <!-- Paso 3: Resumen -->
             <fieldset data-duel-steps-target="step" data-step="3" class="step-content d-none">
               <div class="step-header mb-4">

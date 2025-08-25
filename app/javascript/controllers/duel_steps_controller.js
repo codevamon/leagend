@@ -289,6 +289,9 @@ export default class extends Controller {
     // Suscribirse a eventos de arena creada desde el modal
     window.addEventListener("leagend:arena_created", this.onArenaCreated.bind(this))
     
+    // SUSCRIBIRSE A EVENTOS DE ARENA SELECCIONADA DESDE MARCADORES DEL MAPA
+    window.addEventListener("leagend:arena_selected", this.onArenaSelectedFromMap.bind(this))
+    
     // Suscribirse a eventos de cambio de fecha/hora para validación del Paso 2
     window.addEventListener("leagend:datetime_selected", () => {
       if (this.currentStep === 2) {
@@ -1696,6 +1699,12 @@ export default class extends Controller {
       return
     }
     
+    // EVITAR BUCLES: Verificar si ya está seleccionada
+    if (this.hasArenaIdTarget && this.arenaIdTarget.value === id) {
+      console.log('ℹ️ Arena ya seleccionada, evitando bucle')
+      return
+    }
+    
     if (this.arenaIdTarget) this.arenaIdTarget.value = id
     
     // Actualizar clases de selección
@@ -1753,6 +1762,11 @@ export default class extends Controller {
       }
       
       console.log(`📍 Ubicación de arena ${a.name} copiada al formulario`)
+    }
+    
+    // Revalidar Paso 1 si estamos en ese paso (para habilitar botón Siguiente)
+    if (this.currentStep === 1) {
+      this.updateButtons()
     }
   }
 
@@ -2064,6 +2078,7 @@ export default class extends Controller {
     // Limpiar event listeners
     window.removeEventListener("leagend:location_changed", this.onLocationChanged.bind(this))
     window.removeEventListener("leagend:arena_created", this.onArenaCreated.bind(this))
+    window.removeEventListener("leagend:arena_selected", this.onArenaSelectedFromMap.bind(this))
     
     // Limpiar markers del mapa
     if (this.arenaMarkers) {
@@ -2714,6 +2729,58 @@ export default class extends Controller {
           }
         }, 100)
       }
+    }
+  }
+
+  // Manejar eventos de arena seleccionada desde el mapa
+  onArenaSelectedFromMap(e) {
+    console.log('🎯 onArenaSelectedFromMap() - Arena seleccionada desde marcador del mapa')
+    console.trace('📍 TRACE: onArenaSelectedFromMap() llamado desde:')
+    
+    if (!e?.detail) {
+      console.warn('⚠️ Evento leagend:arena_selected sin detail')
+      return
+    }
+    
+    const { id, name, city, lat, lng } = e.detail
+    console.log(`🎯 Arena seleccionada desde mapa: ID ${id}, Nombre: ${name}, Ciudad: ${city}`)
+    
+    // EVITAR BUCLES: Verificar que no sea una selección desde la grilla
+    // Si ya está seleccionada, no hacer nada para evitar bucles
+    if (this.hasArenaIdTarget && this.arenaIdTarget.value === id) {
+      console.log('ℹ️ Arena ya seleccionada, evitando bucle')
+      return
+    }
+    
+    // Actualizar el campo hidden duel[arena_id]
+    if (this.hasArenaIdTarget) {
+      this.arenaIdTarget.value = id
+      console.log(`✅ Campo duel[arena_id] actualizado con ID: ${id}`)
+    }
+    
+    // Buscar la arena en el DOM y marcarla como seleccionada
+    const arenaCard = this.element.querySelector(`.arena-card[data-arena-id="${id}"]`)
+    if (arenaCard) {
+      // Remover selección previa
+      this.element.querySelectorAll('.arena-card--selected').forEach(card => {
+        card.classList.remove('arena-card--selected')
+      })
+      
+      // Marcar nueva arena como seleccionada
+      arenaCard.classList.add('arena-card--selected')
+      console.log(`✅ Arena ${name} marcada como seleccionada en la UI`)
+      
+      // Actualizar el resumen si existe el método
+      if (this.updateSummary) {
+        this.updateSummary()
+      }
+      
+      // Revalidar Paso 1 si estamos en ese paso (para habilitar botón Siguiente)
+      if (this.currentStep === 1) {
+        this.updateButtons()
+      }
+    } else {
+      console.warn(`⚠️ No se encontró la arena card con ID ${id} en el DOM`)
     }
   }
 }

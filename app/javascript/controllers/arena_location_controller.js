@@ -755,6 +755,7 @@ export default class extends Controller {
       const lat = parseFloat(card.dataset.lat);
       const lng = parseFloat(card.dataset.lng);
       const name = card.dataset.arenaName;
+      const city = card.dataset.city;
       
       // Verificar que tenemos coordenadas válidas
       if (!arenaId || !Number.isFinite(lat) || !Number.isFinite(lng) || !name) {
@@ -780,11 +781,70 @@ export default class extends Controller {
         .setPopup(popup)
         .addTo(this.map);
       
+      // AÑADIR MANEJADOR DE CLICK para sincronizar ubicación
+      marker.getElement().addEventListener('click', () => {
+        this.handleArenaMarkerClick(arenaId, name, city, lat, lng);
+      });
+      
       // Guardar referencia del marcador
       this.arenaMarkers.push(marker);
     });
     
     console.log(`Marcadores de arenas creados: ${this.arenaMarkers.length}`);
+  }
+
+  // MANEJAR CLICK EN MARCADOR DE ARENA: Sincronizar ubicación y emitir eventos
+  handleArenaMarkerClick(arenaId, name, city, lat, lng) {
+    console.log(`🎯 ARENA-LOCATION: Click en marcador de arena ${name} (${arenaId}) en (${lat}, ${lng})`);
+    
+    // 1. MOVER MARCADOR PRINCIPAL a la ubicación de la arena
+    if (this.marker) {
+      this.marker.setLngLat([lng, lat]);
+      console.log('📍 ARENA-LOCATION: Marcador principal movido a ubicación de arena');
+    }
+    
+    // 2. ACTUALIZAR CAMPOS HIDDEN con las coordenadas de la arena
+    this.updateCoordinates(lat, lng);
+    
+    // 3. HACER REVERSE GEOCODING para completar country/city/address
+    this.reverseGeocode(lat, lng);
+    
+    // 4. CENTRAR/ZOOM MAPA en la ubicación de la arena
+    if (this.map) {
+      this.map.flyTo({
+        center: [lng, lat],
+        zoom: 15,
+        duration: 2000,
+        essential: true
+      });
+      console.log('🗺️ ARENA-LOCATION: Mapa centrado en ubicación de arena');
+    }
+    
+    // 5. EMITIR EVENTOS para sincronizar con el wizard
+    // Evento de cambio de ubicación (source: 'arena_marker')
+    this.dispatchLocationChangedEvent(lat, lng, city, null, null, null, 'arena_marker');
+    
+    // Evento de arena seleccionada
+    this.dispatchArenaSelectedEvent(arenaId, name, city, lat, lng);
+    
+    console.log('✅ ARENA-LOCATION: Eventos emitidos para sincronización con wizard');
+  }
+
+  // DISPARAR EVENTO DE ARENA SELECCIONADA
+  dispatchArenaSelectedEvent(arenaId, name, city, lat, lng) {
+    const eventData = {
+      id: arenaId,
+      name: name,
+      city: city,
+      lat: lat,
+      lng: lng
+    };
+    
+    console.log('📡 ARENA-LOCATION: Disparando evento leagend:arena_selected:', eventData);
+    
+    window.dispatchEvent(new CustomEvent("leagend:arena_selected", {
+      detail: eventData
+    }));
   }
 
   // Remover todos los marcadores de arenas existentes

@@ -1699,12 +1699,27 @@ export default class extends Controller {
       return
     }
     
-    // EVITAR BUCLES: Verificar si ya está seleccionada
+    // IMPLEMENTAR TOGGLE: Si la arena ya está seleccionada, deseleccionarla
     if (this.hasArenaIdTarget && this.arenaIdTarget.value === id) {
-      console.log('ℹ️ Arena ya seleccionada, evitando bucle')
+      console.log('🔄 Arena ya seleccionada, implementando toggle - deseleccionando')
+      
+      // Limpiar campo arena_id
+      this.arenaIdTarget.value = ''
+      
+      // Quitar clase de selección de todas las arenas
+      this.arenas.forEach(x => x.el.classList.remove("arena-card--selected"))
+      
+      console.log(`✅ Arena ${a.name} deseleccionada`)
+      
+      // Revalidar Paso 1 si estamos en ese paso
+      if (this.currentStep === 1) {
+        this.updateButtons()
+      }
+      
       return
     }
     
+    // SELECCIÓN NORMAL: Arena no seleccionada, proceder con selección
     if (this.arenaIdTarget) this.arenaIdTarget.value = id
     
     // Actualizar clases de selección

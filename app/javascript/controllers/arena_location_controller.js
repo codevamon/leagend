@@ -33,6 +33,19 @@ export default class extends Controller {
     // VARIABLE PARA TIMER DE ACTUALIZACIÓN DE ARENAS: Para debounce de actualizaciones
     this.arenaUpdateTimer = null
     
+    // GUARDA ANTI RE-ENTRADA para updateArenaMarkers
+    this._updatingMarkers = false
+    
+    // BANDERA para evitar duplicar MutationObserver
+    this._cardsObserverInitialized = false
+    
+      // FLAG DE DEBUG para controlar logs verbosos
+    this.debug = false
+    
+    // Método para habilitar logs verbosos (útil para debugging)
+    this.enableDebug = this.enableDebug.bind(this)
+    this.disableDebug = this.disableDebug.bind(this)
+    
     // Crear referencias a los métodos del modal
     this._onModalShown = this.handleModalShown.bind(this)
     this._onModalHidden = this.handleModalHidden.bind(this)
@@ -45,7 +58,10 @@ export default class extends Controller {
     this.setupModalListeners()
     
     // Configurar observer para detectar cambios en las tarjetas de arena
-    this.setupArenaObserver()
+    // Solo configurar si no está ya inicializado
+    if (!this._cardsObserverInitialized) {
+      this.setupArenaObserver()
+    }
     
     // Esperar a que Mapbox esté disponible
     this.waitForMapbox()
@@ -69,6 +85,10 @@ export default class extends Controller {
     this.removeModalListeners()
     // Limpiar el observer de arena
     this.removeArenaObserver()
+    
+    // Resetear banderas de control
+    this._updatingMarkers = false
+    this._cardsObserverInitialized = false
   }
 
   // Configurar listeners para eventos del modal
@@ -82,6 +102,21 @@ export default class extends Controller {
 
   // Configurar observer para detectar cambios en las tarjetas de arena
   setupArenaObserver() {
+    // EVITAR DUPLICAR OBSERVER: Solo crear una instancia
+    if (this._cardsObserverInitialized || this.arenaObserver) {
+      if (this.debug) console.log('Observer de arena ya inicializado o existente, saltando...');
+      return;
+    }
+    
+    // Buscar el contenedor específico de la grilla de arenas (NO document.body)
+    const arenaGridContainer = document.querySelector('.arenas-grid, .arenas-container, [data-arenas-grid]');
+    if (!arenaGridContainer) {
+      if (this.debug) console.log('Contenedor de grilla de arenas no encontrado, saltando observer...');
+      return;
+    }
+    
+    if (this.debug) console.log('Configurando observer para contenedor de grilla de arenas:', arenaGridContainer);
+    
     // Observer para detectar cambios en el DOM que puedan afectar las tarjetas de arena
     this.arenaObserver = new MutationObserver((mutations) => {
       let shouldUpdateMarkers = false;
@@ -98,22 +133,25 @@ export default class extends Controller {
       
       // Actualizar marcadores si es necesario
       if (shouldUpdateMarkers) {
-        console.log('Cambios detectados en tarjetas de arena, actualizando marcadores...');
+        if (this.debug) console.log('Cambios detectados en tarjetas de arena, programando actualización...');
         // Usar debounce para evitar múltiples actualizaciones rápidas
         if (this.arenaUpdateTimer) {
           clearTimeout(this.arenaUpdateTimer);
         }
         this.arenaUpdateTimer = setTimeout(() => {
           this.updateArenaMarkers();
-        }, 300);
+        }, 150); // Reducido a 150ms para mejor respuesta
       }
     });
     
-    // Observar cambios en el documento
-    this.arenaObserver.observe(document.body, {
+    // Observar SOLO el contenedor de la grilla, NO todo el documento
+    this.arenaObserver.observe(arenaGridContainer, {
       childList: true,
-      subtree: true
+      subtree: false // NO subtree para evitar cambios en marcadores del mapa
     });
+    
+    this._cardsObserverInitialized = true;
+    if (this.debug) console.log('Observer de arena configurado exitosamente');
   }
 
   // Remover listeners del modal
@@ -127,6 +165,7 @@ export default class extends Controller {
     if (this.arenaObserver) {
       this.arenaObserver.disconnect()
       this.arenaObserver = null
+      this._cardsObserverInitialized = false
     }
   }
 
@@ -728,7 +767,10 @@ export default class extends Controller {
       }
       
       // CREAR MARCADORES DE ARENAS: Una vez que el mapa esté listo
-      this.createArenaMarkers();
+      // Solo crear si no hay marcadores existentes
+      if (this.arenaMarkers.length === 0) {
+        this.createArenaMarkers();
+      }
     })
     
     console.log('Mapa inicializado exitosamente');
@@ -737,18 +779,18 @@ export default class extends Controller {
   // Crear marcadores para todas las arenas visibles
   createArenaMarkers() {
     if (!this.map) {
-      console.log('No hay mapa disponible para crear marcadores de arenas');
+      if (this.debug) console.log('No hay mapa disponible para crear marcadores de arenas');
       return;
     }
 
-    console.log('Creando marcadores de arenas...');
+    if (this.debug) console.log('Creando marcadores de arenas...');
     
     // Remover marcadores existentes para evitar duplicados
     this.removeArenaMarkers();
     
     // Buscar todas las tarjetas de arena visibles
     const arenaCards = document.querySelectorAll('.arena-card');
-    console.log(`Encontradas ${arenaCards.length} tarjetas de arena`);
+    if (this.debug) console.log(`Encontradas ${arenaCards.length} tarjetas de arena`);
     
     arenaCards.forEach(card => {
       const arenaId = card.dataset.arenaId;
@@ -759,11 +801,11 @@ export default class extends Controller {
       
       // Verificar que tenemos coordenadas válidas
       if (!arenaId || !Number.isFinite(lat) || !Number.isFinite(lng) || !name) {
-        console.warn('Datos de arena incompletos:', { arenaId, lat, lng, name });
+        if (this.debug) console.warn('Datos de arena incompletos:', { arenaId, lat, lng, name });
         return;
       }
       
-      console.log(`Creando marcador para arena: ${name} en (${lat}, ${lng})`);
+      if (this.debug) console.log(`Creando marcador para arena: ${name} en (${lat}, ${lng})`);
       
       // Crear popup con el nombre de la arena
       const popup = new mapboxgl.Popup({ 
@@ -790,7 +832,7 @@ export default class extends Controller {
       this.arenaMarkers.push(marker);
     });
     
-    console.log(`Marcadores de arenas creados: ${this.arenaMarkers.length}`);
+    if (this.debug) console.log(`Marcadores de arenas creados: ${this.arenaMarkers.length}`);
   }
 
   // MANEJAR CLICK EN MARCADOR DE ARENA: Sincronizar ubicación y emitir eventos
@@ -850,7 +892,7 @@ export default class extends Controller {
   // Remover todos los marcadores de arenas existentes
   removeArenaMarkers() {
     if (this.arenaMarkers.length > 0) {
-      console.log(`Removiendo ${this.arenaMarkers.length} marcadores de arenas existentes`);
+      if (this.debug) console.log(`Removiendo ${this.arenaMarkers.length} marcadores de arenas existentes`);
       this.arenaMarkers.forEach(marker => {
         if (marker && typeof marker.remove === 'function') {
           marker.remove();
@@ -862,17 +904,30 @@ export default class extends Controller {
 
   // Método público para actualizar marcadores de arenas (útil para filtros)
   updateArenaMarkers() {
+    // GUARDA ANTI RE-ENTRADA: Evitar múltiples ejecuciones simultáneas
+    if (this._updatingMarkers) {
+      if (this.debug) console.log('updateArenaMarkers ya en ejecución, saltando...');
+      return;
+    }
+    
     if (this.map && this.map.isStyleLoaded()) {
-      console.log('Actualizando marcadores de arenas...');
-      this.createArenaMarkers();
+      this._updatingMarkers = true;
+      
+      try {
+        if (this.debug) console.log('Actualizando marcadores de arenas...');
+        this.createArenaMarkers();
+      } finally {
+        // GARANTIZAR que la bandera se libere incluso si hay errores
+        this._updatingMarkers = false;
+      }
     } else {
-      console.log('Mapa no listo, marcadores se crearán cuando esté disponible');
+      if (this.debug) console.log('Mapa no listo, marcadores se crearán cuando esté disponible');
     }
   }
 
   // Método público para forzar actualización de marcadores (útil para llamadas externas)
   refreshArenaMarkers() {
-    console.log('Forzando actualización de marcadores de arenas...');
+    if (this.debug) console.log('Forzando actualización de marcadores de arenas...');
     this.updateArenaMarkers();
   }
 
@@ -1036,6 +1091,11 @@ export default class extends Controller {
     this.cleanupMap()
     this.cleanupGeocoders()
     this.mapboxRetryCount = 0
+    
+    // Resetear banderas de control
+    this._updatingMarkers = false
+    this._cardsObserverInitialized = false
+    
     this.waitForMapbox()
   }
 
@@ -1109,5 +1169,17 @@ export default class extends Controller {
     })
     
     console.log('✅ ARENA-LOCATION: Mapa centrado exitosamente')
+  }
+  
+  // Método para habilitar logs verbosos
+  enableDebug() {
+    this.debug = true;
+    console.log('🔍 ARENA-LOCATION: Modo debug habilitado');
+  }
+  
+  // Método para deshabilitar logs verbosos
+  disableDebug() {
+    this.debug = false;
+    console.log('🔍 ARENA-LOCATION: Modo debug deshabilitado');
   }
 }

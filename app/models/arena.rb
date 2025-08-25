@@ -34,9 +34,14 @@ class Arena < ApplicationRecord
   end
 
   def should_geocode?
-    # Geocodificar si cambió la dirección o si faltan coordenadas
-    address_changed? || city_changed? || country_changed? || 
-    latitude.blank? || longitude.blank?
+    # Solo geocodificar si:
+    # 1. Hay dirección válida
+    # 2. Cambió address, city o country
+    # 3. NO hay coordenadas ya establecidas (para respetar coordenadas del formulario)
+    address.present? && 
+    (will_save_change_to_address? || will_save_change_to_city? || will_save_change_to_country?) && 
+    latitude.blank? && 
+    longitude.blank?
   end
 
   private

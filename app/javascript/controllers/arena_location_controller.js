@@ -27,6 +27,12 @@ export default class extends Controller {
     // VARIABLE PARA COORDENADAS PENDIENTES: Si el mapa no está listo cuando llegan coords
     this.pendingCenter = null
     
+    // VARIABLE PARA MARCADORES DE ARENAS: Array para gestionar marcadores existentes
+    this.arenaMarkers = []
+    
+    // VARIABLE PARA TIMER DE ACTUALIZACIÓN DE ARENAS: Para debounce de actualizaciones
+    this.arenaUpdateTimer = null
+    
     // Crear referencias a los métodos del modal
     this._onModalShown = this.handleModalShown.bind(this)
     this._onModalHidden = this.handleModalHidden.bind(this)
@@ -38,6 +44,9 @@ export default class extends Controller {
     // Escuchar eventos del modal para resize del mapa
     this.setupModalListeners()
     
+    // Configurar observer para detectar cambios en las tarjetas de arena
+    this.setupArenaObserver()
+    
     // Esperar a que Mapbox esté disponible
     this.waitForMapbox()
   }
@@ -48,6 +57,9 @@ export default class extends Controller {
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer)
     }
+    if (this.arenaUpdateTimer) {
+      clearTimeout(this.arenaUpdateTimer)
+    }
     this.mapboxRetryCount = 0 // Reset retry count
     
     // LIMPIAR LISTENER DE CAMBIO DE UBICACIÓN
@@ -55,6 +67,8 @@ export default class extends Controller {
     
     // Remover listeners del modal
     this.removeModalListeners()
+    // Limpiar el observer de arena
+    this.removeArenaObserver()
   }
 
   // Configurar listeners para eventos del modal
@@ -66,10 +80,54 @@ export default class extends Controller {
     document.addEventListener('hidden.bs.modal', this._onModalHidden)
   }
 
+  // Configurar observer para detectar cambios en las tarjetas de arena
+  setupArenaObserver() {
+    // Observer para detectar cambios en el DOM que puedan afectar las tarjetas de arena
+    this.arenaObserver = new MutationObserver((mutations) => {
+      let shouldUpdateMarkers = false;
+      
+      mutations.forEach((mutation) => {
+        // Verificar si se agregaron o removieron tarjetas de arena
+        if (mutation.type === 'childList') {
+          const hasArenaCards = mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
+          if (hasArenaCards) {
+            shouldUpdateMarkers = true;
+          }
+        }
+      });
+      
+      // Actualizar marcadores si es necesario
+      if (shouldUpdateMarkers) {
+        console.log('Cambios detectados en tarjetas de arena, actualizando marcadores...');
+        // Usar debounce para evitar múltiples actualizaciones rápidas
+        if (this.arenaUpdateTimer) {
+          clearTimeout(this.arenaUpdateTimer);
+        }
+        this.arenaUpdateTimer = setTimeout(() => {
+          this.updateArenaMarkers();
+        }, 300);
+      }
+    });
+    
+    // Observar cambios en el documento
+    this.arenaObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
   // Remover listeners del modal
   removeModalListeners() {
     document.removeEventListener('shown.bs.modal', this._onModalShown)
     document.removeEventListener('hidden.bs.modal', this._onModalHidden)
+  }
+
+  // Remover observer de arena
+  removeArenaObserver() {
+    if (this.arenaObserver) {
+      this.arenaObserver.disconnect()
+      this.arenaObserver = null
+    }
   }
 
   // Manejar cuando el modal se abre
@@ -167,6 +225,8 @@ export default class extends Controller {
       console.log('Limpiando marcador...');
       this.marker = null
     }
+    // Limpiar marcadores de arenas
+    this.removeArenaMarkers();
     // Limpiar contenedor para cumplir "container should be empty"
     if (this.hasMapTarget) {
       console.log('Limpiando contenedor del mapa...');
@@ -666,9 +726,94 @@ export default class extends Controller {
         this.centerMapToCoordinates(this.pendingCenter.lat, this.pendingCenter.lng)
         this.pendingCenter = null // Limpiar pendiente
       }
+      
+      // CREAR MARCADORES DE ARENAS: Una vez que el mapa esté listo
+      this.createArenaMarkers();
     })
     
     console.log('Mapa inicializado exitosamente');
+  }
+
+  // Crear marcadores para todas las arenas visibles
+  createArenaMarkers() {
+    if (!this.map) {
+      console.log('No hay mapa disponible para crear marcadores de arenas');
+      return;
+    }
+
+    console.log('Creando marcadores de arenas...');
+    
+    // Remover marcadores existentes para evitar duplicados
+    this.removeArenaMarkers();
+    
+    // Buscar todas las tarjetas de arena visibles
+    const arenaCards = document.querySelectorAll('.arena-card');
+    console.log(`Encontradas ${arenaCards.length} tarjetas de arena`);
+    
+    arenaCards.forEach(card => {
+      const arenaId = card.dataset.arenaId;
+      const lat = parseFloat(card.dataset.lat);
+      const lng = parseFloat(card.dataset.lng);
+      const name = card.dataset.arenaName;
+      
+      // Verificar que tenemos coordenadas válidas
+      if (!arenaId || !Number.isFinite(lat) || !Number.isFinite(lng) || !name) {
+        console.warn('Datos de arena incompletos:', { arenaId, lat, lng, name });
+        return;
+      }
+      
+      console.log(`Creando marcador para arena: ${name} en (${lat}, ${lng})`);
+      
+      // Crear popup con el nombre de la arena
+      const popup = new mapboxgl.Popup({ 
+        offset: 25,
+        closeButton: true,
+        closeOnClick: false
+      }).setText(name);
+      
+      // Crear marcador
+      const marker = new mapboxgl.Marker({
+        color: '#007bff', // Color azul para diferenciar del marcador de ubicación
+        scale: 0.8
+      })
+        .setLngLat([lng, lat])
+        .setPopup(popup)
+        .addTo(this.map);
+      
+      // Guardar referencia del marcador
+      this.arenaMarkers.push(marker);
+    });
+    
+    console.log(`Marcadores de arenas creados: ${this.arenaMarkers.length}`);
+  }
+
+  // Remover todos los marcadores de arenas existentes
+  removeArenaMarkers() {
+    if (this.arenaMarkers.length > 0) {
+      console.log(`Removiendo ${this.arenaMarkers.length} marcadores de arenas existentes`);
+      this.arenaMarkers.forEach(marker => {
+        if (marker && typeof marker.remove === 'function') {
+          marker.remove();
+        }
+      });
+      this.arenaMarkers = [];
+    }
+  }
+
+  // Método público para actualizar marcadores de arenas (útil para filtros)
+  updateArenaMarkers() {
+    if (this.map && this.map.isStyleLoaded()) {
+      console.log('Actualizando marcadores de arenas...');
+      this.createArenaMarkers();
+    } else {
+      console.log('Mapa no listo, marcadores se crearán cuando esté disponible');
+    }
+  }
+
+  // Método público para forzar actualización de marcadores (útil para llamadas externas)
+  refreshArenaMarkers() {
+    console.log('Forzando actualización de marcadores de arenas...');
+    this.updateArenaMarkers();
   }
 
   setupMarkerEvents() {

@@ -345,6 +345,45 @@
 
 .arena-card__header {
   margin-bottom: 1rem;
+  position: relative;
+}
+
+/* Indicador visual tipo checkbox para selección de arena */
+.arena-card__check {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.arena-card__check i {
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.arena-card__check:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
+
+/* Estado seleccionado del checkbox */
+.arena-card--selected .arena-card__check {
+  background: #28a745;
+  box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+}
+
+.arena-card--selected .arena-card__check i {
+  color: white !important;
 }
 
 .arena-card__title {

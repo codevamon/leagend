@@ -10,8 +10,18 @@
 <% end %>
 
 <%= turbo_stream.replace "arena-select-frame" do %>
+  <%# 
+    RE-RENDER DEL ARENA-SELECT-FRAME:
+    - Este turbo_stream.replace actualiza el contenido del #arena-select-frame
+    - selectable: true se mantiene para todas las cards
+    - selected_arena_id se pasa para marcar la arena recién creada
+    - DELEGACIÓN DE EVENTOS ACTIVADA: data-action="click->duel-steps#onArenaListClick"
+      en el contenedor para mantener funcionalidad después de re-renders
+  %>
   <div id="arena-select-frame">
-    <div class="row g-3" data-duel-steps-target="arenaGrid">
+    <div class="row g-3" 
+         data-duel-steps-target="arenaGrid"
+         data-action="click->duel-steps#onArenaListClick">
       <%= render partial: "arenas/arena_card", collection: @arenas, as: :arena, locals: { selectable: true, selected_arena_id: @arena.id } %>
     </div>
   </div>

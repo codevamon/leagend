@@ -112,7 +112,18 @@
                     </div>
 
                     <!-- Grid de arenas -->
-                    <div id="arena-select-frame" class="row g-3" data-duel-steps-target="arenaGrid">
+                    <%# 
+                      ESTRUCTURA DEL ARENA-SELECT-FRAME:
+                      - NO es un turbo-frame real, es un div que se reemplaza via turbo_stream.replace
+                      - El controlador duel-steps está en el ancestro (línea 7)
+                      - selectable: true se pasa a todas las cards renderizadas
+                      - DELEGACIÓN DE EVENTOS ACTIVADA: data-action="click->duel-steps#onArenaListClick"
+                        en el contenedor para capturar clics incluso después de re-renders de Turbo
+                    %>
+                    <div id="arena-select-frame"
+                         class="row g-3"
+                         data-duel-steps-target="arenaGrid"
+                         data-action="click->duel-steps#onArenaListClick">
                       <%= render partial: "arenas/arena_card", collection: @arenas, as: :arena, locals: { selectable: true } %>
                     </div>
 
@@ -158,9 +169,9 @@
                       <div id="location-map" 
                            data-arena-location-target="map"  data-arena-location-editable-value="true"
                            style="height:420px;border-radius:8px"></div>
-                      <small class="text-muted d-block mt-2">
-                        <i class="fas fa-info-circle me-1"></i>Arrastra el marcador o usa las sugerencias
-                      </small>
+                                                             <small class="text-muted d-block mt-2">
+           <i class="fas fa-info-circle me-1"></i>Mueve el mapa; el marcador de ubicación se mantiene centrado.
+         </small>
                     </div>
                   </div>
                 </div>

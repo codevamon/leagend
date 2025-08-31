@@ -1,4 +1,17 @@
 <%# locals: arena (Arena), selectable: true/false, selected_arena_id: nil %>
+<%# 
+  ESTRUCTURA ACTUAL:
+  - Este partial se renderiza dentro de #arena-select-frame (NO es turbo-frame)
+  - El controlador duel-steps está en el ancestro (data-controller="duel-steps")
+  - selectable: true se pasa desde las vistas que renderizan este partial
+  - No hay enlaces superpuestos (.card-link) que interfieran
+  - El campo hidden duel[arena_id] es único en el formulario principal
+  
+  DELEGACIÓN DE EVENTOS (OPCIONAL):
+  - Si se detectan problemas con bindings después de re-renders turbo_stream,
+  - se puede activar agregando data-action="click->duel-steps#onArenaListClick"
+  - al contenedor .row.g-3 dentro de #arena-select-frame
+%>
 <% selectable = true if local_assigns[:selectable].nil? %>
 <% selected_arena_id = local_assigns[:selected_arena_id] %>
 <% is_selected = selected_arena_id && arena.id == selected_arena_id %>
@@ -14,9 +27,8 @@
        data-lng="<%= arena.longitude %>" 
        data-action="<%= selectable ? 'click->duel-steps#selectArenaCard' : '' %>">
     
-    <% if is_selected %>
-      <%= hidden_field_tag "duel[arena_id]", arena.id %>
-    <% end %>
+    <%# NOTA: El campo hidden duel[arena_id] se maneja desde el formulario principal #duel_arena_id %>
+    <%# No se renderiza aquí para evitar múltiples campos hidden por card %>
     
     <div class="arena-card__media mb-2">
       <% if arena.photos.attached? %>
@@ -31,6 +43,18 @@
       <% end %>
     </div>
     <div class="arena-card__header">
+      <%# Indicador visual tipo checkbox para mostrar estado de selección %>
+      <div class="arena-card__check" 
+           role="checkbox" 
+           aria-checked="<%= is_selected %>"
+           aria-label="Arena seleccionada">
+        <% if is_selected %>
+          <i class="fas fa-check-circle text-primary"></i>
+        <% else %>
+          <i class="far fa-circle text-muted"></i>
+        <% end %>
+      </div>
+      
       <h6 class="arena-card__title mb-1">
         <i class="fas fa-map-marker-alt me-2 text-primary"></i><%= arena.name %>
       </h6>

@@ -18,6 +18,12 @@ export default class extends Controller {
     return el ? el.value?.trim() : ""; 
   }
 
+  // Helper no destructivo para obtener el mapa actual
+  getActiveMap() {
+    // Prioridad: mapa del controller si existe, si no el global expuesto por arena_location_controller
+    return this.map || window.leagendMap || null;
+  }
+
   // Localizador robusto de contenedores de paso (scope = this.element)
   getStepElement(n) {
     // 1) Preferir Stimulus targets en orden
@@ -85,6 +91,10 @@ export default class extends Controller {
     console.log('🔍 BOOT: Resolviendo coordenadas iniciales...')
     this.resolveInitialCoordinates()
     
+    // FALLBACK ROBUSTO: Asegurar listeners directos en cada card (anti Turbo replace)
+    console.log('🔗 BOOT: Aplicando binding directo a cards existentes...')
+    this.bindCardClicks?.() // no falla si ya existe
+    
     // BOOT DE GEOLOCALIZACIÓN ANTICIPADA: No bloqueante, en paralelo al flujo actual
     console.log('🚀 BOOT: Iniciando geolocalización anticipada...')
     this.attemptGeolocationAnticipated()
@@ -95,6 +105,13 @@ export default class extends Controller {
       if (arenaItems.length === 0) {
         this.toggleNoArenasMessage(true)
       }
+    }
+    
+    // Si hay arena preseleccionada (p.e. nested route), sincroniza UI y marker
+    if (this.hasArenaIdTarget && this.arenaIdTarget.value) {
+      const preId = this.arenaIdTarget.value;
+      try { this.selectArenaById(preId); } catch(_) {}
+      try { this.updateSelectedMarkerVisual(preId); } catch(_) {}
     }
     
     console.log('✅ BOOT: Controller conectado y configurado')
@@ -1313,7 +1330,8 @@ export default class extends Controller {
     console.log('🎯 drawArenaMarkers() - Dibujando marcadores de arenas')
     console.trace('📍 TRACE: drawArenaMarkers() llamado desde:')
     
-    if (!this.map || !this.arenas) {
+    const map = this.getActiveMap();
+    if (!map || !this.arenas) {
       console.warn('⚠️ drawArenaMarkers: mapa o arenas no disponibles')
       return
     }
@@ -1324,7 +1342,7 @@ export default class extends Controller {
       // Crear marcador
       const marker = new mapboxgl.Marker({ color: '#28a745' })
         .setLngLat([arena.lng, arena.lat])
-        .addTo(this.map)
+        .addTo(map)
 
       // Crear popup
       const popup = new mapboxgl.Popup({ offset: 25 })
@@ -1647,6 +1665,10 @@ export default class extends Controller {
     visibles.forEach(a => frag.appendChild(a.el))
     if (this.arenaGridTarget) this.arenaGridTarget.appendChild(frag)
     
+    // RE-BINDING: Aplicar binding directo a las cards recién reordenadas
+    console.log('🔗 Re-aplicando binding directo tras reordenamiento...')
+    this.bindCardClicks?.()
+    
     // ACTUALIZAR indicadores de distancia en las cards
     this.updateDistanceIndicators(visibles)
     
@@ -1677,15 +1699,208 @@ export default class extends Controller {
     }
   }
 
-  // Seleccionar arena desde el card
+  // Seleccionar arena desde el card (TOGGLE)
   selectArenaCard(e) {
+    // GUARDS DEFENSIVOS: Prevenir eventos duplicados y propagación
+    e?.preventDefault?.()
+    e?.stopPropagation?.()
+    
     const arenaCard = e.currentTarget
-    const arenaId = arenaCard.dataset.arenaId
+    const arenaId = String(arenaCard?.dataset?.arenaId || '')
     
     console.log(`🎯 selectArenaCard() - Click en arena ${arenaId}`)
     console.trace('📍 TRACE: selectArenaCard() llamado desde:')
     
-    this.selectArenaById(arenaId)
+    // GUARDS ADICIONALES: Verificar datos válidos
+    if (!arenaCard) {
+      console.warn('⚠️ selectArenaCard: No hay arenaCard disponible')
+      return
+    }
+    
+    if (!arenaId) {
+      console.warn('⚠️ selectArenaCard: No hay arenaId válido')
+      return
+    }
+    
+    // GUARD: Verificar que tenemos el campo arena_id
+    if (!this.hasArenaIdTarget) {
+      console.warn('⚠️ selectArenaCard: No hay arenaIdTarget disponible')
+      return
+    }
+    
+    // IMPLEMENTAR TOGGLE: Si la arena ya está seleccionada, deseleccionarla
+    if (this.arenaIdTarget.value === arenaId) {
+      console.log('🔄 Arena ya seleccionada, implementando toggle - deseleccionando')
+      
+      // Limpiar campo arena_id
+      this.arenaIdTarget.value = ''
+      
+      // Quitar clase de selección de todas las arenas (si están disponibles)
+      if (this.arenas && this.arenas.length > 0) {
+        this.arenas.forEach(x => {
+          if (x.el) x.el.classList.remove("arena-card--selected")
+        })
+      } else {
+        // Fallback: buscar directamente en el DOM si this.arenas no está disponible
+        this.element.querySelectorAll('.arena-card--selected').forEach(card => {
+          card.classList.remove('arena-card--selected')
+        })
+      }
+      
+      // Actualizar indicadores visuales (checkboxes)
+      this.updateArenaCheckIndicators()
+      
+      console.log(`✅ Arena ${arenaId} deseleccionada`)
+      
+      // Revalidar Paso 1 si estamos en ese paso
+      if (this.currentStep === 1) {
+        this.updateButtons()
+      }
+      
+      // Actualizar resumen
+      if (this.updateSummary) this.updateSummary()
+      
+      // Actualizar estilo visual del marcador seleccionado
+      this.updateSelectedMarkerVisual(null)
+      
+      return
+    }
+    
+    // SELECCIÓN NORMAL: Arena no seleccionada, proceder con selección
+    this.arenaIdTarget.value = arenaId
+    
+    // Actualizar clases de selección (si this.arenas está disponible)
+    if (this.arenas && this.arenas.length > 0) {
+      this.arenas.forEach(x => {
+        if (x.el) x.el.classList.toggle("arena-card--selected", x.id === arenaId)
+      })
+    } else {
+      // Fallback: buscar directamente en el DOM si this.arenas no está disponible
+      this.element.querySelectorAll('.arena-card').forEach(card => {
+        const cardId = card.dataset.arenaId
+        card.classList.toggle("arena-card--selected", cardId === arenaId)
+      })
+    }
+    
+    // Actualizar indicadores visuales (checkboxes)
+    this.updateArenaCheckIndicators()
+    
+    console.log(`✅ Arena ${arenaId} seleccionada`)
+    
+    // IMPORTANTE: NO mover el mapa al hacer clic en card
+    // Solo actualizar la UI y el formulario
+    console.log('ℹ️ selectArenaCard: No se mueve el mapa (solo UI/form)')
+    
+    // Actualizar estilo visual del marcador seleccionado
+    this.updateSelectedMarkerVisual(arenaId)
+    
+    // Actualizar resumen
+    if (this.updateSummary) this.updateSummary()
+    
+    // Actualizar campos de ubicación si la arena tiene ubicación
+    // Buscar la arena en this.arenas o en el DOM como fallback
+    let arena = null
+    if (this.arenas && this.arenas.length > 0) {
+      arena = this.arenas.find(x => x.id === arenaId)
+    }
+    
+    if (!arena) {
+      // Fallback: buscar en el DOM
+      const arenaCardEl = this.element.querySelector(`.arena-card[data-arena-id="${arenaId}"]`)
+      if (arenaCardEl) {
+        arena = {
+          country: arenaCardEl.dataset.country,
+          city: arenaCardEl.dataset.city,
+          address: arenaCardEl.dataset.address,
+          neighborhood: arenaCardEl.dataset.neighborhood,
+          lat: parseFloat(arenaCardEl.dataset.lat),
+          lng: parseFloat(arenaCardEl.dataset.lng)
+        }
+      }
+    }
+    
+    if (arena && (arena.country || arena.city || arena.address)) {
+      const countryField = this.getInput('country')
+      const cityField = this.getInput('city')
+      const addressField = this.getInput('address')
+      const neighborhoodField = this.getInput('neighborhood')
+      
+      if (countryField && arena.country) countryField.value = arena.country
+      if (cityField && arena.city) cityField.value = arena.city
+      if (addressField && arena.address) addressField.value = arena.address
+      if (neighborhoodField && arena.neighborhood) neighborhoodField.value = arena.neighborhood
+      
+      // Actualizar coordenadas si la arena las tiene
+      if (arena.lat && arena.lng && Number.isFinite(arena.lat) && Number.isFinite(arena.lng)) {
+        if (this.hasLatitudeTarget) {
+          this.latitudeTarget.value = arena.lat
+        } else {
+          // Fallback: usar helper seguro
+          const latInput = this.getInput('latitude')
+          if (latInput) latInput.value = arena.lat
+        }
+        
+        if (this.hasLongitudeTarget) {
+          this.longitudeTarget.value = arena.lng
+        } else {
+          // Fallback: usar helper seguro
+          const lngInput = this.getInput('longitude')
+          if (lngInput) lngInput.value = arena.lng
+        }
+        
+        console.log(`📍 Coordenadas de arena ${arenaId} copiadas al formulario: (${arena.lat}, ${arena.lng})`)
+      }
+    }
+    
+    // Revalidar Paso 1 si estamos en ese paso
+    if (this.currentStep === 1) {
+      this.updateButtons()
+    }
+  }
+  
+  // Actualizar indicadores visuales de selección (checkboxes) en todas las cards
+  updateArenaCheckIndicators() {
+    // Si this.arenas está disponible, usarlo
+    if (this.arenas && this.arenas.length > 0) {
+      this.arenas.forEach(arena => {
+        if (arena.el) {
+          const checkIndicator = arena.el.querySelector('.arena-card__check')
+          if (checkIndicator) {
+            const isSelected = arena.el.classList.contains('arena-card--selected')
+            checkIndicator.setAttribute('aria-checked', isSelected.toString())
+            
+            // Actualizar icono del checkbox
+            const icon = checkIndicator.querySelector('i')
+            if (icon) {
+              if (isSelected) {
+                icon.className = 'fas fa-check-circle text-primary'
+              } else {
+                icon.className = 'far fa-circle text-muted'
+              }
+            }
+          }
+        }
+      })
+    } else {
+      // Fallback: buscar directamente en el DOM si this.arenas no está disponible
+      this.element.querySelectorAll('.arena-card').forEach(card => {
+        const checkIndicator = card.querySelector('.arena-card__check')
+        if (checkIndicator) {
+          const isSelected = card.classList.contains('arena-card--selected')
+          checkIndicator.setAttribute('aria-checked', isSelected.toString())
+          
+          // Actualizar icono del checkbox
+          const icon = checkIndicator.querySelector('i')
+          if (icon) {
+            if (isSelected) {
+              icon.className = 'fas fa-check-circle text-primary'
+            } else {
+              icon.className = 'far fa-circle text-muted'
+            }
+          }
+        }
+      })
+    }
   }
 
   // Seleccionar arena por ID
@@ -1693,90 +1908,144 @@ export default class extends Controller {
     console.log(`🎯 selectArenaById(${id}) - Seleccionando arena`)
     console.trace('📍 TRACE: selectArenaById() llamado desde:')
     
-    const a = this.arenas.find(x => x.id === id)
-    if (!a) {
+    // GUARD: Verificar que tenemos el campo arena_id
+    if (!this.hasArenaIdTarget) {
+      console.warn('⚠️ selectArenaById: No hay arenaIdTarget disponible')
+      return
+    }
+    
+    // Buscar la arena en this.arenas o en el DOM como fallback
+    let arena = null
+    if (this.arenas && this.arenas.length > 0) {
+      arena = this.arenas.find(x => x.id === id)
+    }
+    
+    if (!arena) {
+      // Fallback: buscar en el DOM
+      const arenaCardEl = this.element.querySelector(`.arena-card[data-arena-id="${id}"]`)
+      if (arenaCardEl) {
+        arena = {
+          id: id,
+          name: arenaCardEl.dataset.arenaName || 'Arena',
+          country: arenaCardEl.dataset.country,
+          city: arenaCardEl.dataset.city,
+          address: arenaCardEl.dataset.address,
+          neighborhood: arenaCardEl.dataset.neighborhood,
+          lat: parseFloat(arenaCardEl.dataset.lat),
+          lng: parseFloat(arenaCardEl.dataset.lng),
+          el: arenaCardEl
+        }
+      }
+    }
+    
+    if (!arena) {
       console.warn(`⚠️ Arena con ID ${id} no encontrada`)
       return
     }
     
     // IMPLEMENTAR TOGGLE: Si la arena ya está seleccionada, deseleccionarla
-    if (this.hasArenaIdTarget && this.arenaIdTarget.value === id) {
+    if (this.arenaIdTarget.value === id) {
       console.log('🔄 Arena ya seleccionada, implementando toggle - deseleccionando')
       
       // Limpiar campo arena_id
       this.arenaIdTarget.value = ''
       
-      // Quitar clase de selección de todas las arenas
-      this.arenas.forEach(x => x.el.classList.remove("arena-card--selected"))
+      // Quitar clase de selección de todas las arenas (si están disponibles)
+      if (this.arenas && this.arenas.length > 0) {
+        this.arenas.forEach(x => {
+          if (x.el) x.el.classList.remove("arena-card--selected")
+        })
+      } else {
+        // Fallback: buscar directamente en el DOM si this.arenas no está disponible
+        this.element.querySelectorAll('.arena-card--selected').forEach(card => {
+          card.classList.remove('arena-card--selected')
+        })
+      }
       
-      console.log(`✅ Arena ${a.name} deseleccionada`)
+      // Actualizar indicadores visuales (checkboxes)
+      this.updateArenaCheckIndicators()
+      
+      console.log(`✅ Arena ${arena.name} deseleccionada`)
       
       // Revalidar Paso 1 si estamos en ese paso
       if (this.currentStep === 1) {
         this.updateButtons()
       }
       
+      // Actualizar resumen
+      if (this.updateSummary) this.updateSummary()
+      
+      // Actualizar estilo visual del marcador seleccionado
+      this.updateSelectedMarkerVisual(null)
+      
       return
     }
     
     // SELECCIÓN NORMAL: Arena no seleccionada, proceder con selección
-    if (this.arenaIdTarget) this.arenaIdTarget.value = id
+    this.arenaIdTarget.value = id
     
-    // Actualizar clases de selección
-    this.arenas.forEach(x => x.el.classList.toggle("arena-card--selected", x.id === id))
-    
-    console.log(`✅ Arena ${a.name} seleccionada`)
-    
-    // opcional: centrar mapa en el marker si existe
-    const m = this.arenaMarkers.get(id)
-    if (m && this.map) {
-      try {
-        this.map.flyTo({ 
-          center: m.getLngLat(), 
-          zoom: Math.max(this.map.getZoom(), 13), 
-          speed: 0.6 
-        })
-        console.log(`🗺️ Mapa centrado en arena ${a.name}`)
-      } catch(e) {
-        console.warn('⚠️ Error al centrar mapa:', e)
-      }
+    // Actualizar clases de selección (si this.arenas está disponible)
+    if (this.arenas && this.arenas.length > 0) {
+      this.arenas.forEach(x => {
+        if (x.el) x.el.classList.toggle("arena-card--selected", x.id === id)
+      })
+    } else {
+      // Fallback: buscar directamente en el DOM si this.arenas no está disponible
+      this.element.querySelectorAll('.arena-card').forEach(card => {
+        const cardId = card.dataset.arenaId
+        card.classList.toggle("arena-card--selected", cardId === id)
+      })
     }
     
-    // refrescar resumen si ya tienes updateSummary()
+    // Actualizar indicadores visuales (checkboxes)
+    this.updateArenaCheckIndicators()
+    
+    console.log(`✅ Arena ${arena.name} seleccionada`)
+    
+    // IMPORTANTE: NO mover el mapa al hacer clic en card
+    // Solo actualizar la UI y el formulario
+    console.log('ℹ️ selectArenaById: No se mueve el mapa (solo UI/form)')
+    
+    // Actualizar estilo visual del marcador seleccionado
+    this.updateSelectedMarkerVisual(id)
+    
+    // Actualizar resumen
     if (this.updateSummary) this.updateSummary()
     
     // Actualizar campos de ubicación si la arena tiene ubicación
-    if (a.country || a.city || a.address) {
+    if (arena.country || arena.city || arena.address) {
       const countryField = this.getInput('country')
       const cityField = this.getInput('city')
       const addressField = this.getInput('address')
       const neighborhoodField = this.getInput('neighborhood')
       
-      if (countryField && a.country) countryField.value = a.country
-      if (cityField && a.city) cityField.value = a.city
-      if (addressField && a.address) addressField.value = a.address
-      if (neighborhoodField && a.neighborhood) neighborhoodField.value = a.neighborhood
+      if (countryField && arena.country) countryField.value = arena.country
+      if (cityField && arena.city) cityField.value = arena.city
+      if (addressField && arena.address) addressField.value = arena.address
+      if (neighborhoodField && arena.neighborhood) neighborhoodField.value = arena.neighborhood
       
       // Actualizar coordenadas si la arena las tiene
-      if (a.lat && a.lng) {
+      if (arena.lat && arena.lng && Number.isFinite(arena.lat) && Number.isFinite(arena.lng)) {
         if (this.hasLatitudeTarget) {
-          this.latitudeTarget.value = a.lat
+          this.latitudeTarget.value = arena.lat
         } else {
           // Fallback: usar helper seguro
           const latInput = this.getInput('latitude')
-          if (latInput) latInput.value = a.lat
+          if (latInput) latInput.value = arena.lat
         }
         
         if (this.hasLongitudeTarget) {
-          this.longitudeTarget.value = a.lng
+          this.longitudeTarget.value = arena.lng
         } else {
           // Fallback: usar helper seguro
           const lngInput = this.getInput('longitude')
-          if (lngInput) lngInput.value = a.lng
+          if (lngInput) lngInput.value = arena.lng
         }
+        
+        console.log(`📍 Coordenadas de arena ${arena.name} copiadas al formulario: (${arena.lat}, ${arena.lng})`)
       }
       
-      console.log(`📍 Ubicación de arena ${a.name} copiada al formulario`)
+      console.log(`📍 Ubicación de arena ${arena.name} copiada al formulario`)
     }
     
     // Revalidar Paso 1 si estamos en ese paso (para habilitar botón Siguiente)
@@ -2217,6 +2486,9 @@ export default class extends Controller {
 
   // Refrescar marcadores en el mapa basado en visibilidad - SOLO usa currentLat/currentLng
   refreshMarkers(map, visibles) {
+    map = map || this.getActiveMap();
+    if (!map) { console.warn('⚠️ refreshMarkers sin mapa'); return; }
+    
     console.log(`🗺️ Refrescando marcadores: ${visibles.length} arenas visibles`)
     
     // eliminar markers que ya no están visibles
@@ -2785,6 +3057,9 @@ export default class extends Controller {
       arenaCard.classList.add('arena-card--selected')
       console.log(`✅ Arena ${name} marcada como seleccionada en la UI`)
       
+      // Actualizar indicadores visuales (checkboxes)
+      this.updateArenaCheckIndicators()
+      
       // Actualizar el resumen si existe el método
       if (this.updateSummary) {
         this.updateSummary()
@@ -2794,8 +3069,178 @@ export default class extends Controller {
       if (this.currentStep === 1) {
         this.updateButtons()
       }
+      
+      // Actualizar estilo visual del marcador seleccionado
+      this.updateSelectedMarkerVisual(id)
     } else {
       console.warn(`⚠️ No se encontró la arena card con ID ${id} en el DOM`)
+    }
+  }
+
+  // ========================================
+  // DELEGACIÓN DE EVENTOS (ACTIVADA PARA TURBO)
+  // ========================================
+  // NOTA: Esta delegación está activada en los contenedores de #arena-select-frame
+  // para capturar clics incluso después de re-renders de turbo_stream
+  // 
+  // Ubicación: data-action="click->duel-steps#onArenaListClick" 
+  // en el contenedor .row.g-3 dentro de #arena-select-frame
+  
+  // ========================================
+  // BINDING DIRECTO COMO FALLBACK (ANTI-TURBO REPLACE)
+  // ========================================
+  // Este método asegura que cada card tenga su event listener directo
+  // como respaldo a la delegación, para casos donde Turbo reemplace contenido
+  
+  bindCardClicks() {
+    if (!this.hasArenaGridTarget) {
+      console.warn('⚠️ bindCardClicks: No hay arenaGridTarget disponible')
+      return
+    }
+    
+    console.log('🔗 bindCardClicks() - Aplicando binding directo a cards de arena')
+    
+    // LIMPIAR BINDINGS EXISTENTES antes de aplicar nuevos
+    this.clearCardBindings?.()
+    
+    const arenaCards = this.arenaGridTarget.querySelectorAll('.arena-card')
+    console.log(`📋 Encontradas ${arenaCards.length} cards para binding directo`)
+    
+    arenaCards.forEach((card, index) => {
+      // GUARD: Evitar binding duplicado
+      if (card.dataset.clickBound === 'true') {
+        console.log(`⏭️ Card ${index + 1} ya tiene binding, saltando`)
+        return
+      }
+      
+      // Aplicar binding directo
+      card.addEventListener('click', (ev) => {
+        ev.preventDefault()
+        ev.stopPropagation()
+        console.log(`🎯 Click directo en card ${index + 1} (ID: ${card.dataset.arenaId})`)
+        this.selectArenaCard({ currentTarget: card })
+      })
+      
+      // Marcar como bound para evitar duplicados
+      card.dataset.clickBound = 'true'
+      console.log(`✅ Card ${index + 1} (${card.dataset.arenaId}) con binding directo aplicado`)
+    })
+    
+    console.log(`🎯 bindCardClicks() completado: ${arenaCards.length} cards procesadas`)
+  }
+  
+  // Limpiar bindings existentes antes de re-aplicar (útil para re-renders)
+  clearCardBindings() {
+    if (!this.hasArenaGridTarget) {
+      return
+    }
+    
+    console.log('🧹 clearCardBindings() - Limpiando bindings existentes')
+    
+    const arenaCards = this.arenaGridTarget.querySelectorAll('.arena-card[data-click-bound="true"]')
+    arenaCards.forEach(card => {
+      // Remover el atributo para permitir re-binding
+      delete card.dataset.clickBound
+      console.log(`🧹 Card ${card.dataset.arenaId} marcada para re-binding`)
+    })
+    
+    console.log(`🧹 clearCardBindings() completado: ${arenaCards.length} cards limpiadas`)
+  }
+
+  // Delegación de eventos para la grilla de arenas (activa para robustez con Turbo)
+  onArenaListClick(e) {
+    // GUARDS DEFENSIVOS: Prevenir eventos duplicados
+    if (!e || !e.target) {
+      return
+    }
+    
+    // Buscar la card más cercana al elemento clicado
+    const arenaCard = e.target.closest('.arena-card')
+    if (!arenaCard) {
+      return // No es una card de arena
+    }
+    
+    // Toggle desde .arena-card__check con misma semántica que el mapa
+    const check = e.target.closest('.arena-card__check')
+    if (check) {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      const { arenaId, lat, lng, arenaName: name, city } = arenaCard.dataset
+      const current = (this.arenaIdTarget?.value || '').trim()
+      const isSame = current && String(current) === String(arenaId)
+      
+      if (isSame) {
+        // Deseleccionar
+        this.arenaIdTarget.value = ''
+        arenaCard.classList.remove('arena-card--selected')
+        this.updateSelectedMarkerVisual(null)
+        window.dispatchEvent(new CustomEvent('leagend:arena_deselected', { 
+          detail: { id: arenaId } 
+        }))
+      } else {
+        // Seleccionar
+        this.arenaIdTarget.value = arenaId
+        this.highlightOnlyCard(arenaCard)
+        this.updateSelectedMarkerVisual(arenaId)
+        window.dispatchEvent(new CustomEvent('leagend:arena_selected', {
+          detail: { 
+            id: arenaId, 
+            name, 
+            city, 
+            lat: Number(lat), 
+            lng: Number(lng) 
+          }
+        }))
+      }
+      return
+    }
+    
+    // Si el target es un enlace, prevenir navegación
+    if (e.target.matches('a, a *') || e.target.closest('a')) {
+      e.preventDefault()
+    }
+    
+    // Delegar al handler principal con preventDefault
+    e.preventDefault()
+    this.selectArenaCard({ currentTarget: arenaCard })
+  }
+
+  // Helper para pintar/despintar el marcador seleccionado
+  updateSelectedMarkerVisual(selectedId) {
+    try {
+      for (const [id, marker] of this.arenaMarkers.entries()) {
+        const el = marker.getElement();
+        const isSelected = String(id) === String(selectedId);
+        el.classList.toggle('marker--selected', isSelected);
+        // Inline styles seguros (sin CSS externo)
+        if (isSelected) {
+          el.style.transform = 'scale(1.15)';
+          el.style.boxShadow = '0 0 0 4px rgba(0,123,255,0.35)';
+          el.style.zIndex = '1000';
+        } else {
+          el.style.transform = '';
+          el.style.boxShadow = '';
+          el.style.zIndex = '';
+        }
+      }
+    } catch(e) {
+      console.warn('No se pudo actualizar estilo de marker seleccionado:', e);
+    }
+  }
+
+  // Helper para resaltar solo una card y quitar selección del resto
+  highlightOnlyCard(selectedCard) {
+    try {
+      // Quitar selección de todas las cards
+      this.element.querySelectorAll('.arena-card--selected').forEach(card => {
+        card.classList.remove('arena-card--selected')
+      })
+      
+      // Añadir selección solo a la card especificada
+      selectedCard.classList.add('arena-card--selected')
+    } catch(e) {
+      console.warn('No se pudo resaltar la card seleccionada:', e)
     }
   }
 }

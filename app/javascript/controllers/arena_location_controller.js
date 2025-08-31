@@ -733,7 +733,7 @@ export default class extends Controller {
 
     // Crear marcador draggable si es editable
     this.marker = new mapboxgl.Marker({ 
-      draggable: this.editableValue 
+      draggable: false 
     }).setLngLat([initialLng, initialLat]).addTo(this.map)
 
     console.log('Marcador creado, draggable:', this.editableValue);
@@ -742,6 +742,174 @@ export default class extends Controller {
     if (this.editableValue) {
       this.setupMarkerEvents()
     }
+
+    // === Helpers para centro y estado ===
+    this.isArenaSelected = () => {
+      const el = document.getElementById('duel_arena_id');
+      return !!(el && String(el.value).trim() !== '');
+    };
+
+    const getLatInput = () => document.querySelector('[name="duel[latitude]"]');
+    const getLngInput = () => document.querySelector('[name="duel[longitude]"]');
+
+    // Debounce simple
+    const debounce = (fn, wait = 400) => {
+      let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+    };
+
+    // === 1) Mantener marcador en el centro durante pan/zoom ===
+    const syncMarkerToCenter = () => {
+      if (!this.map || !this.marker) return;
+      if (this.isArenaSelected()) return; // no pisar si hay arena seleccionada
+      const c = this.map.getCenter();
+      this.marker.setLngLat([c.lng, c.lat]);
+    };
+
+    // === 2) Al terminar movimiento, escribir inputs + evento + reverse geocode (debounced) ===
+    const writeCenterToHiddenAndDispatch = () => {
+      if (!this.map) return;
+      if (this.isArenaSelected()) return; // no actualizar si hay arena seleccionada
+      const c = this.map.getCenter();
+      const latInput = getLatInput();
+      const lngInput = getLngInput();
+      if (latInput) latInput.value = Number(c.lat).toFixed(6);
+      if (lngInput) lngInput.value = Number(c.lng).toFixed(6);
+
+      // Notificar a duel_steps para recalcular 3km
+      window.dispatchEvent(new CustomEvent("leagend:location_changed", {
+        detail: { lat: c.lat, lng: c.lng, source: 'map_center_move' }
+      }));
+
+      // Reverse geocoding solo al final del movimiento (debounced)
+      if (typeof this.reverseGeocode === 'function') {
+        this._revGeoDebounced = this._revGeoDebounced || debounce((lat, lng) => {
+          try { this.reverseGeocode(lat, lng); } catch(_) {}
+        }, 500);
+        this._revGeoDebounced(c.lat, c.lng);
+      }
+
+      // Persistencia local (opcional)
+      try {
+        localStorage.setItem('leagend:lastLat', String(c.lat));
+        localStorage.setItem('leagend:lastLng', String(c.lng));
+      } catch(_) {}
+    };
+
+    // Desactivar el zoom por doble clic: lo usaremos para fijar ubicación
+    this.map.doubleClickZoom.disable();
+
+    // === Listeners de movimiento/zoom ===
+    this.map.on('move',     syncMarkerToCenter);
+    this.map.on('moveend',  writeCenterToHiddenAndDispatch);
+    this.map.on('zoomend',  writeCenterToHiddenAndDispatch);
+
+    // Sincronía inicial para que el marker ya aparezca centrado al cargar
+    syncMarkerToCenter();
+
+    // Fijar ubicación con DOBLE CLIC
+    this.map.on('dblclick', (e) => {
+      const { lng, lat } = e.lngLat || {};
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+      try {
+        // Mover marcador visual (independiente de si hay arena seleccionada)
+        this.marker?.setLngLat([lng, lat]);
+
+        // Actualizar inputs
+        const latInput = document.querySelector('[name="duel[latitude]"]');
+        const lngInput = document.querySelector('[name="duel[longitude]"]');
+        if (latInput) latInput.value = Number(lat).toFixed(6);
+        if (lngInput) lngInput.value = Number(lng).toFixed(6);
+
+        // Notificar (no se ignora por el anti-loop)
+        window.dispatchEvent(new CustomEvent("leagend:location_changed", {
+          detail: { lat, lng, source: 'map_dblclick' }
+        }));
+
+        // Reverse geocoding
+        if (typeof this.reverseGeocode === 'function') {
+          try { this.reverseGeocode(lat, lng); } catch(_) {}
+        }
+      } catch (err) {
+        console.warn('No se pudo procesar dblclick en mapa:', err);
+      }
+    });
+
+    // Fijar ubicación con LONG PRESS (500ms)
+    (() => {
+      const PRESS_MS = 500;
+      const MOVE_TOL = 6; // px
+      let timer = null;
+      let startPoint = null;   // {x,y}
+      let startLngLat = null;  // {lng,lat}
+      let moved = false;
+
+      const clear = () => { if (timer) clearTimeout(timer); timer = null; startPoint = null; startLngLat = null; moved = false; };
+
+      const schedule = () => {
+        if (!startLngLat) return;
+        timer = setTimeout(() => {
+          // Disparar fijación por long-press
+          const { lng, lat } = startLngLat;
+          try {
+            this.marker?.setLngLat([lng, lat]);
+
+            const latInput = document.querySelector('[name="duel[latitude]"]');
+            const lngInput = document.querySelector('[name="duel[longitude]"]');
+            if (latInput) latInput.value = Number(lat).toFixed(6);
+            if (lngInput) lngInput.value = Number(lng).toFixed(6);
+
+            window.dispatchEvent(new CustomEvent("leagend:location_changed", {
+              detail: { lat, lng, source: 'map_longpress' }
+            }));
+
+            if (typeof this.reverseGeocode === 'function') {
+              try { this.reverseGeocode(lat, lng); } catch(_) {}
+            }
+          } catch (err) {
+            console.warn('No se pudo procesar long-press en mapa:', err);
+          } finally {
+            clear();
+          }
+        }, PRESS_MS);
+      };
+
+      // Mouse
+      this.map.on('mousedown', (e) => {
+        startPoint = e.point;
+        startLngLat = e.lngLat;
+        moved = false;
+        schedule();
+      });
+      this.map.on('mousemove', (e) => {
+        if (!startPoint) return;
+        const dx = e.point.x - startPoint.x;
+        const dy = e.point.y - startPoint.y;
+        if (Math.hypot(dx, dy) > MOVE_TOL) { moved = true; clear(); }
+      });
+      this.map.on('mouseup', clear);
+      this.map.on('mouseout', clear);
+
+      // Touch
+      this.map.on('touchstart', (e) => {
+        // mapbox da e.point / e.points[0] y e.lngLat / e.lngLats[0]
+        const pt = e.points?.[0] || e.point;
+        const ll = e.lngLats?.[0] || e.lngLat;
+        startPoint = pt;
+        startLngLat = ll;
+        moved = false;
+        schedule();
+      });
+      this.map.on('touchmove', (e) => {
+        if (!startPoint) return;
+        const pt = e.points?.[0] || e.point;
+        const dx = pt.x - startPoint.x;
+        const dy = pt.y - startPoint.y;
+        if (Math.hypot(dx, dy) > MOVE_TOL) { moved = true; clear(); }
+      });
+      this.map.on('touchend', clear);
+      this.map.on('touchcancel', clear);
+    })();
 
     // Centrar en coordenadas existentes si las hay
     if (this.hasLatitudeTarget && this.hasLongitudeTarget && 
@@ -1010,15 +1178,23 @@ export default class extends Controller {
         lng: lng 
       })
       
-      // Disparar evento de cambio de ubicación
-      this.dispatchLocationChangedEvent(lat, lng, city, country, feat.place_name, null, 'reverse_geocode')
+      // Disparar evento de cambio de ubicación (nota el true final)
+      this.dispatchLocationChangedEvent(lat, lng, city, country, feat.place_name, null, 'reverse_geocode', true)
     } catch(error) {
       console.warn("Error en geocodificación inversa:", error)
     }
   }
   
   // Disparar evento global de cambio de ubicación con información completa
-  dispatchLocationChangedEvent(lat, lng, city = null, country = null, address = null, neighborhood = null, source = 'unknown') {
+  dispatchLocationChangedEvent(
+    lat, lng,
+    city = null,
+    country = null,
+    address = null,
+    neighborhood = null,
+    source = 'unknown',
+    noCenter = false // 👈 nuevo flag
+  ) {
     const eventData = {
       lat: lat,
       lng: lng,
@@ -1026,11 +1202,12 @@ export default class extends Controller {
       country: country || this.countryTarget?.value || null,
       address: address || this.addressTarget?.value || null,
       neighborhood: neighborhood || null,
-      source: source
+      source: source,
+      noCenter: !!noCenter // 👈 incluir en el detail
     }
-    
+
     console.log('Disparando evento leagend:location_changed:', eventData)
-    
+
     window.dispatchEvent(new CustomEvent("leagend:location_changed", {
       detail: eventData
     }))
@@ -1124,8 +1301,20 @@ export default class extends Controller {
       return
     }
     
-    const { lat, lng, source } = event.detail
+    const { lat, lng, source, noCenter } = event.detail
     console.log(`📍 ARENA-LOCATION: Coordenadas recibidas: (${lat}, ${lng}) desde ${source}`)
+    
+    // ⛔ ignorar si el emisor pide explícitamente no centrar
+    if (noCenter) {
+      console.log('🔄 ARENA-LOCATION: Evento con noCenter=true, no se recentra el mapa')
+      return
+    }
+    
+    // 🔒 ya ignorabas esto; mantenlo
+    if (source === 'map_center_move') {
+      console.log('🔄 ARENA-LOCATION: Evento de map_center_move ignorado para evitar loop')
+      return
+    }
     
     // VERIFICAR que las coordenadas son numéricas válidas
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
@@ -1154,10 +1343,21 @@ export default class extends Controller {
       return
     }
     
-    // Mover marcador a nuevas coordenadas
+    // Evitar animaciones innecesarias (micro saltos)
+    const cur = this.map.getCenter()
+    const eps = 1e-7
+    const same =
+      Math.abs(cur.lat - lat) < eps &&
+      Math.abs(cur.lng - lng) < eps
+
     if (this.marker) {
       this.marker.setLngLat([lng, lat])
       console.log('📍 ARENA-LOCATION: Marcador movido a nuevas coordenadas')
+    }
+
+    if (same) {
+      console.log('✅ ARENA-LOCATION: Ya está centrado; se evita flyTo')
+      return
     }
     
     // Centrar mapa con animación suave

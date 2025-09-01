@@ -25,7 +25,8 @@
        data-neighborhood="<%= arena.neighborhood %>"
        data-lat="<%= arena.latitude %>" 
        data-lng="<%= arena.longitude %>" 
-       data-action="<%= selectable ? 'click->duel-steps#selectArenaCard' : '' %>">
+       tabindex="0"
+       data-action="<%= selectable ? 'click->duel-steps#selectArenaCard keydown.enter->duel-steps#selectArenaCard keydown.space->duel-steps#selectArenaCard' : '' %>">
     
     <%# NOTA: El campo hidden duel[arena_id] se maneja desde el formulario principal #duel_arena_id %>
     <%# No se renderiza aquí para evitar múltiples campos hidden por card %>

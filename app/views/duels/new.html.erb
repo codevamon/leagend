@@ -71,16 +71,31 @@
                         <div data-arena-location-target="geocoderCity" class="geocoder-container"></div>
                       </div>
 
-                      <div class="mb-3">
+                      <div class="mb-3" id="address-field">
                         <%= f.label :address, "Dirección", class: "form-label fw-semibold" %>
-                        <%= f.text_field :address, 
-                            class: "form-control", 
-                            required: true,
-                            placeholder: "Ej: Calle 123 #45-67",
-                            data: { 
-                              arena_location_target: "address",
-                              action: "input->arena-location#schedule"
-                            } %>
+                        <div class="input-group">
+                          <%= f.text_field :address, 
+                              class: "form-control", 
+                              required: true,
+                              placeholder: "Calle 123 #45-67, barrio...",
+                              data: { 
+                                arena_location_target: "address",
+                                action: "keydown.enter->arena-location#submitAddressSearch input->arena-location#onAddressInput"
+                              },
+                              autocomplete: "street-address",
+                              "aria-describedby": "address-search-btn" %>
+                          <button
+                            class="btn btn-outline-secondary"
+                            type="button"
+                            id="address-search-btn"
+                            title="Buscar dirección"
+                            data-action="click->arena-location#submitAddressSearch"
+                          >
+                            <i class="fas fa-search" aria-hidden="true"></i>
+                            <span class="visually-hidden">Buscar</span>
+                          </button>
+                        </div>
+                        <div class="form-text">Escribe la dirección y presiona Enter o el botón de buscar.</div>
                         <div data-arena-location-target="geocoderAddress" class="geocoder-container"></div>
                       </div>
 

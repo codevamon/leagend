@@ -1382,4 +1382,59 @@ export default class extends Controller {
     this.debug = false;
     console.log('🔍 ARENA-LOCATION: Modo debug deshabilitado');
   }
+
+  // Se llama en cada tecla del Address; solo UI liviana, NO geocodifica ni mueve mapa.
+  onAddressInput(e) {
+    // Opcional: trim UI o validaciones visuales ligeras. NO llames geocode() ni reverseGeocode() aquí.
+    // Mantener comportamiento de city/country intacto (no tocar).
+    console.log('🔍 ARENA-LOCATION: onAddressInput - Solo UI, sin geocoding automático');
+  }
+
+  // Dispara la búsqueda manual (click botón o Enter en el input)
+  async submitAddressSearch(e) {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+
+    const country = this.hasCountryTarget ? this.countryTarget.value?.trim() : '';
+    const city    = this.hasCityTarget    ? this.cityTarget.value?.trim()    : '';
+    const address = this.hasAddressTarget ? this.addressTarget.value?.trim() : '';
+
+    if (!country || !city || !address) {
+      console.warn('submitAddressSearch: faltan datos para geocodificar', {country, city, address});
+      return;
+    }
+
+    // Reutiliza tu geocoding backend para obtener lat/lng (ya existente)
+    try {
+      const res = await fetch('/arenas/geocode.json', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': this.getCSRFToken()
+        },
+        body: JSON.stringify({ country, city, address })
+      });
+
+      if (!res.ok) throw new Error(`Geocode backend ${res.status}`);
+      const data = await res.json();
+      const lat = parseFloat(data.lat);
+      const lng = parseFloat(data.lng);
+
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        // Escribe hidden + mueve marker + centra mapa
+        this.updateCoordinates(lat, lng);
+        this.updateMapLocation(lat, lng);
+
+        // Reverse para completar place_name canonical (ya existente)
+        try { await this.reverseGeocode(lat, lng); } catch (_) {}
+
+        // Notifica al wizard (ya manejas este evento)
+        this.dispatchLocationChangedEvent(lat, lng, null, null, address, null, 'address_manual_search');
+      } else {
+        console.warn('submitAddressSearch: backend no devolvió coords válidas', data);
+      }
+    } catch (err) {
+      console.error('submitAddressSearch: error en geocode backend', err);
+    }
+  }
 }

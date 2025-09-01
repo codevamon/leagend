@@ -18,6 +18,7 @@ class CreateReservations < ActiveRecord::Migration[8.0]
       # Estado y dinero
       t.string  :status,        null: false, default: "held" # held | reserved | paid | canceled
       t.integer :amount_cents,  null: false, default: 0
+      t.integer :duration_minutes,  null: false, default: 0
       t.string  :currency,      null: false, default: "COP"
 
       # Proveedor de pago / referencias

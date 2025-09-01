@@ -369,6 +369,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_14_000001) do
     t.datetime "ends_at", null: false
     t.string "status", default: "held", null: false
     t.integer "amount_cents", default: 0, null: false
+    t.integer "duration_minutes", default: 0, null: false
     t.string "currency", default: "COP", null: false
     t.string "payment_provider"
     t.string "payment_ref"

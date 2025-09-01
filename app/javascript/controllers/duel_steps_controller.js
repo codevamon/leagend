@@ -1705,10 +1705,15 @@ export default class extends Controller {
     e?.preventDefault?.()
     e?.stopPropagation?.()
     
+    // MANEJO ESPECIAL PARA TECLADO: Prevenir scroll en espacio
+    if (e?.type === 'keydown' && e?.key === ' ') {
+      e.preventDefault()
+    }
+    
     const arenaCard = e.currentTarget
     const arenaId = String(arenaCard?.dataset?.arenaId || '')
     
-    console.log(`🎯 selectArenaCard() - Click en arena ${arenaId}`)
+    console.log(`🎯 selectArenaCard() - ${e?.type || 'event'} en arena ${arenaId}`)
     console.trace('📍 TRACE: selectArenaCard() llamado desde:')
     
     // GUARDS ADICIONALES: Verificar datos válidos
@@ -3029,52 +3034,12 @@ export default class extends Controller {
       return
     }
     
-    const { id, name, city, lat, lng } = e.detail
-    console.log(`🎯 Arena seleccionada desde mapa: ID ${id}, Nombre: ${name}, Ciudad: ${city}`)
+    const { id } = e.detail
+    console.log(`🎯 Arena seleccionada desde mapa: ID ${id}`)
     
-    // EVITAR BUCLES: Verificar que no sea una selección desde la grilla
-    // Si ya está seleccionada, no hacer nada para evitar bucles
-    if (this.hasArenaIdTarget && this.arenaIdTarget.value === id) {
-      console.log('ℹ️ Arena ya seleccionada, evitando bucle')
-      return
-    }
-    
-    // Actualizar el campo hidden duel[arena_id]
-    if (this.hasArenaIdTarget) {
-      this.arenaIdTarget.value = id
-      console.log(`✅ Campo duel[arena_id] actualizado con ID: ${id}`)
-    }
-    
-    // Buscar la arena en el DOM y marcarla como seleccionada
-    const arenaCard = this.element.querySelector(`.arena-card[data-arena-id="${id}"]`)
-    if (arenaCard) {
-      // Remover selección previa
-      this.element.querySelectorAll('.arena-card--selected').forEach(card => {
-        card.classList.remove('arena-card--selected')
-      })
-      
-      // Marcar nueva arena como seleccionada
-      arenaCard.classList.add('arena-card--selected')
-      console.log(`✅ Arena ${name} marcada como seleccionada en la UI`)
-      
-      // Actualizar indicadores visuales (checkboxes)
-      this.updateArenaCheckIndicators()
-      
-      // Actualizar el resumen si existe el método
-      if (this.updateSummary) {
-        this.updateSummary()
-      }
-      
-      // Revalidar Paso 1 si estamos en ese paso (para habilitar botón Siguiente)
-      if (this.currentStep === 1) {
-        this.updateButtons()
-      }
-      
-      // Actualizar estilo visual del marcador seleccionado
-      this.updateSelectedMarkerVisual(id)
-    } else {
-      console.warn(`⚠️ No se encontró la arena card con ID ${id} en el DOM`)
-    }
+    // REUTILIZAR LÓGICA EXISTENTE: Llamar a selectArenaById para mantener consistencia
+    // Este método ya maneja toggle, UI updates, y sincronización
+    this.selectArenaById(id)
   }
 
   // ========================================
@@ -3087,65 +3052,57 @@ export default class extends Controller {
   // en el contenedor .row.g-3 dentro de #arena-select-frame
   
   // ========================================
-  // BINDING DIRECTO COMO FALLBACK (ANTI-TURBO REPLACE)
+  // DELEGACIÓN ROBUSTA PARA TOGGLE DE CARDS
   // ========================================
-  // Este método asegura que cada card tenga su event listener directo
-  // como respaldo a la delegación, para casos donde Turbo reemplace contenido
+  // Este método asegura que el click en cualquier .arena-card haga toggle
+  // de forma estable, incluso tras Turbo Streams o reordenamientos
   
   bindCardClicks() {
-    if (!this.hasArenaGridTarget) {
-      console.warn('⚠️ bindCardClicks: No hay arenaGridTarget disponible')
-      return
-    }
+    const scope = this.hasArenaGridTarget ? this.arenaGridTarget : this.element;
     
-    console.log('🔗 bindCardClicks() - Aplicando binding directo a cards de arena')
-    
-    // LIMPIAR BINDINGS EXISTENTES antes de aplicar nuevos
-    this.clearCardBindings?.()
-    
-    const arenaCards = this.arenaGridTarget.querySelectorAll('.arena-card')
-    console.log(`📋 Encontradas ${arenaCards.length} cards para binding directo`)
+    // Iterar sobre todas las cards de arena y agregar listeners directos
+    const arenaCards = scope.querySelectorAll('.arena-card');
+    console.log(`🔗 bindCardClicks() - Procesando ${arenaCards.length} cards de arena`);
     
     arenaCards.forEach((card, index) => {
       // GUARD: Evitar binding duplicado
-      if (card.dataset.clickBound === 'true') {
-        console.log(`⏭️ Card ${index + 1} ya tiene binding, saltando`)
-        return
+      if (card.dataset.bound === 'true') {
+        console.log(`⏭️ Card ${index + 1} ya tiene binding, saltando`);
+        return;
       }
       
-      // Aplicar binding directo
+      // Asegurar tabindex para navegación por teclado
+      if (!card.hasAttribute('tabindex')) {
+        card.setAttribute('tabindex', '0');
+      }
+      
+      // Listener para click
       card.addEventListener('click', (ev) => {
-        ev.preventDefault()
-        ev.stopPropagation()
-        console.log(`🎯 Click directo en card ${index + 1} (ID: ${card.dataset.arenaId})`)
-        this.selectArenaCard({ currentTarget: card })
-      })
+        ev.preventDefault();
+        ev.stopPropagation();
+        console.log(`🎯 Click directo en card ${index + 1} (ID: ${card.dataset.arenaId})`);
+        this.selectArenaCard({ currentTarget: card, type: 'click' });
+      });
+      
+      // Listener para teclado (Enter y Space)
+      card.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          ev.stopPropagation();
+          console.log(`⌨️ Tecla ${ev.key} en card ${index + 1} (ID: ${card.dataset.arenaId})`);
+          this.selectArenaCard({ currentTarget: card, type: 'keydown', key: ev.key });
+        }
+      });
       
       // Marcar como bound para evitar duplicados
-      card.dataset.clickBound = 'true'
-      console.log(`✅ Card ${index + 1} (${card.dataset.arenaId}) con binding directo aplicado`)
-    })
+      card.dataset.bound = 'true';
+      console.log(`✅ Card ${index + 1} (${card.dataset.arenaId}) con binding directo aplicado`);
+    });
     
-    console.log(`🎯 bindCardClicks() completado: ${arenaCards.length} cards procesadas`)
+    console.log(`🎯 bindCardClicks() completado: ${arenaCards.length} cards procesadas`);
   }
   
-  // Limpiar bindings existentes antes de re-aplicar (útil para re-renders)
-  clearCardBindings() {
-    if (!this.hasArenaGridTarget) {
-      return
-    }
-    
-    console.log('🧹 clearCardBindings() - Limpiando bindings existentes')
-    
-    const arenaCards = this.arenaGridTarget.querySelectorAll('.arena-card[data-click-bound="true"]')
-    arenaCards.forEach(card => {
-      // Remover el atributo para permitir re-binding
-      delete card.dataset.clickBound
-      console.log(`🧹 Card ${card.dataset.arenaId} marcada para re-binding`)
-    })
-    
-    console.log(`🧹 clearCardBindings() completado: ${arenaCards.length} cards limpiadas`)
-  }
+
 
   // Delegación de eventos para la grilla de arenas (activa para robustez con Turbo)
   onArenaListClick(e) {
@@ -3209,24 +3166,14 @@ export default class extends Controller {
   // Helper para pintar/despintar el marcador seleccionado
   updateSelectedMarkerVisual(selectedId) {
     try {
-      for (const [id, marker] of this.arenaMarkers.entries()) {
-        const el = marker.getElement();
-        const isSelected = String(id) === String(selectedId);
-        el.classList.toggle('marker--selected', isSelected);
-        // Inline styles seguros (sin CSS externo)
-        if (isSelected) {
-          el.style.transform = 'scale(1.15)';
-          el.style.boxShadow = '0 0 0 4px rgba(0,123,255,0.35)';
-          el.style.zIndex = '1000';
-        } else {
-          el.style.transform = '';
-          el.style.boxShadow = '';
-          el.style.zIndex = '';
-        }
-      }
-    } catch(e) {
-      console.warn('No se pudo actualizar estilo de marker seleccionado:', e);
-    }
+      // Si guardas markers en this.arenas[].marker
+      this.arenas.forEach(a => {
+        if (!a.marker) return;
+        const el = a.marker.getElement();
+        if (!el) return;
+        el.classList.toggle('is-selected', String(a.id) === String(selectedId));
+      });
+    } catch (_) {}
   }
 
   // Helper para resaltar solo una card y quitar selección del resto

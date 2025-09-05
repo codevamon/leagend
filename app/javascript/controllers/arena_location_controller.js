@@ -835,81 +835,10 @@ export default class extends Controller {
       }
     });
 
-    // Fijar ubicación con LONG PRESS (500ms)
-    (() => {
-      const PRESS_MS = 500;
-      const MOVE_TOL = 6; // px
-      let timer = null;
-      let startPoint = null;   // {x,y}
-      let startLngLat = null;  // {lng,lat}
-      let moved = false;
-
-      const clear = () => { if (timer) clearTimeout(timer); timer = null; startPoint = null; startLngLat = null; moved = false; };
-
-      const schedule = () => {
-        if (!startLngLat) return;
-        timer = setTimeout(() => {
-          // Disparar fijación por long-press
-          const { lng, lat } = startLngLat;
-          try {
-            this.marker?.setLngLat([lng, lat]);
-
-            const latInput = document.querySelector('[name="duel[latitude]"]');
-            const lngInput = document.querySelector('[name="duel[longitude]"]');
-            if (latInput) latInput.value = Number(lat).toFixed(6);
-            if (lngInput) lngInput.value = Number(lng).toFixed(6);
-
-            window.dispatchEvent(new CustomEvent("leagend:location_changed", {
-              detail: { lat, lng, source: 'map_longpress' }
-            }));
-
-            if (typeof this.reverseGeocode === 'function') {
-              try { this.reverseGeocode(lat, lng); } catch(_) {}
-            }
-          } catch (err) {
-            console.warn('No se pudo procesar long-press en mapa:', err);
-          } finally {
-            clear();
-          }
-        }, PRESS_MS);
-      };
-
-      // Mouse
-      this.map.on('mousedown', (e) => {
-        startPoint = e.point;
-        startLngLat = e.lngLat;
-        moved = false;
-        schedule();
-      });
-      this.map.on('mousemove', (e) => {
-        if (!startPoint) return;
-        const dx = e.point.x - startPoint.x;
-        const dy = e.point.y - startPoint.y;
-        if (Math.hypot(dx, dy) > MOVE_TOL) { moved = true; clear(); }
-      });
-      this.map.on('mouseup', clear);
-      this.map.on('mouseout', clear);
-
-      // Touch
-      this.map.on('touchstart', (e) => {
-        // mapbox da e.point / e.points[0] y e.lngLat / e.lngLats[0]
-        const pt = e.points?.[0] || e.point;
-        const ll = e.lngLats?.[0] || e.lngLat;
-        startPoint = pt;
-        startLngLat = ll;
-        moved = false;
-        schedule();
-      });
-      this.map.on('touchmove', (e) => {
-        if (!startPoint) return;
-        const pt = e.points?.[0] || e.point;
-        const dx = pt.x - startPoint.x;
-        const dy = pt.y - startPoint.y;
-        if (Math.hypot(dx, dy) > MOVE_TOL) { moved = true; clear(); }
-      });
-      this.map.on('touchend', clear);
-      this.map.on('touchcancel', clear);
-    })();
+    // LONG-PRESS DESHABILITADO POR DECISIÓN UX
+    // Se eliminó el comportamiento de mantener presionado (long-press) que movía el marcador/centro del mapa.
+    // Solo se mantiene el doble clic para mover el marcador/centro.
+    // Referencia: Eliminación de long-press para mejorar UX - mantener solo doble clic
 
     // Centrar en coordenadas existentes si las hay
     if (this.hasLatitudeTarget && this.hasLongitudeTarget && 

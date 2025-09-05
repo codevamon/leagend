@@ -218,23 +218,19 @@
                 </div>
                 
                 <div class="col-md-6">
-                  <div class="mb-4">
-                    <%= f.label :duration, "Duración", class: "form-label fw-semibold" %>
-                    <%= f.select :duration, 
-                        options_for_select([
-                          ['90 minutos', 1.5],
-                          ['2 horas', 2],
-                          ['2.5 horas', 2.5],
-                          ['3 horas', 3],
-                          ['3.5 horas', 3.5],
-                          ['4 horas', 4]
-                        ], 1.5),
-                        {},
-                        { class: "form-select", required: true } %>
-                    <small class="text-muted">
+                  <div class="mb-3">
+                    <label for="duel_duration_minutes" class="form-label fw-semibold">Duración</label>
+                    <select id="duel_duration_minutes"
+                            name="duel[duration_minutes]"
+                            class="form-select"
+                            data-duel-steps-target="durationSelect"
+                            data-allowed-durations='[30,60,90,120,150,180,210,240,270,300,330,360]'
+                            required>
+                    </select>
+                    <div class="form-text">
                       <i class="fas fa-info-circle me-1"></i>
-                      Duración por defecto: 90 minutos
-                    </small>
+                      Mínimo 30 min. Default 90 min.
+                    </div>
                   </div>
                 </div>
               </div>

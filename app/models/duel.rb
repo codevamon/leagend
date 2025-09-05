@@ -28,6 +28,9 @@ class Duel < ApplicationRecord
     lineups.where(teamable: away_team).includes(:user).map(&:user)
   end
 
+  # Lista de duraciones permitidas: 30, 60, 90 y de 120 a 360 cada 30
+  DURATION_MINUTES = [30, 60, 90] + (120..360).step(30).to_a
+
   # Enums
   enum :status, { 
     pending: 0,    # Pendiente de confirmación
@@ -63,6 +66,7 @@ class Duel < ApplicationRecord
   validates :starts_at, :ends_at, presence: true
   validates :price, :budget, :referee_fee, numericality: { greater_than_or_equal_to: 0 }
   validates :duel_type, presence: true
+  validates :duration_minutes, inclusion: { in: DURATION_MINUTES }
   validate :end_date_after_start_date
   
   validate :arena_availability, if: -> { arena.present? && starts_at.present? && ends_at.present? }
@@ -73,6 +77,9 @@ class Duel < ApplicationRecord
   # UUID
   before_create :generate_uuid
   before_save :set_expires_at, if: :temporary?
+  before_validation do
+    self.duration_minutes ||= 90
+  end
   after_save :notify_status_change, if: -> { saved_change_to_status? && (home_team.present? || away_team.present?) }
 
   # Scopes

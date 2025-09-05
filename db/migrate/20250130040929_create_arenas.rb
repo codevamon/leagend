@@ -21,6 +21,7 @@ class CreateArenas < ActiveRecord::Migration[8.0]
       t.decimal :price_per_hour, precision: 8, scale: 2, default: 0.0
 
       # Campos de AddArenaFields integrados
+      t.string  :description, null: true
       t.string  :status, default: "unverified", null: false
       t.json    :amenities, default: {}
       t.text    :cancellation_policy

@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   // VERSION TAG: DUEL-STEP v2025-08-15T10:45Z - VERIFICAR QUE SE EJECUTA ESTE CÓDIGO
-  static targets = ["step", "progress", "nextBtn", "prevBtn", "submitBtn", "arenaId", "mapContainer", "arenaList", "arenaGrid", "arenaSearch", "latitude", "longitude", "summaryMap"]
+  static targets = ["step", "progress", "nextBtn", "prevBtn", "submitBtn", "arenaId", "mapContainer", "arenaList", "arenaGrid", "arenaSearch", "latitude", "longitude", "summaryMap", "durationSelect"]
   static values = { 
     currentStep: { type: Number, default: 1 },
     totalSteps: { type: Number, default: 4 }
@@ -16,6 +16,38 @@ export default class extends Controller {
   getValue(name) { 
     const el = this.getInput(name); 
     return el ? el.value?.trim() : ""; 
+  }
+
+  // Métodos para manejo de duración
+  initDurationOptions() {
+    const select = this.durationSelectTarget || document.getElementById("duel_duration_minutes");
+    if (!select) return;
+
+    const dataAttr = select.getAttribute("data-allowed-durations");
+    const allowed = dataAttr ? JSON.parse(dataAttr) : [30,60,90,120,150,180,210,240,270,300,330,360];
+
+    // Limpia opciones actuales
+    select.innerHTML = "";
+
+    // Crea opciones en orden
+    allowed.forEach((min) => {
+      const opt = document.createElement("option");
+      opt.value = String(min);
+      opt.textContent = `${min} min`;
+      select.appendChild(opt);
+    });
+
+    // Default 90 si no hay valor
+    if (!select.value) select.value = "90";
+  }
+
+  isValidDuration() {
+    const select = this.durationSelectTarget || document.getElementById("duel_duration_minutes");
+    if (!select) return false;
+    const dataAttr = select.getAttribute("data-allowed-durations");
+    const allowed = dataAttr ? JSON.parse(dataAttr) : [30,60,90,120,150,180,210,240,270,300,330,360];
+    const val = parseInt(select.value, 10);
+    return allowed.includes(val);
   }
 
   // Helper no destructivo para obtener el mapa actual
@@ -224,7 +256,7 @@ export default class extends Controller {
 
     // Escuchar cambios en campos de fecha y hora para validación en tiempo real
     this.element.addEventListener('input', (e) => {
-      if (e.target.matches('#duel_starts_at, #duel_duration, #duel_duel_type')) {
+      if (e.target.matches('#duel_starts_at, #duel_duration_minutes, #duel_duel_type')) {
         this.updateSummary()
         this.validateFieldInRealTime(e.target)
       }
@@ -505,9 +537,10 @@ export default class extends Controller {
     // Si existen, deben tener valor; si no, no bloquean
     const okDur  = dur  ? (dur.value?.trim() !== '')  : true;
     const okType = type ? (type.value?.trim() !== '') : true;
+    const okDuration = this.isValidDuration();
 
-    const result = !!(okStarts && okDur && okType);
-    console.debug('✅ validStep2:', { okStarts, okDur, okType, result, startsValue: starts?.value });
+    const result = !!(okStarts && okDur && okType && okDuration);
+    console.debug('✅ validStep2:', { okStarts, okDur, okType, okDuration, result, startsValue: starts?.value });
     return result;
   }
 
@@ -574,6 +607,9 @@ export default class extends Controller {
       field.addEventListener('input', updateNextButtonState);
       field.addEventListener('change', updateNextButtonState);
     });
+
+    // Inicializar opciones de duración
+    this.initDurationOptions();
 
     // Evaluación inicial
     updateNextButtonState();
@@ -843,22 +879,13 @@ export default class extends Controller {
     }
 
     // Duración
-    const duration = document.getElementById('duel_duration')?.value
+    const duration = document.getElementById('duel_duration_minutes')?.value
     if (duration) {
-      let durationText
-      if (duration === '1.5') {
-        durationText = '90 minutos'
-      } else if (duration === '2.5') {
-        durationText = '2.5 horas'
-      } else if (duration === '3.5') {
-        durationText = '3.5 horas'
-      } else {
-        durationText = duration === '1' ? '1 hora' : `${duration} horas`
-      }
+      const durationText = `${duration} minutos`
       document.getElementById('summary-duration').textContent = durationText
       
       // Validar campo de duración en tiempo real
-      const durationField = document.getElementById('duel_duration')
+      const durationField = document.getElementById('duel_duration_minutes')
       if (durationField) this.validateFieldInRealTime(durationField)
     } else {
       document.getElementById('summary-duration').textContent = '90 minutos (por defecto)'

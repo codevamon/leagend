@@ -38,10 +38,10 @@ class DuelsController < ApplicationController
       @duel = Duel.new(duel_attributes)
       @duel.status = 'open' # Por defecto abierto para desafíos
       
-      # Calcular ends_at si se proporciona duration
-      if params[:duel][:duration].present? && @duel.starts_at.present?
-        duration_hours = params[:duel][:duration].to_i
-        @duel.ends_at = @duel.starts_at + duration_hours.hours
+      # Calcular ends_at si se proporciona duration_minutes
+      if params[:duel][:duration_minutes].present? && @duel.starts_at.present?
+        duration_minutes = params[:duel][:duration_minutes].to_i
+        @duel.ends_at = @duel.starts_at + duration_minutes.minutes
       end
       
       if @duel.save!
@@ -558,7 +558,7 @@ class DuelsController < ApplicationController
 
   def duel_params
     params.require(:duel).permit(
-      :away_team_id, :arena_id, :starts_at, :ends_at, :duration, :duel_type, :private, :status, :challenge_type,
+      :away_team_id, :arena_id, :starts_at, :ends_at, :duration_minutes, :duel_type, :private, :status, :challenge_type,
       :country, :city, :address, :neighborhood, :latitude, :longitude,
       :price, :budget, :budget_place, :assign_referee, :type_of_duel
     )

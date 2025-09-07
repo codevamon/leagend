@@ -35,6 +35,8 @@ export default class extends Controller {
     
     // VARIABLE PARA TIMER DE AUTOCOMPLETE: Para debounce de autocomplete
     this.addressAutocompleteTimer = null
+    this.countryAutocompleteTimer = null
+    this.cityAutocompleteTimer = null
     
     // VARIABLE PARA TIMER DE GEOCODIFICACIÓN DE CIUDAD: Para debounce de geocodificación
     this.cityGeocodeTimer = null
@@ -129,6 +131,12 @@ export default class extends Controller {
     if (this.addressAutocompleteTimer) {
       clearTimeout(this.addressAutocompleteTimer)
     }
+    if (this.countryAutocompleteTimer) {
+      clearTimeout(this.countryAutocompleteTimer)
+    }
+    if (this.cityAutocompleteTimer) {
+      clearTimeout(this.cityAutocompleteTimer)
+    }
     if (this.cityGeocodeTimer) {
       clearTimeout(this.cityGeocodeTimer)
     }
@@ -148,6 +156,8 @@ export default class extends Controller {
     
     // Limpiar sugerencias de autocomplete
     this.clearAddressSuggestions()
+    this.clearCountrySuggestions()
+    this.clearCitySuggestions()
     
     // Resetear banderas de control
     this._updatingMarkers = false
@@ -1468,15 +1478,26 @@ export default class extends Controller {
     this.applyHierarchyOnCityChange();
     
     // Limpiar timer anterior si existe
-    if (this.cityGeocodeTimer) {
-      clearTimeout(this.cityGeocodeTimer);
+    if (this.cityAutocompleteTimer) {
+      clearTimeout(this.cityAutocompleteTimer);
     }
     
-    // Si el campo está vacío, limpiar cityBias
+    // Si el query está vacío, limpiar sugerencias y cityBias
     if (!cityName) {
+      this.clearCitySuggestions();
       this.cityBias = null;
       console.log('🏙️ ARENA-LOCATION: City bias limpiado - campo ciudad vacío');
       return;
+    }
+    
+    // Debounce de 300ms para evitar demasiadas llamadas a la API
+    this.cityAutocompleteTimer = setTimeout(() => {
+      this.fetchCitySuggestions(cityName);
+    }, 300);
+    
+    // Limpiar timer anterior si existe para geocodificación
+    if (this.cityGeocodeTimer) {
+      clearTimeout(this.cityGeocodeTimer);
     }
     
     // Debounce de 500ms para geocodificar ciudad y actualizar bias
@@ -1492,6 +1513,22 @@ export default class extends Controller {
     
     // 🧭 JERARQUÍA: Si el usuario edita country → limpiar city y address
     this.applyHierarchyOnCountryChange();
+    
+    // Limpiar timer anterior si existe
+    if (this.countryAutocompleteTimer) {
+      clearTimeout(this.countryAutocompleteTimer);
+    }
+    
+    // Si el query está vacío, limpiar sugerencias
+    if (!countryName) {
+      this.clearCountrySuggestions();
+      return;
+    }
+    
+    // Debounce de 300ms para evitar demasiadas llamadas a la API
+    this.countryAutocompleteTimer = setTimeout(() => {
+      this.fetchCountrySuggestions(countryName);
+    }, 300);
     
     // Si hay una ciudad seleccionada, actualizar el bias con el nuevo país
     if (this.cityBias && this.hasCityTarget && this.cityTarget.value.trim()) {
@@ -1592,6 +1629,95 @@ export default class extends Controller {
     }
   }
 
+  // Obtener sugerencias de países desde la API de Mapbox
+  async fetchCountrySuggestions(query) {
+    try {
+      const token = this.getMapboxToken();
+      if (!token) {
+        console.warn('Token de Mapbox no disponible para autocomplete de países');
+        return;
+      }
+
+      // Construir URL base con query de país
+      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?autocomplete=true&limit=5&language=es&types=country&access_token=${token}`;
+      
+      console.log('🌍 ARENA-LOCATION: Consultando autocomplete de países:', url);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Error en API de Mapbox: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const features = data.features || [];
+      
+      this.displayCountrySuggestions(features);
+      
+    } catch (error) {
+      console.error('❌ ARENA-LOCATION: Error en autocomplete de países:', error);
+      this.clearCountrySuggestions();
+    }
+  }
+
+  // Obtener sugerencias de ciudades desde la API de Mapbox
+  async fetchCitySuggestions(query) {
+    try {
+      const token = this.getMapboxToken();
+      if (!token) {
+        console.warn('Token de Mapbox no disponible para autocomplete de ciudades');
+        return;
+      }
+
+      // Construir query completa incluyendo país para priorizar resultados
+      let fullQuery = query;
+      const country = this.hasCountryTarget ? this.countryTarget.value?.trim() : '';
+      
+      if (country) {
+        const countryCode = this.getCountryCode(country);
+        if (countryCode) {
+          fullQuery += `, ${countryCode}`;
+        }
+      }
+      
+      // Construir URL base con query completa
+      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(fullQuery)}.json?autocomplete=true&limit=5&language=es&types=place,locality&access_token=${token}`;
+      
+      console.log('🏙️ ARENA-LOCATION: Query completa enviada a Mapbox:', fullQuery);
+      
+      // Añadir restricción de país si está disponible
+      if (country) {
+        const countryCode = this.getCountryCode(country);
+        if (countryCode) {
+          url += `&country=${countryCode}`;
+          console.log('🌍 ARENA-LOCATION: Restringiendo ciudades a país:', countryCode);
+        }
+      }
+      
+      // Añadir bias de proximidad si tenemos coordenadas
+      const bias = this.getProximityBias();
+      if (bias && bias.longitude && bias.latitude) {
+        url += `&proximity=${bias.longitude},${bias.latitude}`;
+        console.log('📍 ARENA-LOCATION: Usando bias de proximidad:', bias);
+      }
+      
+      console.log('🏙️ ARENA-LOCATION: Consultando autocomplete de ciudades:', url);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Error en API de Mapbox: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const features = data.features || [];
+      
+      this.displayCitySuggestions(features);
+      
+    } catch (error) {
+      console.error('❌ ARENA-LOCATION: Error en autocomplete de ciudades:', error);
+      this.clearCitySuggestions();
+    }
+  }
+
   // Mostrar sugerencias en el dropdown
   displayAddressSuggestions(suggestions) {
     const container = this.element.querySelector('[id^="address-suggestions"]');
@@ -1653,9 +1779,151 @@ export default class extends Controller {
     console.log(`✅ ARENA-LOCATION: ${suggestions.length} sugerencias mostradas`);
   }
 
+  // Mostrar sugerencias de países en el dropdown
+  displayCountrySuggestions(suggestions) {
+    const container = this.element.querySelector('[id^="country-suggestions"]');
+    if (!container) {
+      console.warn('Contenedor de sugerencias de países no encontrado');
+      return;
+    }
+
+    // Limpiar sugerencias anteriores
+    container.innerHTML = '';
+
+    if (suggestions.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+
+    // Crear elementos de sugerencia
+    suggestions.forEach((suggestion, index) => {
+      const [lng, lat] = suggestion.center;
+      const countryName = suggestion.text;
+      
+      const suggestionElement = document.createElement('div');
+      suggestionElement.className = 'list-group-item list-group-item-action';
+      suggestionElement.style.cursor = 'pointer';
+      suggestionElement.innerHTML = `
+        <div class="d-flex align-items-center">
+          <i class="fas fa-flag text-primary me-2"></i>
+          <div>
+            <div class="fw-semibold">${countryName}</div>
+            <small class="text-muted">País</small>
+          </div>
+        </div>
+      `;
+      
+      // Añadir datos para el evento de selección
+      suggestionElement.dataset.lat = lat;
+      suggestionElement.dataset.lng = lng;
+      suggestionElement.dataset.country = countryName;
+      suggestionElement.dataset.context = JSON.stringify(suggestion.context || []);
+      
+      // Evento de click
+      suggestionElement.addEventListener('click', (e) => {
+        this.selectCountrySuggestion(e);
+      });
+      
+      // Evento de hover para mejor UX
+      suggestionElement.addEventListener('mouseenter', () => {
+        suggestionElement.classList.add('active');
+      });
+      
+      suggestionElement.addEventListener('mouseleave', () => {
+        suggestionElement.classList.remove('active');
+      });
+      
+      container.appendChild(suggestionElement);
+    });
+
+    container.style.display = 'block';
+    console.log(`✅ ARENA-LOCATION: ${suggestions.length} sugerencias de países mostradas`);
+  }
+
+  // Mostrar sugerencias de ciudades en el dropdown
+  displayCitySuggestions(suggestions) {
+    const container = this.element.querySelector('[id^="city-suggestions"]');
+    if (!container) {
+      console.warn('Contenedor de sugerencias de ciudades no encontrado');
+      return;
+    }
+
+    // Limpiar sugerencias anteriores
+    container.innerHTML = '';
+
+    if (suggestions.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+
+    // Crear elementos de sugerencia
+    suggestions.forEach((suggestion, index) => {
+      const [lng, lat] = suggestion.center;
+      const cityName = suggestion.text;
+      const countryName = this.getContextText(suggestion.context || [], ["country"]);
+      
+      const suggestionElement = document.createElement('div');
+      suggestionElement.className = 'list-group-item list-group-item-action';
+      suggestionElement.style.cursor = 'pointer';
+      suggestionElement.innerHTML = `
+        <div class="d-flex align-items-center">
+          <i class="fas fa-city text-primary me-2"></i>
+          <div>
+            <div class="fw-semibold">${cityName}</div>
+            <small class="text-muted">${countryName || 'Ciudad'}</small>
+          </div>
+        </div>
+      `;
+      
+      // Añadir datos para el evento de selección
+      suggestionElement.dataset.lat = lat;
+      suggestionElement.dataset.lng = lng;
+      suggestionElement.dataset.city = cityName;
+      suggestionElement.dataset.country = countryName;
+      suggestionElement.dataset.context = JSON.stringify(suggestion.context || []);
+      
+      // Evento de click
+      suggestionElement.addEventListener('click', (e) => {
+        this.selectCitySuggestion(e);
+      });
+      
+      // Evento de hover para mejor UX
+      suggestionElement.addEventListener('mouseenter', () => {
+        suggestionElement.classList.add('active');
+      });
+      
+      suggestionElement.addEventListener('mouseleave', () => {
+        suggestionElement.classList.remove('active');
+      });
+      
+      container.appendChild(suggestionElement);
+    });
+
+    container.style.display = 'block';
+    console.log(`✅ ARENA-LOCATION: ${suggestions.length} sugerencias de ciudades mostradas`);
+  }
+
   // Limpiar sugerencias del dropdown
   clearAddressSuggestions() {
     const container = this.element.querySelector('[id^="address-suggestions"]');
+    if (container) {
+      container.innerHTML = '';
+      container.style.display = 'none';
+    }
+  }
+
+  // Limpiar sugerencias de países del dropdown
+  clearCountrySuggestions() {
+    const container = this.element.querySelector('[id^="country-suggestions"]');
+    if (container) {
+      container.innerHTML = '';
+      container.style.display = 'none';
+    }
+  }
+
+  // Limpiar sugerencias de ciudades del dropdown
+  clearCitySuggestions() {
+    const container = this.element.querySelector('[id^="city-suggestions"]');
     if (container) {
       container.innerHTML = '';
       container.style.display = 'none';
@@ -1723,15 +1991,166 @@ export default class extends Controller {
     console.log('✅ ARENA-LOCATION: Sugerencia procesada exitosamente');
   }
 
+  // Seleccionar una sugerencia de país del dropdown
+  selectCountrySuggestion(e) {
+    const element = e.currentTarget;
+    const lat = parseFloat(element.dataset.lat);
+    const lng = parseFloat(element.dataset.lng);
+    const countryName = element.dataset.country;
+    const context = JSON.parse(element.dataset.context || '[]');
+
+    console.log('🌍 ARENA-LOCATION: País seleccionado:', { lat, lng, countryName });
+
+    // Actualizar el input con el país seleccionado
+    if (this.hasCountryTarget) {
+      this.countryTarget.value = countryName;
+    }
+
+    // Actualizar campos hidden del formulario
+    this.writeHidden({ 
+      country: countryName, 
+      city: null, 
+      address: null, 
+      neighborhood: null, 
+      lat: null, 
+      lng: null 
+    });
+
+    // Limpiar city y address si no pertenecen al país seleccionado
+    if (this.hasCityTarget && this.cityTarget.value) {
+      const cityCountry = this.getContextText(context, ["country"]);
+      if (cityCountry && cityCountry !== countryName) {
+        // Solo limpiar si están vacíos Y no tienen foco
+        if (!this.cityTarget.value && document.activeElement !== this.cityTarget) {
+          this.cityTarget.value = '';
+        }
+        if (!this.addressTarget.value && document.activeElement !== this.addressTarget) {
+          this.addressTarget.value = '';
+        }
+        // Siempre limpiar coordenadas
+        this.latitudeTarget.value = '';
+        this.longitudeTarget.value = '';
+      }
+    }
+
+    // Actualizar bias para otros geocoders
+    this.updateGeocoderBias();
+    
+    // Centrar mapa en el país si tiene bbox
+    if (context.length > 0 && this.map) {
+      // Buscar bbox en el contexto
+      const bboxFeature = context.find(c => c.id?.startsWith('country'));
+      if (bboxFeature && bboxFeature.bbox) {
+        this.map.fitBounds(bboxFeature.bbox, { padding: 50 });
+      }
+    }
+    
+    // Disparar evento de cambio de ubicación si hay coordenadas
+    if (lat && lng) {
+      this.dispatchLocationChangedEvent(lat, lng, null, countryName, null, null, 'country_autocomplete');
+    }
+
+    // Limpiar sugerencias
+    this.clearCountrySuggestions();
+
+    console.log('✅ ARENA-LOCATION: País procesado exitosamente');
+  }
+
+  // Seleccionar una sugerencia de ciudad del dropdown
+  selectCitySuggestion(e) {
+    const element = e.currentTarget;
+    const lat = parseFloat(element.dataset.lat);
+    const lng = parseFloat(element.dataset.lng);
+    const cityName = element.dataset.city;
+    const countryName = element.dataset.country;
+    const context = JSON.parse(element.dataset.context || '[]');
+
+    console.log('🏙️ ARENA-LOCATION: Ciudad seleccionada:', { lat, lng, cityName, countryName });
+
+    // Actualizar el input con la ciudad seleccionada
+    if (this.hasCityTarget) {
+      this.cityTarget.value = cityName;
+    }
+
+    // Solo actualizar country si está vacío Y no tiene foco
+    if (countryName && !this.countryTarget.value && document.activeElement !== this.countryTarget) {
+      this.countryTarget.value = countryName;
+    }
+
+    // ALMACENAR CITY BIAS para restringir autocomplete de direcciones
+    if (lat && lng) {
+      this.cityBias = {
+        lng: lng,
+        lat: lat,
+        bbox: context.find(c => c.id?.startsWith('place'))?.bbox || null,
+        name: cityName,
+        country: countryName
+      };
+      console.log('🏙️ ARENA-LOCATION: City bias almacenado:', this.cityBias);
+    }
+
+    // Actualizar bias para geocoder de direcciones
+    this.updateGeocoderBias();
+
+    // Actualizar campos hidden del formulario
+    this.writeHidden({ 
+      country: countryName || this.countryTarget.value, 
+      city: cityName, 
+      address: null, 
+      neighborhood: null, 
+      lat: null, 
+      lng: null 
+    });
+
+    // Centrar mapa en la ciudad si tiene coordenadas
+    if (lat && lng && this.map) {
+      this.map.flyTo({ 
+        center: [lng, lat], 
+        zoom: 12 
+      });
+    }
+
+    // Disparar evento de cambio de ubicación
+    if (lat && lng) {
+      this.dispatchLocationChangedEvent(lat, lng, cityName, countryName, null, null, 'city_autocomplete');
+    }
+
+    // Limpiar sugerencias
+    this.clearCitySuggestions();
+
+    console.log('✅ ARENA-LOCATION: Ciudad procesada exitosamente');
+  }
+
   // Manejar click fuera del input para ocultar sugerencias
   handleDocumentClick(e) {
+    // Verificar campo de address
     const addressField = this.element.querySelector('[id^="address-field"]');
-    const suggestionsContainer = this.element.querySelector('[id^="address-suggestions"]');
+    const addressSuggestionsContainer = this.element.querySelector('[id^="address-suggestions"]');
     
-    if (addressField && suggestionsContainer && 
+    if (addressField && addressSuggestionsContainer && 
         !addressField.contains(e.target) && 
-        suggestionsContainer.style.display !== 'none') {
+        addressSuggestionsContainer.style.display !== 'none') {
       this.clearAddressSuggestions();
+    }
+
+    // Verificar campo de country
+    const countryField = this.element.querySelector('[data-arena-location-target="country"]');
+    const countrySuggestionsContainer = this.element.querySelector('[id^="country-suggestions"]');
+    
+    if (countryField && countrySuggestionsContainer && 
+        !countryField.closest('.mb-3').contains(e.target) && 
+        countrySuggestionsContainer.style.display !== 'none') {
+      this.clearCountrySuggestions();
+    }
+
+    // Verificar campo de city
+    const cityField = this.element.querySelector('[data-arena-location-target="city"]');
+    const citySuggestionsContainer = this.element.querySelector('[id^="city-suggestions"]');
+    
+    if (cityField && citySuggestionsContainer && 
+        !cityField.closest('.mb-3').contains(e.target) && 
+        citySuggestionsContainer.style.display !== 'none') {
+      this.clearCitySuggestions();
     }
   }
 
@@ -1739,6 +2158,8 @@ export default class extends Controller {
   handleDocumentKeydown(e) {
     if (e.key === 'Escape') {
       this.clearAddressSuggestions();
+      this.clearCountrySuggestions();
+      this.clearCitySuggestions();
     }
   }
 
@@ -2030,6 +2451,8 @@ export default class extends Controller {
     
     // Limpiar sugerencias de autocomplete
     this.clearAddressSuggestions();
+    this.clearCountrySuggestions();
+    this.clearCitySuggestions();
   }
   
   // 🧭 JERARQUÍA: Si el usuario edita city → limpiar solo address
@@ -2053,5 +2476,7 @@ export default class extends Controller {
     
     // Limpiar sugerencias de autocomplete
     this.clearAddressSuggestions();
+    this.clearCountrySuggestions();
+    this.clearCitySuggestions();
   }
 }

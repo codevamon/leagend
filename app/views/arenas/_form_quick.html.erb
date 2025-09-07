@@ -31,6 +31,8 @@
                 arena_location_target: "country",
                 action: "input->arena-location#onCountryInput"
               } %>
+          <!-- Contenedor de sugerencias de autocomplete para países -->
+          <div id="country-suggestions-<%= context_id %>" class="list-group position-absolute w-100" style="z-index:1000; display: none; max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);"></div>
           <!-- Contenedor para geocoder de países -->
           <div data-arena-location-target="geocoderCountry" class="geocoder-container"></div>
         </div>
@@ -42,6 +44,8 @@
                 arena_location_target: "city",
                 action: "input->arena-location#onCityInput"
               } %>
+          <!-- Contenedor de sugerencias de autocomplete para ciudades -->
+          <div id="city-suggestions-<%= context_id %>" class="list-group position-absolute w-100" style="z-index:1000; display: none; max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);"></div>
           <!-- Contenedor para geocoder de ciudades -->
           <div data-arena-location-target="geocoderCity" class="geocoder-container"></div>
         </div>
@@ -53,6 +57,8 @@
                 arena_location_target: "address",
                 action: "input->arena-location#onAddressInput"
               } %>
+          <!-- Contenedor de sugerencias de autocomplete para direcciones -->
+          <div id="address-suggestions-<%= context_id %>" class="list-group position-absolute w-100" style="z-index:1000; display: none; max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);"></div>
           <!-- Contenedor para geocoder de direcciones -->
           <div data-arena-location-target="geocoderAddress" class="geocoder-container"></div>
         </div>

@@ -27,7 +27,7 @@
         <%= f.text_field :country, class: "form-control", 
             data: { 
               arena_location_target: "country",
-              action: "input->arena-location#schedule"
+              action: "input->arena-location#onCountryInput"
             } %>
         <!-- Contenedor para geocoder de países -->
         <div data-arena-location-target="geocoderCountry" class="geocoder-container"></div>
@@ -38,7 +38,7 @@
         <%= f.text_field :city, class: "form-control", 
             data: { 
               arena_location_target: "city",
-              action: "input->arena-location#schedule"
+              action: "input->arena-location#onCityInput"
             } %>
         <!-- Contenedor para geocoder de ciudades -->
         <div data-arena-location-target="geocoderCity" class="geocoder-container"></div>

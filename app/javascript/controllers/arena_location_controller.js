@@ -1421,7 +1421,9 @@ export default class extends Controller {
     
     // 🧭 JERARQUÍA: Si el usuario edita address → nunca sobrescribir city manualmente escrito
     // (No hay limpieza automática, solo respeto por el valor existente)
-    console.log('🧭 Jerarquía aplicada: address editado → respetando city existente');
+    const context = this.formContext();
+    const logPrefix = context === 'duel' ? '🧭 Jerarquía aplicada:' : '🧭 ARENA-FORM: Jerarquía aplicada:';
+    console.log(`${logPrefix} address editado → respetando city existente`);
     
     // Limpiar timer anterior si existe
     if (this.addressAutocompleteTimer) {
@@ -1979,32 +1981,34 @@ export default class extends Controller {
   
   // 🧭 JERARQUÍA: Si el usuario edita country → limpiar city y address
   applyHierarchyOnCountryChange() {
-    console.log('🧭 Jerarquía aplicada: country editado → limpiando city y address');
+    const context = this.formContext();
+    const logPrefix = context === 'duel' ? '🧭 Jerarquía aplicada:' : '🧭 ARENA-FORM: Jerarquía aplicada:';
+    console.log(`${logPrefix} country editado → limpiando city y address`);
     
     // Limpiar city si NO tiene foco
     if (this.hasCityTarget && document.activeElement !== this.cityTarget) {
       this.cityTarget.value = '';
-      console.log('✅ Campo city limpiado (sin foco)');
+      console.log(`${logPrefix} Campo city limpiado (sin foco)`);
     } else if (this.hasCityTarget) {
-      console.log('⏸️ Campo city NO limpiado (tiene foco)');
+      console.log(`${logPrefix} Campo city NO limpiado (tiene foco)`);
     }
     
     // Limpiar address si NO tiene foco
     if (this.hasAddressTarget && document.activeElement !== this.addressTarget) {
       this.addressTarget.value = '';
-      console.log('✅ Campo address limpiado (sin foco)');
+      console.log(`${logPrefix} Campo address limpiado (sin foco)`);
     } else if (this.hasAddressTarget) {
-      console.log('⏸️ Campo address NO limpiado (tiene foco)');
+      console.log(`${logPrefix} Campo address NO limpiado (tiene foco)`);
     }
     
     // Limpiar coordenadas siempre (no dependen del foco)
     if (this.hasLatitudeTarget) this.latitudeTarget.value = '';
     if (this.hasLongitudeTarget) this.longitudeTarget.value = '';
-    console.log('✅ Coordenadas limpiadas');
+    console.log(`${logPrefix} Coordenadas limpiadas`);
     
     // Limpiar cityBias ya que cambió el país
     this.cityBias = null;
-    console.log('✅ City bias limpiado');
+    console.log(`${logPrefix} City bias limpiado`);
     
     // Limpiar sugerencias de autocomplete
     this.clearAddressSuggestions();
@@ -2012,20 +2016,22 @@ export default class extends Controller {
   
   // 🧭 JERARQUÍA: Si el usuario edita city → limpiar solo address
   applyHierarchyOnCityChange() {
-    console.log('🧭 Jerarquía aplicada: city editado → limpiando solo address');
+    const context = this.formContext();
+    const logPrefix = context === 'duel' ? '🧭 Jerarquía aplicada:' : '🧭 ARENA-FORM: Jerarquía aplicada:';
+    console.log(`${logPrefix} city editado → limpiando solo address`);
     
     // Limpiar address si NO tiene foco
     if (this.hasAddressTarget && document.activeElement !== this.addressTarget) {
       this.addressTarget.value = '';
-      console.log('✅ Campo address limpiado (sin foco)');
+      console.log(`${logPrefix} Campo address limpiado (sin foco)`);
     } else if (this.hasAddressTarget) {
-      console.log('⏸️ Campo address NO limpiado (tiene foco)');
+      console.log(`${logPrefix} Campo address NO limpiado (tiene foco)`);
     }
     
     // Limpiar coordenadas siempre (no dependen del foco)
     if (this.hasLatitudeTarget) this.latitudeTarget.value = '';
     if (this.hasLongitudeTarget) this.longitudeTarget.value = '';
-    console.log('✅ Coordenadas limpiadas');
+    console.log(`${logPrefix} Coordenadas limpiadas`);
     
     // Limpiar sugerencias de autocomplete
     this.clearAddressSuggestions();

@@ -348,7 +348,11 @@ export default class extends Controller {
 
   // Helper para escribir valores en campos hidden de forma segura
   setVal(id, v) {
-    const el = document.getElementById(id);
+    // Buscar primero en el contexto del controlador, luego globalmente
+    let el = this.element.querySelector(`#${id}`);
+    if (!el) {
+      el = document.getElementById(id);
+    }
     if (el) el.value = (v ?? "").toString();
   }
 
@@ -840,8 +844,22 @@ export default class extends Controller {
       return !!(el && String(el.value).trim() !== '');
     };
 
-    const getLatInput = () => document.querySelector('[name="duel[latitude]"]');
-    const getLngInput = () => document.querySelector('[name="duel[longitude]"]');
+    const getLatInput = () => {
+      // Buscar primero en el contexto del controlador, luego globalmente
+      let el = this.element.querySelector('[name="duel[latitude]"]');
+      if (!el) {
+        el = document.querySelector('[name="duel[latitude]"]');
+      }
+      return el;
+    };
+    const getLngInput = () => {
+      // Buscar primero en el contexto del controlador, luego globalmente
+      let el = this.element.querySelector('[name="duel[longitude]"]');
+      if (!el) {
+        el = document.querySelector('[name="duel[longitude]"]');
+      }
+      return el;
+    };
 
     // Debounce simple
     const debounce = (fn, wait = 400) => {
@@ -907,8 +925,8 @@ export default class extends Controller {
         this.marker?.setLngLat([lng, lat]);
 
         // Actualizar inputs
-        const latInput = document.querySelector('[name="duel[latitude]"]');
-        const lngInput = document.querySelector('[name="duel[longitude]"]');
+        const latInput = getLatInput();
+        const lngInput = getLngInput();
         if (latInput) latInput.value = Number(lat).toFixed(6);
         if (lngInput) lngInput.value = Number(lng).toFixed(6);
 
@@ -1576,7 +1594,7 @@ export default class extends Controller {
 
   // Mostrar sugerencias en el dropdown
   displayAddressSuggestions(suggestions) {
-    const container = document.getElementById('address-suggestions');
+    const container = this.element.querySelector('[id^="address-suggestions"]');
     if (!container) {
       console.warn('Contenedor de sugerencias no encontrado');
       return;
@@ -1637,7 +1655,7 @@ export default class extends Controller {
 
   // Limpiar sugerencias del dropdown
   clearAddressSuggestions() {
-    const container = document.getElementById('address-suggestions');
+    const container = this.element.querySelector('[id^="address-suggestions"]');
     if (container) {
       container.innerHTML = '';
       container.style.display = 'none';
@@ -1707,8 +1725,8 @@ export default class extends Controller {
 
   // Manejar click fuera del input para ocultar sugerencias
   handleDocumentClick(e) {
-    const addressField = document.getElementById('address-field');
-    const suggestionsContainer = document.getElementById('address-suggestions');
+    const addressField = this.element.querySelector('[id^="address-field"]');
+    const suggestionsContainer = this.element.querySelector('[id^="address-suggestions"]');
     
     if (addressField && suggestionsContainer && 
         !addressField.contains(e.target) && 

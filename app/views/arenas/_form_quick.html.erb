@@ -1,3 +1,4 @@
+<% context_id = "arena-quick" %>
 <%= form_with(model: arena, local: true, html: { class: "arena-form" }) do |f| %>
   <div data-controller="arena-location" 
        data-arena-location-editable-value="true"
@@ -69,7 +70,7 @@
       <div class="col-md-6">
         <div class="arena-map-container">
           <div 
-            id="arena-map" 
+            id="arena-map-<%= context_id %>" 
             class="mapbox-container" 
             data-arena-location-target="map">
           </div>

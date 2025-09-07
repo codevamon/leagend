@@ -36,6 +36,12 @@ export default class extends Controller {
     // VARIABLE PARA TIMER DE AUTOCOMPLETE: Para debounce de autocomplete
     this.addressAutocompleteTimer = null
     
+    // VARIABLE PARA TIMER DE GEOCODIFICACIÓN DE CIUDAD: Para debounce de geocodificación
+    this.cityGeocodeTimer = null
+    
+    // CACHÉ PARA BIAS DE CIUDAD: Para restringir autocomplete a ciudad actual
+    this.cityBias = null
+    
     // GUARDA ANTI RE-ENTRADA para updateArenaMarkers
     this._updatingMarkers = false
     
@@ -74,6 +80,9 @@ export default class extends Controller {
     
     // Esperar a que Mapbox esté disponible
     this.waitForMapbox()
+    
+    // Inicializar cityBias si ya hay valores en los campos
+    this.initializeCityBiasFromExistingValues()
   }
 
   disconnect() {
@@ -87,6 +96,9 @@ export default class extends Controller {
     }
     if (this.addressAutocompleteTimer) {
       clearTimeout(this.addressAutocompleteTimer)
+    }
+    if (this.cityGeocodeTimer) {
+      clearTimeout(this.cityGeocodeTimer)
     }
     this.mapboxRetryCount = 0 // Reset retry count
     
@@ -497,6 +509,19 @@ export default class extends Controller {
     // Solo actualizar country si está vacío Y no tiene foco
     if (countryName && !this.countryTarget.value && document.activeElement !== this.countryTarget) {
       this.countryTarget.value = countryName
+    }
+    
+    // ALMACENAR CITY BIAS para restringir autocomplete de direcciones
+    if (result.center) {
+      const [lng, lat] = result.center;
+      this.cityBias = {
+        lng: lng,
+        lat: lat,
+        bbox: result.bbox || null,
+        name: cityName,
+        country: countryName
+      };
+      console.log('🏙️ ARENA-LOCATION: City bias almacenado:', this.cityBias);
     }
     
     // Actualizar bias para geocoder de direcciones
@@ -1364,6 +1389,50 @@ export default class extends Controller {
     }, 300);
   }
 
+  // Se llama cuando se edita el campo de ciudad manualmente
+  onCityInput(e) {
+    const cityName = e.target.value.trim();
+    
+    // Limpiar timer anterior si existe
+    if (this.cityGeocodeTimer) {
+      clearTimeout(this.cityGeocodeTimer);
+    }
+    
+    // Si el campo está vacío, limpiar cityBias
+    if (!cityName) {
+      this.cityBias = null;
+      console.log('🏙️ ARENA-LOCATION: City bias limpiado - campo ciudad vacío');
+      return;
+    }
+    
+    // Debounce de 500ms para geocodificar ciudad y actualizar bias
+    this.cityGeocodeTimer = setTimeout(() => {
+      const countryName = this.hasCountryTarget ? this.countryTarget.value?.trim() : null;
+      this.geocodeCityForBias(cityName, countryName);
+    }, 500);
+  }
+
+  // Se llama cuando se edita el campo de país manualmente
+  onCountryInput(e) {
+    const countryName = e.target.value.trim();
+    
+    // Si hay una ciudad seleccionada, actualizar el bias con el nuevo país
+    if (this.cityBias && this.hasCityTarget && this.cityTarget.value.trim()) {
+      const cityName = this.cityTarget.value.trim();
+      console.log('🌍 ARENA-LOCATION: País cambiado, actualizando city bias para:', cityName, countryName);
+      
+      // Limpiar timer anterior si existe
+      if (this.cityGeocodeTimer) {
+        clearTimeout(this.cityGeocodeTimer);
+      }
+      
+      // Debounce de 500ms para geocodificar ciudad con nuevo país
+      this.cityGeocodeTimer = setTimeout(() => {
+        this.geocodeCityForBias(cityName, countryName);
+      }, 500);
+    }
+  }
+
   // Obtener sugerencias de direcciones desde la API de Mapbox
   async fetchAddressSuggestions(query) {
     try {
@@ -1373,7 +1442,30 @@ export default class extends Controller {
         return;
       }
 
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?autocomplete=true&country=CO&limit=5&access_token=${token}`;
+      // Construir URL base
+      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?autocomplete=true&limit=5&language=es&access_token=${token}`;
+      
+      // Añadir restricción de país si está disponible
+      const country = this.hasCountryTarget ? this.countryTarget.value?.trim() : '';
+      if (country) {
+        // Mapear nombres de países a códigos ISO
+        const countryCode = this.getCountryCode(country);
+        if (countryCode) {
+          url += `&country=${countryCode}`;
+          console.log('🌍 ARENA-LOCATION: Restringiendo a país:', countryCode);
+        }
+      }
+      
+      // Añadir bias de proximidad y bbox si tenemos información de ciudad
+      if (this.cityBias) {
+        url += `&proximity=${this.cityBias.lng},${this.cityBias.lat}`;
+        console.log('🏙️ ARENA-LOCATION: Usando bias de ciudad:', { lng: this.cityBias.lng, lat: this.cityBias.lat });
+        
+        if (this.cityBias.bbox) {
+          url += `&bbox=${this.cityBias.bbox.join(',')}`;
+          console.log('📦 ARENA-LOCATION: Usando bbox de ciudad:', this.cityBias.bbox);
+        }
+      }
       
       console.log('🔍 ARENA-LOCATION: Consultando autocomplete:', url);
       
@@ -1531,6 +1623,118 @@ export default class extends Controller {
   handleDocumentKeydown(e) {
     if (e.key === 'Escape') {
       this.clearAddressSuggestions();
+    }
+  }
+
+  // Mapear nombres de países a códigos ISO para la API de Mapbox
+  getCountryCode(countryName) {
+    const countryMap = {
+      'Colombia': 'CO',
+      'colombia': 'CO',
+      'COLOMBIA': 'CO',
+      'México': 'MX',
+      'mexico': 'MX',
+      'MEXICO': 'MX',
+      'España': 'ES',
+      'españa': 'ES',
+      'ESPAÑA': 'ES',
+      'Argentina': 'AR',
+      'argentina': 'AR',
+      'ARGENTINA': 'AR',
+      'Chile': 'CL',
+      'chile': 'CL',
+      'CHILE': 'CL',
+      'Perú': 'PE',
+      'peru': 'PE',
+      'PERU': 'PE',
+      'Venezuela': 'VE',
+      'venezuela': 'VE',
+      'VENEZUELA': 'VE',
+      'Ecuador': 'EC',
+      'ecuador': 'EC',
+      'ECUADOR': 'EC',
+      'Bolivia': 'BO',
+      'bolivia': 'BO',
+      'BOLIVIA': 'BO',
+      'Paraguay': 'PY',
+      'paraguay': 'PY',
+      'PARAGUAY': 'PY',
+      'Uruguay': 'UY',
+      'uruguay': 'UY',
+      'URUGUAY': 'UY',
+      'Brasil': 'BR',
+      'brasil': 'BR',
+      'BRASIL': 'BR',
+      'Estados Unidos': 'US',
+      'estados unidos': 'US',
+      'ESTADOS UNIDOS': 'US',
+      'United States': 'US',
+      'united states': 'US',
+      'UNITED STATES': 'US'
+    };
+    
+    return countryMap[countryName] || null;
+  }
+
+  // Geocodificar ciudad para obtener bias cuando se edita manualmente
+  async geocodeCityForBias(cityName, countryName = null) {
+    try {
+      const token = this.getMapboxToken();
+      if (!token) {
+        console.warn('Token de Mapbox no disponible para geocodificar ciudad');
+        return;
+      }
+
+      // Construir query de búsqueda
+      let query = cityName;
+      if (countryName) {
+        const countryCode = this.getCountryCode(countryName);
+        if (countryCode) {
+          query = `${cityName}, ${countryCode}`;
+        }
+      }
+
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?types=place,locality&limit=1&access_token=${token}`;
+      
+      console.log('🏙️ ARENA-LOCATION: Geocodificando ciudad para bias:', url);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Error en API de Mapbox: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const feature = data.features?.[0];
+
+      if (feature && feature.center) {
+        const [lng, lat] = feature.center;
+        this.cityBias = {
+          lng: lng,
+          lat: lat,
+          bbox: feature.bbox || null,
+          name: cityName,
+          country: countryName
+        };
+        console.log('✅ ARENA-LOCATION: City bias actualizado desde geocodificación:', this.cityBias);
+      } else {
+        console.warn('⚠️ ARENA-LOCATION: No se encontró información de geocodificación para la ciudad:', cityName);
+        this.cityBias = null;
+      }
+      
+    } catch (error) {
+      console.error('❌ ARENA-LOCATION: Error geocodificando ciudad:', error);
+      this.cityBias = null;
+    }
+  }
+
+  // Inicializar cityBias desde valores existentes en los campos
+  async initializeCityBiasFromExistingValues() {
+    const cityName = this.hasCityTarget ? this.cityTarget.value?.trim() : '';
+    const countryName = this.hasCountryTarget ? this.countryTarget.value?.trim() : '';
+    
+    if (cityName) {
+      console.log('🏙️ ARENA-LOCATION: Inicializando city bias desde valores existentes:', cityName, countryName);
+      await this.geocodeCityForBias(cityName, countryName);
     }
   }
 

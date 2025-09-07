@@ -328,13 +328,6 @@ export default class extends Controller {
     // Este evento proporciona coordenadas numéricas válidas para el cálculo de radio
     window.addEventListener("leagend:location_changed", this.onLocationChanged.bind(this))
     
-    // Escuchar leagend:location_changed para revalidar Paso 1
-    window.addEventListener("leagend:location_changed", () => {
-      if (this.currentStep === 1) {
-        this.updateButtons()
-      }
-    })
-    
     // Suscribirse a eventos de arena creada desde el modal
     window.addEventListener("leagend:arena_created", this.onArenaCreated.bind(this))
     
@@ -1582,6 +1575,21 @@ export default class extends Controller {
     } else {
       console.warn(`⚠️ No se encontró la arena card con ID ${id} en el DOM`)
     }
+    
+    // Comunicación con arena_location_controller para actualizar marcadores del mapa
+    setTimeout(() => {
+      const arenaLocationController = application.getControllerForElementAndIdentifier(
+        document.querySelector('[data-controller="arena-location"]'),
+        'arena-location'
+      )
+      
+      if (arenaLocationController?.refreshArenaMarkers) {
+        console.log('🗺️ Actualizando marcadores del mapa con la nueva arena')
+        arenaLocationController.refreshArenaMarkers()
+      } else {
+        console.log('⚠️ No se encontró arena_location_controller o método refreshArenaMarkers')
+      }
+    }, 200)
   }
 
   // Búsqueda por texto - integrada con filtro de radio de 3km

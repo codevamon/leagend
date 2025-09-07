@@ -586,9 +586,15 @@ export default class extends Controller {
       this.addressTarget.value = addressName
     }
     
-    // Solo actualizar city si está vacío Y no tiene foco
+    // 🧭 JERARQUÍA: Solo actualizar city si está vacío Y no tiene foco
+    // Address tiene prioridad sobre city, pero respetamos si el usuario está escribiendo
     if (cityName && !this.cityTarget.value && document.activeElement !== this.cityTarget) {
       this.cityTarget.value = cityName
+      console.log('🧭 Jerarquía: city actualizado desde address (campo vacío y sin foco)')
+    } else if (cityName && this.cityTarget.value) {
+      console.log('🧭 Jerarquía: city NO actualizado desde address (ya tiene valor)')
+    } else if (cityName && document.activeElement === this.cityTarget) {
+      console.log('🧭 Jerarquía: city NO actualizado desde address (usuario escribiendo)')
     }
     
     // Solo actualizar country si está vacío Y no tiene foco
@@ -1171,17 +1177,26 @@ export default class extends Controller {
       console.log(`Ciudad extraída: ${city} (prioridad: place/locality → region)`)
       console.log(`País: ${country}`)
       
-      // Solo rellenar city o country si están vacíos y sin foco
+      // 🧭 JERARQUÍA: Solo rellenar city o country si están vacíos y sin foco
       // Address: NUNCA sobrescribir si ya tiene texto
       if (country && !this.countryTarget.value && document.activeElement !== this.countryTarget) {
         this.countryTarget.value = country
+        console.log('🧭 Jerarquía: country actualizado desde reverseGeocode (campo vacío y sin foco)')
       }
       if (city && !this.cityTarget.value && document.activeElement !== this.cityTarget) {
         this.cityTarget.value = city
+        console.log('🧭 Jerarquía: city actualizado desde reverseGeocode (campo vacío y sin foco)')
+      } else if (city && this.cityTarget.value) {
+        console.log('🧭 Jerarquía: city NO actualizado desde reverseGeocode (ya tiene valor)')
+      } else if (city && document.activeElement === this.cityTarget) {
+        console.log('🧭 Jerarquía: city NO actualizado desde reverseGeocode (usuario escribiendo)')
       }
       // Address: NUNCA sobrescribir si ya tiene texto
       if (feat.place_name && !this.addressTarget.value && document.activeElement !== this.addressTarget) {
         this.addressTarget.value = feat.place_name
+        console.log('🧭 Jerarquía: address actualizado desde reverseGeocode (campo vacío y sin foco)')
+      } else if (feat.place_name && this.addressTarget.value) {
+        console.log('🧭 Jerarquía: address NO actualizado desde reverseGeocode (ya tiene valor)')
       }
       
       // Actualizar campos hidden del formulario
@@ -1404,6 +1419,10 @@ export default class extends Controller {
   onAddressInput(e) {
     const query = e.target.value.trim();
     
+    // 🧭 JERARQUÍA: Si el usuario edita address → nunca sobrescribir city manualmente escrito
+    // (No hay limpieza automática, solo respeto por el valor existente)
+    console.log('🧭 Jerarquía aplicada: address editado → respetando city existente');
+    
     // Limpiar timer anterior si existe
     if (this.addressAutocompleteTimer) {
       clearTimeout(this.addressAutocompleteTimer);
@@ -1424,6 +1443,9 @@ export default class extends Controller {
   // Se llama cuando se edita el campo de ciudad manualmente
   onCityInput(e) {
     const cityName = e.target.value.trim();
+    
+    // 🧭 JERARQUÍA: Si el usuario edita city → limpiar solo address
+    this.applyHierarchyOnCityChange();
     
     // Limpiar timer anterior si existe
     if (this.cityGeocodeTimer) {
@@ -1447,6 +1469,9 @@ export default class extends Controller {
   // Se llama cuando se edita el campo de país manualmente
   onCountryInput(e) {
     const countryName = e.target.value.trim();
+    
+    // 🧭 JERARQUÍA: Si el usuario edita country → limpiar city y address
+    this.applyHierarchyOnCountryChange();
     
     // Si hay una ciudad seleccionada, actualizar el bias con el nuevo país
     if (this.cityBias && this.hasCityTarget && this.cityTarget.value.trim()) {
@@ -1648,10 +1673,15 @@ export default class extends Controller {
       this.countryTarget.value = countryName;
     }
     
-    // NO sobrescribir cityTarget si ya tiene valor → respetar la ciudad fijada por el usuario
+    // 🧭 JERARQUÍA: NO sobrescribir cityTarget si ya tiene valor → respetar la ciudad fijada por el usuario
     // Solo actualizar si está completamente vacío Y no tiene foco
     if (cityName && !this.cityTarget.value && document.activeElement !== this.cityTarget) {
       this.cityTarget.value = cityName;
+      console.log('🧭 Jerarquía: city actualizado desde sugerencia (campo vacío y sin foco)')
+    } else if (cityName && this.cityTarget.value) {
+      console.log('🧭 Jerarquía: city NO actualizado desde sugerencia (ya tiene valor)')
+    } else if (cityName && document.activeElement === this.cityTarget) {
+      console.log('🧭 Jerarquía: city NO actualizado desde sugerencia (usuario escribiendo)')
     }
 
     // Actualizar campos hidden del formulario
@@ -1880,9 +1910,14 @@ export default class extends Controller {
         this.countryTarget.value = countryName;
       }
       
-      // City: solo si está vacío Y no tiene foco
+      // 🧭 JERARQUÍA: City: solo si está vacío Y no tiene foco
       if (cityName && !this.cityTarget.value && document.activeElement !== this.cityTarget) {
         this.cityTarget.value = cityName;
+        console.log('🧭 Jerarquía: city actualizado desde búsqueda manual (campo vacío y sin foco)')
+      } else if (cityName && this.cityTarget.value) {
+        console.log('🧭 Jerarquía: city NO actualizado desde búsqueda manual (ya tiene valor)')
+      } else if (cityName && document.activeElement === this.cityTarget) {
+        console.log('🧭 Jerarquía: city NO actualizado desde búsqueda manual (usuario escribiendo)')
       }
       
       // Address: NUNCA sobrescribir si ya tiene texto
@@ -1936,5 +1971,63 @@ export default class extends Controller {
         console.error('❌ ARENA-LOCATION: Fallback también falló:', fallbackErr);
       }
     }
+  }
+
+  // ========================================
+  // MÉTODOS DE JERARQUÍA DE INPUTS
+  // ========================================
+  
+  // 🧭 JERARQUÍA: Si el usuario edita country → limpiar city y address
+  applyHierarchyOnCountryChange() {
+    console.log('🧭 Jerarquía aplicada: country editado → limpiando city y address');
+    
+    // Limpiar city si NO tiene foco
+    if (this.hasCityTarget && document.activeElement !== this.cityTarget) {
+      this.cityTarget.value = '';
+      console.log('✅ Campo city limpiado (sin foco)');
+    } else if (this.hasCityTarget) {
+      console.log('⏸️ Campo city NO limpiado (tiene foco)');
+    }
+    
+    // Limpiar address si NO tiene foco
+    if (this.hasAddressTarget && document.activeElement !== this.addressTarget) {
+      this.addressTarget.value = '';
+      console.log('✅ Campo address limpiado (sin foco)');
+    } else if (this.hasAddressTarget) {
+      console.log('⏸️ Campo address NO limpiado (tiene foco)');
+    }
+    
+    // Limpiar coordenadas siempre (no dependen del foco)
+    if (this.hasLatitudeTarget) this.latitudeTarget.value = '';
+    if (this.hasLongitudeTarget) this.longitudeTarget.value = '';
+    console.log('✅ Coordenadas limpiadas');
+    
+    // Limpiar cityBias ya que cambió el país
+    this.cityBias = null;
+    console.log('✅ City bias limpiado');
+    
+    // Limpiar sugerencias de autocomplete
+    this.clearAddressSuggestions();
+  }
+  
+  // 🧭 JERARQUÍA: Si el usuario edita city → limpiar solo address
+  applyHierarchyOnCityChange() {
+    console.log('🧭 Jerarquía aplicada: city editado → limpiando solo address');
+    
+    // Limpiar address si NO tiene foco
+    if (this.hasAddressTarget && document.activeElement !== this.addressTarget) {
+      this.addressTarget.value = '';
+      console.log('✅ Campo address limpiado (sin foco)');
+    } else if (this.hasAddressTarget) {
+      console.log('⏸️ Campo address NO limpiado (tiene foco)');
+    }
+    
+    // Limpiar coordenadas siempre (no dependen del foco)
+    if (this.hasLatitudeTarget) this.latitudeTarget.value = '';
+    if (this.hasLongitudeTarget) this.longitudeTarget.value = '';
+    console.log('✅ Coordenadas limpiadas');
+    
+    // Limpiar sugerencias de autocomplete
+    this.clearAddressSuggestions();
   }
 }

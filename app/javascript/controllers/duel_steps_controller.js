@@ -1502,9 +1502,10 @@ export default class extends Controller {
       this.persistCoordinates(newLat, newLng)
       
       // Actualizar campos de ubicación si se proporcionan en el evento
+      // Solo actualizar si están vacíos o no tienen foco
       if (e.detail.city) {
         const cityInput = this.getInput('city')
-        if (cityInput && cityInput.value !== e.detail.city) {
+        if (cityInput && (!cityInput.value || document.activeElement !== cityInput)) {
           cityInput.value = e.detail.city
           console.log(`🏙️ Ciudad actualizada: ${e.detail.city}`)
         }
@@ -1512,7 +1513,7 @@ export default class extends Controller {
       
       if (e.detail.country) {
         const countryInput = this.getInput('country')
-        if (countryInput && countryInput.value !== e.detail.country) {
+        if (countryInput && (!countryInput.value || document.activeElement !== countryInput)) {
           countryInput.value = e.detail.country
           console.log(`🌍 País actualizado: ${e.detail.country}`)
         }
@@ -1520,7 +1521,7 @@ export default class extends Controller {
       
       if (e.detail.address) {
         const addressInput = this.getInput('address')
-        if (addressInput && addressInput.value !== e.detail.address) {
+        if (addressInput && (!addressInput.value || document.activeElement !== addressInput)) {
           addressInput.value = e.detail.address
           console.log(`📍 Dirección actualizada: ${e.detail.address}`)
         }

@@ -33,6 +33,9 @@ export default class extends Controller {
     // VARIABLE PARA TIMER DE ACTUALIZACIÓN DE ARENAS: Para debounce de actualizaciones
     this.arenaUpdateTimer = null
     
+    // VARIABLE PARA TIMER DE AUTOCOMPLETE: Para debounce de autocomplete
+    this.addressAutocompleteTimer = null
+    
     // GUARDA ANTI RE-ENTRADA para updateArenaMarkers
     this._updatingMarkers = false
     
@@ -53,6 +56,12 @@ export default class extends Controller {
     // ESCUCHAR EVENTO DE CAMBIO DE UBICACIÓN: Para centrar mapa y sincronizar
     this._onLocationChanged = this.handleLocationChanged.bind(this)
     window.addEventListener("leagend:location_changed", this._onLocationChanged)
+    
+    // ESCUCHAR EVENTOS PARA AUTOCOMPLETE: Para ocultar sugerencias
+    this._onDocumentClick = this.handleDocumentClick.bind(this)
+    this._onDocumentKeydown = this.handleDocumentKeydown.bind(this)
+    document.addEventListener('click', this._onDocumentClick)
+    document.addEventListener('keydown', this._onDocumentKeydown)
     
     // Escuchar eventos del modal para resize del mapa
     this.setupModalListeners()
@@ -76,15 +85,25 @@ export default class extends Controller {
     if (this.arenaUpdateTimer) {
       clearTimeout(this.arenaUpdateTimer)
     }
+    if (this.addressAutocompleteTimer) {
+      clearTimeout(this.addressAutocompleteTimer)
+    }
     this.mapboxRetryCount = 0 // Reset retry count
     
     // LIMPIAR LISTENER DE CAMBIO DE UBICACIÓN
     window.removeEventListener("leagend:location_changed", this._onLocationChanged)
     
+    // LIMPIAR LISTENERS DE AUTOCOMPLETE
+    document.removeEventListener('click', this._onDocumentClick)
+    document.removeEventListener('keydown', this._onDocumentKeydown)
+    
     // Remover listeners del modal
     this.removeModalListeners()
     // Limpiar el observer de arena
     this.removeArenaObserver()
+    
+    // Limpiar sugerencias de autocomplete
+    this.clearAddressSuggestions()
     
     // Resetear banderas de control
     this._updatingMarkers = false
@@ -417,7 +436,11 @@ export default class extends Controller {
   // Manejar selección de país
   handleCountrySelection(result) {
     const countryName = result.text
-    this.countryTarget.value = countryName
+    
+    // Solo actualizar country si está vacío Y no tiene foco
+    if (!this.countryTarget.value && document.activeElement !== this.countryTarget) {
+      this.countryTarget.value = countryName
+    }
     
     // Actualizar campos hidden del formulario
     this.writeHidden({ 
@@ -433,8 +456,14 @@ export default class extends Controller {
     if (this.cityTarget.value) {
       const cityCountry = this.getContextText(result.context || [], ["country"])
       if (cityCountry && cityCountry !== countryName) {
-        this.cityTarget.value = ''
-        this.addressTarget.value = ''
+        // Solo limpiar si están vacíos Y no tienen foco
+        if (!this.cityTarget.value && document.activeElement !== this.cityTarget) {
+          this.cityTarget.value = ''
+        }
+        if (!this.addressTarget.value && document.activeElement !== this.addressTarget) {
+          this.addressTarget.value = ''
+        }
+        // Siempre limpiar coordenadas
         this.latitudeTarget.value = ''
         this.longitudeTarget.value = ''
       }
@@ -460,37 +489,22 @@ export default class extends Controller {
     const cityName = result.text
     const countryName = this.getContextText(result.context || [], ["country"])
     
-    this.cityTarget.value = cityName
-    if (countryName) {
-      this.countryTarget.value = countryName
+    // Solo actualizar city si está vacío Y no tiene foco
+    if (!this.cityTarget.value && document.activeElement !== this.cityTarget) {
+      this.cityTarget.value = cityName
     }
     
-    // Actualizar campos hidden del formulario
-    this.writeHidden({ 
-      country: countryName || this.countryTarget.value, 
-      city: cityName, 
-      address: null, 
-      neighborhood: null, 
-      lat: null, 
-      lng: null 
-    })
+    // Solo actualizar country si está vacío Y no tiene foco
+    if (countryName && !this.countryTarget.value && document.activeElement !== this.countryTarget) {
+      this.countryTarget.value = countryName
+    }
     
     // Actualizar bias para geocoder de direcciones
     this.updateGeocoderBias()
     
-    // Centrar mapa en la ciudad
-    if (result.center && this.map) {
-      this.map.flyTo({ 
-        center: result.center, 
-        zoom: 12 
-      })
-    }
-    
-    // Disparar evento de cambio de ubicación
-    if (result.center) {
-      const [lng, lat] = result.center
-      this.dispatchLocationChangedEvent(lat, lng, cityName, countryName, null, null, 'city_selection')
-    }
+    // SOLO actualizar cityTarget.value y bias de geocoder
+    // NO mover marcador, NO actualizar coordenadas, NO disparar eventos
+    console.log('🏙️ ARENA-LOCATION: Ciudad seleccionada - solo actualiza campo city y bias')
   }
 
   // Manejar selección de dirección - actualiza #duel_city de forma confiable
@@ -510,12 +524,18 @@ export default class extends Controller {
     console.log(`Ciudad extraída: ${cityName} (prioridad: place/locality → region)`)
     console.log(`País: ${countryName}`)
     
-    // Actualizar campos del formulario
-    this.addressTarget.value = addressName
-    if (cityName) {
+    // Solo actualizar address si está vacío Y no tiene foco
+    if (!this.addressTarget.value && document.activeElement !== this.addressTarget) {
+      this.addressTarget.value = addressName
+    }
+    
+    // Solo actualizar city si está vacío Y no tiene foco
+    if (cityName && !this.cityTarget.value && document.activeElement !== this.cityTarget) {
       this.cityTarget.value = cityName
     }
-    if (countryName) {
+    
+    // Solo actualizar country si está vacío Y no tiene foco
+    if (countryName && !this.countryTarget.value && document.activeElement !== this.countryTarget) {
       this.countryTarget.value = countryName
     }
     
@@ -548,14 +568,22 @@ export default class extends Controller {
   }
 
   // Método principal para programar geocodificación con debounce
+  // DESHABILITADO: Ya no ejecuta geocoding automático al escribir
+  // Solo se ejecuta manualmente desde submitAddressSearch()
   schedule() {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer)
-    }
+    // Comentado para evitar movimiento automático del marcador
+    // El geocoding ahora solo se ejecuta manualmente desde submitAddressSearch()
+    console.log('🔍 ARENA-LOCATION: schedule() llamado pero deshabilitado para evitar movimiento automático')
+    return
     
-    this.debounceTimer = setTimeout(() => {
-      this.geocode()
-    }, 600) // 600ms de debounce
+    // Código original comentado:
+    // if (this.debounceTimer) {
+    //   clearTimeout(this.debounceTimer)
+    // }
+    // 
+    // this.debounceTimer = setTimeout(() => {
+    //   this.geocode()
+    // }, 600) // 600ms de debounce
   }
 
   // Método para geocodificar la dirección (backend como red de seguridad)
@@ -1086,14 +1114,16 @@ export default class extends Controller {
       console.log(`Ciudad extraída: ${city} (prioridad: place/locality → region)`)
       console.log(`País: ${country}`)
       
-      // Solo actualizar si no están ya llenos o si son diferentes
-      if (country && (!this.countryTarget.value || this.countryTarget.value !== country)) {
+      // Solo rellenar city o country si están vacíos y sin foco
+      // Address: NUNCA sobrescribir si ya tiene texto
+      if (country && !this.countryTarget.value && document.activeElement !== this.countryTarget) {
         this.countryTarget.value = country
       }
-      if (city && (!this.cityTarget.value || this.cityTarget.value !== city)) {
+      if (city && !this.cityTarget.value && document.activeElement !== this.cityTarget) {
         this.cityTarget.value = city
       }
-      if (feat.place_name && (!this.addressTarget.value || this.addressTarget.value !== feat.place_name)) {
+      // Address: NUNCA sobrescribir si ya tiene texto
+      if (feat.place_name && !this.addressTarget.value && document.activeElement !== this.addressTarget) {
         this.addressTarget.value = feat.place_name
       }
       
@@ -1107,8 +1137,9 @@ export default class extends Controller {
         lng: lng 
       })
       
-      // Disparar evento de cambio de ubicación (nota el true final)
-      this.dispatchLocationChangedEvent(lat, lng, city, country, feat.place_name, null, 'reverse_geocode', true)
+      // NO disparar evento de cambio de ubicación
+      // reverseGeocode solo completa campos de texto, no mueve marcador
+      console.log('🔄 ARENA-LOCATION: reverseGeocode completado - solo campos de texto actualizados')
     } catch(error) {
       console.warn("Error en geocodificación inversa:", error)
     }
@@ -1312,11 +1343,195 @@ export default class extends Controller {
     console.log('🔍 ARENA-LOCATION: Modo debug deshabilitado');
   }
 
-  // Se llama en cada tecla del Address; solo UI liviana, NO geocodifica ni mueve mapa.
+  // Se llama en cada tecla del Address; implementa autocomplete con debounce
   onAddressInput(e) {
-    // Opcional: trim UI o validaciones visuales ligeras. NO llames geocode() ni reverseGeocode() aquí.
-    // Mantener comportamiento de city/country intacto (no tocar).
-    console.log('🔍 ARENA-LOCATION: onAddressInput - Solo UI, sin geocoding automático');
+    const query = e.target.value.trim();
+    
+    // Limpiar timer anterior si existe
+    if (this.addressAutocompleteTimer) {
+      clearTimeout(this.addressAutocompleteTimer);
+    }
+    
+    // Si el query está vacío, limpiar sugerencias
+    if (!query) {
+      this.clearAddressSuggestions();
+      return;
+    }
+    
+    // Debounce de 300ms para evitar demasiadas llamadas a la API
+    this.addressAutocompleteTimer = setTimeout(() => {
+      this.fetchAddressSuggestions(query);
+    }, 300);
+  }
+
+  // Obtener sugerencias de direcciones desde la API de Mapbox
+  async fetchAddressSuggestions(query) {
+    try {
+      const token = this.getMapboxToken();
+      if (!token) {
+        console.warn('Token de Mapbox no disponible para autocomplete');
+        return;
+      }
+
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?autocomplete=true&country=CO&limit=5&access_token=${token}`;
+      
+      console.log('🔍 ARENA-LOCATION: Consultando autocomplete:', url);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Error en API de Mapbox: ${response.status}`);
+      }
+
+      const data = await response.json();
+      this.displayAddressSuggestions(data.features || []);
+      
+    } catch (error) {
+      console.error('❌ ARENA-LOCATION: Error en autocomplete:', error);
+      this.clearAddressSuggestions();
+    }
+  }
+
+  // Mostrar sugerencias en el dropdown
+  displayAddressSuggestions(suggestions) {
+    const container = document.getElementById('address-suggestions');
+    if (!container) {
+      console.warn('Contenedor de sugerencias no encontrado');
+      return;
+    }
+
+    // Limpiar sugerencias anteriores
+    container.innerHTML = '';
+
+    if (suggestions.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+
+    // Crear elementos de sugerencia
+    suggestions.forEach((suggestion, index) => {
+      const [lng, lat] = suggestion.center;
+      const placeName = suggestion.place_name;
+      
+      const suggestionElement = document.createElement('div');
+      suggestionElement.className = 'list-group-item list-group-item-action';
+      suggestionElement.style.cursor = 'pointer';
+      suggestionElement.innerHTML = `
+        <div class="d-flex align-items-center">
+          <i class="fas fa-map-marker-alt text-primary me-2"></i>
+          <div>
+            <div class="fw-semibold">${placeName}</div>
+            <small class="text-muted">${lat.toFixed(6)}, ${lng.toFixed(6)}</small>
+          </div>
+        </div>
+      `;
+      
+      // Añadir datos para el evento de selección
+      suggestionElement.dataset.lat = lat;
+      suggestionElement.dataset.lng = lng;
+      suggestionElement.dataset.place = placeName;
+      suggestionElement.dataset.context = JSON.stringify(suggestion.context || []);
+      
+      // Evento de click
+      suggestionElement.addEventListener('click', (e) => {
+        this.selectAddressSuggestion(e);
+      });
+      
+      // Evento de hover para mejor UX
+      suggestionElement.addEventListener('mouseenter', () => {
+        suggestionElement.classList.add('active');
+      });
+      
+      suggestionElement.addEventListener('mouseleave', () => {
+        suggestionElement.classList.remove('active');
+      });
+      
+      container.appendChild(suggestionElement);
+    });
+
+    container.style.display = 'block';
+    console.log(`✅ ARENA-LOCATION: ${suggestions.length} sugerencias mostradas`);
+  }
+
+  // Limpiar sugerencias del dropdown
+  clearAddressSuggestions() {
+    const container = document.getElementById('address-suggestions');
+    if (container) {
+      container.innerHTML = '';
+      container.style.display = 'none';
+    }
+  }
+
+  // Seleccionar una sugerencia del dropdown
+  selectAddressSuggestion(e) {
+    const element = e.currentTarget;
+    const lat = parseFloat(element.dataset.lat);
+    const lng = parseFloat(element.dataset.lng);
+    const place = element.dataset.place;
+    const context = JSON.parse(element.dataset.context || '[]');
+
+    console.log('🎯 ARENA-LOCATION: Sugerencia seleccionada:', { lat, lng, place });
+
+    // Actualizar el input con la dirección seleccionada
+    if (this.hasAddressTarget) {
+      this.addressTarget.value = place;
+    }
+
+    // Actualizar coordenadas
+    this.updateCoordinates(lat, lng);
+
+    // Mover marcador y centrar mapa
+    this.updateMapLocation(lat, lng);
+
+    // Extraer información de contexto para completar otros campos
+    const countryName = this.getContextText(context, ["country"]);
+    const cityName = this.getContextText(context, ["place", "locality"]) || 
+                    this.getContextText(context, ["region"]);
+
+    // Solo actualizar country/city si están vacíos Y no tienen foco
+    if (countryName && !this.countryTarget.value && document.activeElement !== this.countryTarget) {
+      this.countryTarget.value = countryName;
+    }
+    
+    if (cityName && !this.cityTarget.value && document.activeElement !== this.cityTarget) {
+      this.cityTarget.value = cityName;
+    }
+
+    // Actualizar campos hidden del formulario
+    this.writeHidden({ 
+      country: countryName || this.countryTarget.value, 
+      city: cityName || this.cityTarget.value, 
+      address: place, 
+      neighborhood: null, 
+      lat: lat, 
+      lng: lng 
+    });
+
+    // Disparar evento de cambio de ubicación
+    this.dispatchLocationChangedEvent(lat, lng, cityName, countryName, place, null, 'address_autocomplete');
+
+    // Limpiar sugerencias
+    this.clearAddressSuggestions();
+
+    console.log('✅ ARENA-LOCATION: Sugerencia procesada exitosamente');
+  }
+
+  // Manejar click fuera del input para ocultar sugerencias
+  handleDocumentClick(e) {
+    const addressField = document.getElementById('address-field');
+    const suggestionsContainer = document.getElementById('address-suggestions');
+    
+    if (addressField && suggestionsContainer && 
+        !addressField.contains(e.target) && 
+        suggestionsContainer.style.display !== 'none') {
+      this.clearAddressSuggestions();
+    }
+  }
+
+  // Manejar teclas para ocultar sugerencias
+  handleDocumentKeydown(e) {
+    if (e.key === 'Escape') {
+      this.clearAddressSuggestions();
+    }
   }
 
   // Dispara la búsqueda manual (click botón o Enter en el input)
@@ -1333,37 +1548,123 @@ export default class extends Controller {
       return;
     }
 
-    // Reutiliza tu geocoding backend para obtener lat/lng (ya existente)
+    console.log('🔍 ARENA-LOCATION: Ejecutando búsqueda manual de dirección:', {country, city, address});
+
     try {
-      const res = await fetch('/arenas/geocode.json', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': this.getCSRFToken()
-        },
-        body: JSON.stringify({ country, city, address })
+      // Usar API de Mapbox directamente para geocoding
+      const token = this.getMapboxToken();
+      if (!token) {
+        throw new Error('Token de Mapbox no disponible');
+      }
+
+      // Construir query de búsqueda - SOLO ADDRESS
+      if (!address) {
+        console.warn('submitAddressSearch: No hay address para buscar');
+        return;
+      }
+      
+      const query = address;
+      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&language=es&limit=1`;
+      
+      // Usar city/country como bias de proximidad, no en el string
+      if (city || country) {
+        const bias = this.getProximityBias();
+        if (bias && bias.longitude && bias.latitude) {
+          url += `&proximity=${bias.longitude},${bias.latitude}`;
+          console.log('🔍 ARENA-LOCATION: Usando bias de proximidad:', bias);
+        }
+      }
+
+      console.log('🔍 ARENA-LOCATION: Consultando API de Mapbox:', url);
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Error en API de Mapbox: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const feature = data.features?.[0];
+
+      if (!feature || !feature.center) {
+        console.warn('submitAddressSearch: No se encontraron coordenadas para la dirección');
+        return;
+      }
+
+      const [lng, lat] = feature.center;
+      console.log('✅ ARENA-LOCATION: Coordenadas encontradas:', {lat, lng});
+
+      // Actualizar coordenadas (SIEMPRE se actualizan)
+      this.updateCoordinates(lat, lng);
+      
+      // Mover marcador y centrar mapa
+      this.updateMapLocation(lat, lng);
+
+      // Actualizar campos de texto - PRIORIDAD ABSOLUTA A ADDRESS
+      const countryName = this.getContextText(feature.context || [], ["country"]);
+      const cityName = this.getContextText(feature.context || [], ["place", "locality"]) || 
+                      this.getContextText(feature.context || [], ["region"]);
+      const addressName = feature.place_name;
+
+      // Country: solo si está vacío Y no tiene foco
+      if (countryName && !this.countryTarget.value && document.activeElement !== this.countryTarget) {
+        this.countryTarget.value = countryName;
+      }
+      
+      // City: solo si está vacío Y no tiene foco
+      if (cityName && !this.cityTarget.value && document.activeElement !== this.cityTarget) {
+        this.cityTarget.value = cityName;
+      }
+      
+      // Address: NUNCA sobrescribir si ya tiene texto
+      if (addressName && !this.addressTarget.value && document.activeElement !== this.addressTarget) {
+        this.addressTarget.value = addressName;
+      }
+
+      // Actualizar campos hidden del formulario
+      this.writeHidden({ 
+        country: countryName || this.countryTarget.value, 
+        city: cityName || this.cityTarget.value, 
+        address: addressName || this.addressTarget.value, 
+        neighborhood: null, 
+        lat: lat, 
+        lng: lng 
       });
 
-      if (!res.ok) throw new Error(`Geocode backend ${res.status}`);
-      const data = await res.json();
-      const lat = parseFloat(data.lat);
-      const lng = parseFloat(data.lng);
+      // Disparar evento de cambio de ubicación
+      this.dispatchLocationChangedEvent(lat, lng, cityName, countryName, addressName, null, 'address_manual_search');
 
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        // Escribe hidden + mueve marker + centra mapa
-        this.updateCoordinates(lat, lng);
-        this.updateMapLocation(lat, lng);
+      console.log('✅ ARENA-LOCATION: Búsqueda manual completada exitosamente');
 
-        // Reverse para completar place_name canonical (ya existente)
-        try { await this.reverseGeocode(lat, lng); } catch (_) {}
-
-        // Notifica al wizard (ya manejas este evento)
-        this.dispatchLocationChangedEvent(lat, lng, null, null, address, null, 'address_manual_search');
-      } else {
-        console.warn('submitAddressSearch: backend no devolvió coords válidas', data);
-      }
     } catch (err) {
-      console.error('submitAddressSearch: error en geocode backend', err);
+      console.error('❌ ARENA-LOCATION: Error en búsqueda manual:', err);
+      
+      // Fallback: intentar con backend si Mapbox falla
+      try {
+        console.log('🔄 ARENA-LOCATION: Intentando fallback con backend...');
+        const res = await fetch('/arenas/geocode.json', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': this.getCSRFToken()
+          },
+          body: JSON.stringify({ country, city, address })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const lat = parseFloat(data.lat);
+          const lng = parseFloat(data.lng);
+
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            this.updateCoordinates(lat, lng);
+            this.updateMapLocation(lat, lng);
+            this.dispatchLocationChangedEvent(lat, lng, city, country, address, null, 'address_manual_search_fallback');
+            console.log('✅ ARENA-LOCATION: Fallback con backend exitoso');
+          }
+        }
+      } catch (fallbackErr) {
+        console.error('❌ ARENA-LOCATION: Fallback también falló:', fallbackErr);
+      }
     }
   }
 }

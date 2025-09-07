@@ -73,7 +73,7 @@
 
                       <div class="mb-3" id="address-field">
                         <%= f.label :address, "Dirección", class: "form-label fw-semibold" %>
-                        <div class="input-group">
+                        <div class="input-group position-relative">
                           <%= f.text_field :address, 
                               class: "form-control", 
                               required: true,
@@ -95,6 +95,8 @@
                             <span class="visually-hidden">Buscar</span>
                           </button>
                         </div>
+                        <!-- Contenedor de sugerencias de autocomplete -->
+                        <div id="address-suggestions" class="list-group position-absolute w-100" style="z-index:1000; display: none; max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);"></div>
                         <div class="form-text">Escribe la dirección y presiona Enter o el botón de buscar.</div>
                         <div data-arena-location-target="geocoderAddress" class="geocoder-container"></div>
                       </div>

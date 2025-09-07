@@ -83,6 +83,38 @@ export default class extends Controller {
     
     // Inicializar cityBias si ya hay valores en los campos
     this.initializeCityBiasFromExistingValues()
+    
+    if (this.formContext() === 'arena') {
+      // Usar cache si existe
+      const storedLat = localStorage.getItem('leagend:lastLat');
+      const storedLng = localStorage.getItem('leagend:lastLng');
+      
+      const applyUserLocation = (lat, lng) => {
+        console.log('📍 ARENA-LOCATION: Aplicando ubicación inicial de usuario en arenas/new', { lat, lng });
+        this.updateCoordinates(lat, lng);       // guarda en hidden fields
+        this.updateMapLocation(lat, lng);       // mueve marcador + centra mapa
+        this.reverseGeocode(lat, lng);          // completa country, city, address
+        this.dispatchLocationChangedEvent(lat, lng, null, null, null, null, 'arena_user_location');
+        // Guardar cache
+        try {
+          localStorage.setItem('leagend:lastLat', String(lat));
+          localStorage.setItem('leagend:lastLng', String(lng));
+        } catch(_) {}
+      };
+      
+      if (storedLat && storedLng) {
+        applyUserLocation(parseFloat(storedLat), parseFloat(storedLng));
+      } else if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            applyUserLocation(pos.coords.latitude, pos.coords.longitude);
+          },
+          (err) => {
+            console.warn('⚠️ ARENA-LOCATION: Error obteniendo geolocalización del usuario', err);
+          }
+        );
+      }
+    }
   }
 
   disconnect() {
@@ -1442,11 +1474,23 @@ export default class extends Controller {
         return;
       }
 
-      // Construir URL base
-      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?autocomplete=true&limit=5&language=es&access_token=${token}`;
+      // Construir query completa incluyendo ciudad y país para priorizar resultados
+      let fullQuery = query;
+      const country = this.hasCountryTarget ? this.countryTarget.value?.trim() : '';
+      
+      if (this.cityBias?.name) {
+        fullQuery += `, ${this.cityBias.name}`;
+      }
+      if (country) {
+        fullQuery += `, ${country}`;
+      }
+      
+      // Construir URL base con query completa
+      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(fullQuery)}.json?autocomplete=true&limit=5&language=es&access_token=${token}`;
+      
+      console.log('🔍 ARENA-LOCATION: Query completa enviada a Mapbox:', fullQuery);
       
       // Añadir restricción de país si está disponible
-      const country = this.hasCountryTarget ? this.countryTarget.value?.trim() : '';
       if (country) {
         // Mapear nombres de países a códigos ISO
         const countryCode = this.getCountryCode(country);
@@ -1475,7 +1519,27 @@ export default class extends Controller {
       }
 
       const data = await response.json();
-      this.displayAddressSuggestions(data.features || []);
+      
+      // Filtrar sugerencias para que solo aparezcan las que están en la ciudad actual
+      let features = data.features || [];
+      if (this.cityBias?.name) {
+        const inCity = [];
+        const outCity = [];
+        for (const f of features) {
+          const cityName = this.getContextText(f.context || [], ["place", "locality"]) ||
+                           this.getContextText(f.context || [], ["region"]);
+          if (cityName === this.cityBias.name) {
+            inCity.push(f);
+          } else {
+            outCity.push(f);
+          }
+        }
+        // Si hay resultados en la ciudad, mostrar SOLO esos
+        features = inCity.length > 0 ? inCity.slice(0, 5) : outCity.slice(0, 5);
+        console.log(`🏙️ ARENA-LOCATION: ${inCity.length} sugerencias dentro de ${this.cityBias.name}, ${outCity.length} fuera`);
+      }
+      
+      this.displayAddressSuggestions(features);
       
     } catch (error) {
       console.error('❌ ARENA-LOCATION: Error en autocomplete:', error);
@@ -1579,11 +1643,13 @@ export default class extends Controller {
     const cityName = this.getContextText(context, ["place", "locality"]) || 
                     this.getContextText(context, ["region"]);
 
-    // Solo actualizar country/city si están vacíos Y no tienen foco
+    // Solo actualizar country si está vacío Y no tiene foco
     if (countryName && !this.countryTarget.value && document.activeElement !== this.countryTarget) {
       this.countryTarget.value = countryName;
     }
     
+    // NO sobrescribir cityTarget si ya tiene valor → respetar la ciudad fijada por el usuario
+    // Solo actualizar si está completamente vacío Y no tiene foco
     if (cityName && !this.cityTarget.value && document.activeElement !== this.cityTarget) {
       this.cityTarget.value = cityName;
     }

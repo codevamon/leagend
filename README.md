@@ -1,114 +1,75 @@
 # 🏟️ Leagend
 
-Plataforma web y móvil para organizar duelos de fútbol callejero en ≤3 min.  
-Backend en **Rails 8.1**, frontend web con **Hotwire/Stimulus**, y app móvil con **Ionic + Capacitor**.
+Web and mobile platform to organize street football duels in ≤3 minutes.  
+Backend in **Rails 8.1**, web frontend with **Hotwire/Stimulus**, and mobile app with **Ionic + Capacitor**.
 
 ---
 
-## 🚀 Cómo empezar
-
-### Requisitos
-- Ruby 3.2.6  
-- Rails 8.1.x  
-- Postgres 15+  
-- Node.js 20+ (para frontend móvil con Ionic)  
-
-### Instalación
-```bash
-# Clonar repo
-git clone git@github.com:tu-org/leagend.git
-cd leagend
-
-# Instalar dependencias
-bundle install
-rails db:setup
-
-# Variables de entorno
-EDITOR="nano" bin/rails credentials:edit
-# Añadir claves: Mapbox, Stripe, Google OAuth
-
-# Iniciar servidor
-bin/dev
-
-```
-
----
-
-### Seeds
-
-```bash
-
-rails db:seed
-
-```
-
-## 📂 Documentación
+## 📂 Documentation
 
 ### SBSMI.md
- → Sistema de Búsqueda Sincronizada con Mapas Interactivos.
+ → Synchronized Search System with Interactive Maps.
 
 ### PROMPTS.md
- → Guía de prompts quirúrgicos para Cursor.
+ → Guide for surgical prompts for Cursor.
 
 ### DEPLOY.md
- → Instrucciones de despliegue.
+ → Deployment instructions.
 
 ### ROADMAP.md
- → Plan de sprints y definición de hecho.
+ → Sprint plan and definition of done.
 
 ### UX.md
- → Principios de UX y flujo del wizard.
+ → UX principles and wizard flow.
 
 ### UI.md
- → Documentación de UI, responsive y accesibilidad.
+ → UI documentation, responsive design, and accessibility.
 
 ### ROLES.md
- → Sistema de roles (Membership, Admin, Owner, Referee).
+ → Role system (Membership, Admin, Owner, Referee).
 
 ### SEEDS.md
- → Seeds recomendados para demo/staging.
+ → Recommended seeds for demo/staging.
 
 ### COMPONENTS.md
- → Stimulus controllers y partials.
+ → Stimulus controllers and partials.
 
 ### PAYMENTS.md
- → Diseño del sistema de pagos con Stripe.
+ → Payment system design with Stripe.
 
 ### MODELS.md
- → Modelos principales y de soporte.
+ → Main and supporting models.
 
 ### API.md
- → Endpoints RESTful web y API v1.
+ → RESTful web endpoints and API v1.
 
 ### QA.md
- → Estrategia de QA, CI/CD y pruebas.
+ → QA strategy, CI/CD, and testing.
 
 ### MOBILE.md
- → App móvil con Ionic + Capacitor.
+ → Mobile app with Ionic + Capacitor.
 
 ### POSTMVP.md
- → Funcionalidades planificadas después del MVP.
+ → Features planned after the MVP.
 
+---
 
-##  ✅ Estado Actual
+## ✅ Current Status
 
-- Autenticación con Devise + Google OAuth.
+- Authentication with Devise + Google OAuth.  
+- CRUD of arenas with verification.  
+- Duel wizard (steps 1–3) with interactive map.  
+- Basic seeds ready for demo.  
+- Initial Stripe integration (test mode pending).  
 
-- CRUD de arenas con verificación.
+---
 
-- Wizard de duelos (pasos 1–3) con mapa interactivo.
+## 📜 License
 
-- Seeds básicos listos para demo.
+This project belongs to **github.com/codevamon**.  
 
-- Integración inicial de Stripe (test mode pendiente).
+It is released under the **MIT license**.  
+Built with ❤️ for the community, with the goal of showcasing best practices in Rails + Ionic + Capacitor.  
 
-## 📜 Licencia
-
-
-Este proyecto es de **github.com/codevamon**.
-
-Este proyecto se publica bajo licencia **MIT**.  
-Desarrollado con ❤️ para la comunidad, con el objetivo de mostrar buenas prácticas en Rails + Ionic + Capacitor.  
-
-Puedes usar el código con fines personales, educativos o de aprendizaje.  
-Para uso **comercial** se requiere autorización expresa del autor.
+You may use the code for personal, educational, or learning purposes.  
+For **commercial use**, explicit authorization from the author is required.  

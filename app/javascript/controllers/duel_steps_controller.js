@@ -614,40 +614,36 @@ export default class extends Controller {
   // Inicializar FullCalendar en el Paso 2
   initializeCalendar() {
     if (!this.hasCalendarTarget) {
-      console.log('📅 initializeCalendar: Target calendar no encontrado');
+      console.log("❌ initializeCalendar: Target calendar no encontrado");
       return;
     }
-    
+
     if (this.calendar) {
-      console.log('📅 initializeCalendar: Destruyendo calendario existente');
       this.calendar.destroy();
       this.calendar = null;
     }
 
-    console.log('📅 initializeCalendar: Inicializando FullCalendar');
-    
-    try {
-      this.calendar = new window.Calendar(this.calendarTarget, {
-        plugins: [window.dayGridPlugin, window.interactionPlugin],
-        initialView: "dayGridMonth",
-        selectable: true,
-        validRange: { start: new Date() },
-        dateClick: (info) => {
-          const date = info.dateStr;
-          console.log("📅 Fecha seleccionada:", date);
-          if (this.hasStartsAtTarget) {
-            this.startsAtTarget.value = date + "T12:00";
-            this.updateSummary();
-            this.updateButtons();
-          }
-        }
-      });
-      
-      this.calendar.render();
-      console.log('✅ FullCalendar inicializado correctamente');
-    } catch (error) {
-      console.error('❌ Error inicializando FullCalendar:', error);
+    // Asegurarse que FullCalendar y plugins están disponibles
+    if (!window.FullCalendar || !window.FullCalendar.Calendar) {
+      console.error("❌ FullCalendar no está disponible en window");
+      return;
     }
+
+    this.calendar = new window.FullCalendar.Calendar(this.calendarTarget, {
+      plugins: [ window.FullCalendar.dayGridPlugin, window.FullCalendar.interactionPlugin ],
+      initialView: "dayGridMonth",
+      selectable: true,
+      validRange: { start: new Date() },
+      dateClick: (info) => {
+        const iso = `${info.dateStr}T12:00`;
+        this.startsAtTarget.value = iso;
+        this.updateSummary();
+        this.updateButtons();
+        console.log("✅ Fecha seleccionada:", iso);
+      }
+    });
+
+    this.calendar.render();
   }
   
   // Forzar revalidación del Paso 2 (útil para widgets externos)

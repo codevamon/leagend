@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   // VERSION TAG: DUEL-STEP v2025-08-15T10:45Z - VERIFICAR QUE SE EJECUTA ESTE CÓDIGO
-  static targets = ["step", "progress", "nextBtn", "prevBtn", "submitBtn", "arenaId", "mapContainer", "arenaList", "arenaGrid", "arenaSearch", "latitude", "longitude", "summaryMap", "durationSelect"]
+  static targets = ["step", "progress", "nextBtn", "prevBtn", "submitBtn", "arenaId", "mapContainer", "arenaList", "arenaGrid", "arenaSearch", "latitude", "longitude", "summaryMap", "durationSelect", "calendar", "startsAt"]
   static values = { 
     currentStep: { type: Number, default: 1 },
     totalSteps: { type: Number, default: 4 }
@@ -480,10 +480,11 @@ export default class extends Controller {
       }, 100)
     }
 
-    // Si estamos en Step 2, configurar validación en tiempo real
+    // Si estamos en Step 2, configurar validación en tiempo real y calendario
     if (n === 2) {
       setTimeout(() => {
         this.setupStep2Validation()
+        this.initializeCalendar()
       }, 100)
     }
 
@@ -608,6 +609,45 @@ export default class extends Controller {
     updateNextButtonState();
 
     console.log('✅ Validación en tiempo real del Paso 2 configurada correctamente');
+  }
+
+  // Inicializar FullCalendar en el Paso 2
+  initializeCalendar() {
+    if (!this.hasCalendarTarget) {
+      console.log('📅 initializeCalendar: Target calendar no encontrado');
+      return;
+    }
+    
+    if (this.calendar) {
+      console.log('📅 initializeCalendar: Destruyendo calendario existente');
+      this.calendar.destroy();
+      this.calendar = null;
+    }
+
+    console.log('📅 initializeCalendar: Inicializando FullCalendar');
+    
+    try {
+      this.calendar = new window.Calendar(this.calendarTarget, {
+        plugins: [window.dayGridPlugin, window.interactionPlugin],
+        initialView: "dayGridMonth",
+        selectable: true,
+        validRange: { start: new Date() },
+        dateClick: (info) => {
+          const date = info.dateStr;
+          console.log("📅 Fecha seleccionada:", date);
+          if (this.hasStartsAtTarget) {
+            this.startsAtTarget.value = date + "T12:00";
+            this.updateSummary();
+            this.updateButtons();
+          }
+        }
+      });
+      
+      this.calendar.render();
+      console.log('✅ FullCalendar inicializado correctamente');
+    } catch (error) {
+      console.error('❌ Error inicializando FullCalendar:', error);
+    }
   }
   
   // Forzar revalidación del Paso 2 (útil para widgets externos)

@@ -158,7 +158,10 @@
         (function(){
           // Guardas: no ejecutar si no existe el span
           var target = document.getElementById('leagend-header-location');
-          if (!target) return;
+          if (!target) {
+            console.log('LEAGEND GEO: Target #leagend-header-location no encontrado');
+            return;
+          }
 
           // Variables de sesión expuestas por el layout (si no existen, defínelas)
           if (typeof window.LEAGEND_USER_SIGNED_IN === 'undefined') {
@@ -171,12 +174,38 @@
             window.LEAGEND_USER_HAS_CITY = <%= current_user&.current_city.present? %>;
           }
 
-          // Si no está logueado o ya tiene country+city, no hacemos nada
-          if (!window.LEAGEND_USER_SIGNED_IN) return;
-          if (window.LEAGEND_USER_HAS_COUNTRY && window.LEAGEND_USER_HAS_CITY) return;
+          // Logging detallado del estado inicial
+          console.log('LEAGEND GEO: Estado inicial:', {
+            userSignedIn: window.LEAGEND_USER_SIGNED_IN,
+            hasCountry: window.LEAGEND_USER_HAS_COUNTRY,
+            hasCity: window.LEAGEND_USER_HAS_CITY,
+            backfillDone: sessionStorage.getItem('leagend.backfill_done'),
+            bootstrapFlag: window.__LEAGEND_GEO_BOOTSTRAPPED__
+          });
 
-          // Evitar repetir dentro de la sesión del navegador
-          if (sessionStorage.getItem('leagend.backfill_done') === '1') return;
+          // Si no está logueado, no hacemos nada
+          if (!window.LEAGEND_USER_SIGNED_IN) {
+            console.log('LEAGEND GEO: Usuario no logueado, saltando geolocalización');
+            return;
+          }
+
+          // CORRECCIÓN: Solo saltar si tiene AMBOS country Y city, no solo uno
+          if (window.LEAGEND_USER_HAS_COUNTRY && window.LEAGEND_USER_HAS_CITY) {
+            console.log('LEAGEND GEO: Usuario ya tiene ubicación completa, saltando geolocalización');
+            return;
+          }
+
+          // CORRECCIÓN: Resetear backfill_done si el usuario no tiene ubicación completa
+          if (sessionStorage.getItem('leagend.backfill_done') === '1' && (!window.LEAGEND_USER_HAS_COUNTRY || !window.LEAGEND_USER_HAS_CITY)) {
+            console.log('LEAGEND GEO: Resetando backfill_done porque usuario no tiene ubicación completa');
+            sessionStorage.removeItem('leagend.backfill_done');
+          }
+
+          // Evitar repetir dentro de la sesión del navegador SOLO si ya está completo
+          if (sessionStorage.getItem('leagend.backfill_done') === '1') {
+            console.log('LEAGEND GEO: Backfill ya completado en esta sesión');
+            return;
+          }
 
           function paint(country, city){
             try {
@@ -186,7 +215,10 @@
               else if (city)      text += city;
               else                text += 'Ubicación no configurada';
               target.textContent = text;
-            } catch(_) {}
+              console.log('LEAGEND GEO: Pintado en pantalla:', text);
+            } catch(e) {
+              console.error('LEAGEND GEO: Error en paint():', e);
+            }
           }
 
           function csrf(){
@@ -196,6 +228,7 @@
 
           function persist(payload){
             try {
+              console.log('LEAGEND GEO: Persistiendo payload:', payload);
               fetch('/geo/update', {
                 method: 'PATCH',
                 credentials: 'same-origin',
@@ -204,9 +237,110 @@
                   'X-CSRF-Token': csrf() || ''
                 },
                 body: JSON.stringify(payload)
-              }).catch(function(){});
-            } catch(_){}
+              }).then(function(response) {
+                if (response.ok) {
+                  console.log('LEAGEND GEO: Persistencia exitosa');
+                  // Actualizar el DOM después de persistir exitosamente
+                  updateLocationInDOM(payload);
+                } else {
+                  console.error('LEAGEND GEO: Error en persistencia:', response.status);
+                  return response.json().then(function(data) {
+                    console.error('LEAGEND GEO: Detalles del error:', data);
+                  });
+                }
+              }).catch(function(error) {
+                console.error('LEAGEND GEO: Error de red en persistencia:', error);
+              });
+            } catch(e) {
+              console.error('LEAGEND GEO: Error en persist():', e);
+            }
           }
+
+          // Función para actualizar el DOM después de persistir
+          function updateLocationInDOM(payload) {
+            try {
+              if (payload.country) {
+                target.setAttribute('data-country', payload.country);
+              }
+              if (payload.city) {
+                target.setAttribute('data-city', payload.city);
+              }
+              if (payload.latitude) {
+                target.setAttribute('data-lat', payload.latitude);
+              }
+              if (payload.longitude) {
+                target.setAttribute('data-lng', payload.longitude);
+              }
+              console.log('LEAGEND GEO: DOM actualizado con nuevos valores');
+            } catch(e) {
+              console.error('LEAGEND GEO: Error actualizando DOM:', e);
+            }
+          }
+
+          // Función para limpiar localStorage al hacer logout
+          function clearLocationStorage() {
+            try {
+              localStorage.removeItem('leagend.country');
+              localStorage.removeItem('leagend.city');
+              localStorage.removeItem('leagend.lat');
+              localStorage.removeItem('leagend.lng');
+              sessionStorage.removeItem('leagend.backfill_done');
+              console.log('LEAGEND GEO: Storage limpiado');
+            } catch(e) {
+              console.error('LEAGEND GEO: Error limpiando storage:', e);
+            }
+          }
+
+          // Función para forzar reset del flujo
+          function forceResetLocationFlow() {
+            console.log('LEAGEND GEO: Forzando reset del flujo de geolocalización');
+            clearLocationStorage();
+            window.__LEAGEND_GEO_BOOTSTRAPPED__ = false;
+            // Recargar la página para reiniciar el flujo
+            window.location.reload();
+          }
+
+          // Exponer funciones globalmente para debugging
+          window.LEAGEND_GEO_DEBUG = {
+            clearStorage: clearLocationStorage,
+            forceReset: forceResetLocationFlow,
+            getState: function() {
+              return {
+                localStorage: {
+                  country: localStorage.getItem('leagend.country'),
+                  city: localStorage.getItem('leagend.city'),
+                  lat: localStorage.getItem('leagend.lat'),
+                  lng: localStorage.getItem('leagend.lng')
+                },
+                sessionStorage: {
+                  backfillDone: sessionStorage.getItem('leagend.backfill_done')
+                },
+                userState: {
+                  signedIn: window.LEAGEND_USER_SIGNED_IN,
+                  hasCountry: window.LEAGEND_USER_HAS_COUNTRY,
+                  hasCity: window.LEAGEND_USER_HAS_CITY
+                },
+                target: {
+                  country: target.getAttribute('data-country'),
+                  city: target.getAttribute('data-city'),
+                  lat: target.getAttribute('data-lat'),
+                  lng: target.getAttribute('data-lng')
+                }
+              };
+            }
+          };
+
+          // Logging del estado actual antes de procesar
+          var currentCountry = target.getAttribute('data-country');
+          var currentCity = target.getAttribute('data-city');
+          var currentLat = target.getAttribute('data-lat');
+          var currentLng = target.getAttribute('data-lng');
+          console.log('LEAGEND GEO: Estado actual del target:', {
+            country: currentCountry,
+            city: currentCity,
+            lat: currentLat,
+            lng: currentLng
+          });
 
           // Paso A: usar cache del invitado (localStorage) si existe
           var country = localStorage.getItem('leagend.country');
@@ -216,7 +350,15 @@
           var lat = latStr ? parseFloat(latStr) : null;
           var lng = lngStr ? parseFloat(lngStr) : null;
 
-          if ((country || city)) {
+          console.log('LEAGEND GEO: Cache localStorage:', {
+            country: country,
+            city: city,
+            lat: lat,
+            lng: lng
+          });
+
+          if (country || city) {
+            console.log('LEAGEND GEO: Ejecutando Paso A - Cache localStorage');
             paint(country, city);
             var payload = { country: country || undefined, city: city || undefined };
             if (Number.isFinite(lat) && Number.isFinite(lng)) {
@@ -231,64 +373,126 @@
           // Paso B: si hay coords pero no country/city → reverse geocoding
           var mapboxTokenMeta = document.querySelector('meta[name="mapbox-token"]');
           var mapboxToken = mapboxTokenMeta && mapboxTokenMeta.content;
-          function reverseGeocode(lat, lng) {
-            if (!mapboxToken || !Number.isFinite(lat) || !Number.isFinite(lng)) return Promise.reject();
+          console.log('LEAGEND GEO: Mapbox token encontrado:', !!mapboxToken);
+
+          function reverseGeocode(lat, lng, retryCount = 0) {
+            if (!mapboxToken || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+              console.log('LEAGEND GEO: Reverse geocoding falló - token o coords inválidos');
+              return Promise.reject();
+            }
+            
             var url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' +
                       encodeURIComponent(lng + ',' + lat) +
                       '.json?types=place,region,country&language=es&access_token=' + encodeURIComponent(mapboxToken);
 
+            console.log('LEAGEND GEO: Llamando a Mapbox API (intento ' + (retryCount + 1) + '):', url);
+
             var ctrl = new AbortController();
-            var t = setTimeout(function(){ ctrl.abort(); }, 2500);
+            var t = setTimeout(function(){ ctrl.abort(); }, 5000); // Aumentar timeout
 
             return fetch(url, { signal: ctrl.signal })
-              .then(function(r){ clearTimeout(t); return r.ok ? r.json() : Promise.reject(); })
+              .then(function(r){ 
+                clearTimeout(t); 
+                if (r.ok) {
+                  return r.json();
+                } else {
+                  console.error('LEAGEND GEO: Error en respuesta de Mapbox:', r.status, r.statusText);
+                  return Promise.reject(new Error('HTTP ' + r.status + ': ' + r.statusText));
+                }
+              })
               .then(function(j){
-                if (!j || !j.features || !j.features.length) return Promise.reject();
+                if (!j || !j.features || !j.features.length) {
+                  console.log('LEAGEND GEO: Sin features en respuesta de Mapbox');
+                  return Promise.reject(new Error('Sin features en respuesta'));
+                }
+                
+                console.log('LEAGEND GEO: Features recibidas:', j.features.length);
                 var f = j.features;
 
-                var place = f.find(function(x){ return x.place_type && x.place_type.indexOf('place') !== -1; }) ||
-                            f.find(function(x){ return x.place_type && x.place_type.indexOf('locality') !== -1; });
+                // Priorizar place_type=place, luego locality
+                var place = f.find(function(x){ return x.place_type && x.place_type.includes('place'); }) ||
+                            f.find(function(x){ return x.place_type && x.place_type.includes('locality'); });
 
                 var country = null;
                 var city    = null;
 
-                if (place && place.text) city = place.text;
+                if (place && place.text) {
+                  city = place.text;
+                  console.log('LEAGEND GEO: Ciudad encontrada:', city);
+                }
 
                 // buscar país en el contexto
                 var any = place || f[0];
                 if (any && any.context) {
-                  var c = any.context.find(function(c){ return c.id && c.id.indexOf('country') === 0; });
-                  if (c && c.text) country = c.text;
+                  var c = any.context.find(function(c){ return c.id && c.id.startsWith('country'); });
+                  if (c && c.text) {
+                    country = c.text;
+                    console.log('LEAGEND GEO: País encontrado en contexto:', country);
+                  }
                 }
 
+                // Si no encontramos país en contexto, buscar directamente
                 if (!country) {
-                  var directCountry = f.find(function(x){ return x.place_type && x.place_type.indexOf('country') !== -1; });
-                  if (directCountry && directCountry.text) country = directCountry.text;
+                  var directCountry = f.find(function(x){ return x.place_type && x.place_type.includes('country'); });
+                  if (directCountry && directCountry.text) {
+                    country = directCountry.text;
+                    console.log('LEAGEND GEO: País encontrado directamente:', country);
+                  }
                 }
 
-                if (country || city) return {country: country, city: city};
-                return Promise.reject();
+                if (country || city) {
+                  console.log('LEAGEND GEO: Reverse geocoding exitoso:', {country: country, city: city});
+                  return {country: country, city: city};
+                }
+                console.log('LEAGEND GEO: Reverse geocoding falló - sin country ni city');
+                return Promise.reject(new Error('Sin country ni city en respuesta'));
+              })
+              .catch(function(error) {
+                console.error('LEAGEND GEO: Error en reverse geocoding (intento ' + (retryCount + 1) + '):', error);
+                
+                // Retry hasta 2 veces más
+                if (retryCount < 2) {
+                  console.log('LEAGEND GEO: Reintentando reverse geocoding...');
+                  return new Promise(function(resolve, reject) {
+                    setTimeout(function() {
+                      reverseGeocode(lat, lng, retryCount + 1).then(resolve).catch(reject);
+                    }, 1000 * (retryCount + 1)); // Delay incremental
+                  });
+                }
+                
+                return Promise.reject(error);
               });
           }
 
           if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            console.log('LEAGEND GEO: Ejecutando Paso B - Reverse geocoding con coords:', lat, lng);
             reverseGeocode(lat, lng).then(function(res){
               paint(res.country, res.city);
               persist({ country: res.country, city: res.city, latitude: lat, longitude: lng });
               localStorage.setItem('leagend.country', res.country || '');
               localStorage.setItem('leagend.city', res.city || '');
               sessionStorage.setItem('leagend.backfill_done', '1');
-            }).catch(function(){});
+            }).catch(function(){
+              console.log('LEAGEND GEO: Reverse geocoding falló, persistiendo solo coords');
+              paint("Ubicación detectada", null);
+              persist({ latitude: lat, longitude: lng });
+              sessionStorage.setItem('leagend.backfill_done', '1');
+            });
             return;
           }
 
           // Paso C: pedir geolocalización HTML5 si no hay nada aún
           if ('geolocation' in navigator) {
+            console.log('LEAGEND GEO: Ejecutando Paso C - Solicitar geolocalización HTML5');
             navigator.geolocation.getCurrentPosition(function(pos){
               var lat = pos && pos.coords && pos.coords.latitude;
               var lng = pos && pos.coords && pos.coords.longitude;
-              if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+              if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                console.log('LEAGEND GEO: Coords inválidas de geolocalización');
+                return;
+              }
 
+              console.log('LEAGEND GEO: Coords obtenidas:', lat, lng);
               localStorage.setItem('leagend.lat', String(lat));
               localStorage.setItem('leagend.lng', String(lng));
 
@@ -299,12 +503,38 @@
                 localStorage.setItem('leagend.city', res.city || '');
                 sessionStorage.setItem('leagend.backfill_done', '1');
               }).catch(function(){
-                // como mínimo persiste coords
+                console.log('LEAGEND GEO: Reverse geocoding falló después de geolocalización, persistiendo solo coords');
+                paint("Ubicación detectada", null);
                 persist({ latitude: lat, longitude: lng });
                 sessionStorage.setItem('leagend.backfill_done', '1');
               });
-            }, function(){ /* usuario rechazó o error; no hacemos nada */ }, { timeout: 8000 });
+            }, function(error){
+              console.log('LEAGEND GEO: Usuario rechazó geolocalización o error:', error.message);
+              paint("Ubicación no configurada", null);
+              sessionStorage.setItem('leagend.backfill_done', '1');
+            }, { timeout: 8000 });
+          } else {
+            console.log('LEAGEND GEO: Geolocalización no soportada por el navegador');
+            paint("Ubicación no configurada", null);
+            sessionStorage.setItem('leagend.backfill_done', '1');
           }
+
+          // Listener para limpiar storage cuando el usuario haga logout
+          document.addEventListener('turbo:before-visit', function(event) {
+            // Si va a una página de logout, limpiar storage
+            if (event.detail.url && event.detail.url.includes('users/sign_out')) {
+              console.log('LEAGEND GEO: Detectado logout, limpiando storage');
+              clearLocationStorage();
+            }
+          });
+
+          // También limpiar en eventos de sign-out específicos
+          document.addEventListener('click', function(event) {
+            if (event.target && event.target.matches('[data-controller*="sign-out"]')) {
+              console.log('LEAGEND GEO: Detectado click en sign-out, limpiando storage');
+              clearLocationStorage();
+            }
+          });
         })();
       }
       </script>

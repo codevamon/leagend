@@ -1,0 +1,9 @@
+<%= turbo_stream.replace "calendar" do %>
+  <%= render "shared/calendar_events", reservations: Reservation.all, availabilities: Availability.all %>
+<% end %>
+
+<%= turbo_stream.prepend "flash-messages" do %>
+  <div class="alert alert-success" role="alert">
+    Reserva creada exitosamente.
+  </div>
+<% end %>

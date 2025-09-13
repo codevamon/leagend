@@ -125,6 +125,12 @@ Rails.application.routes.draw do
     end
   end
 
+  # Availabilities
+  resources :availabilities, only: [:index, :show, :new, :create, :edit, :update, :destroy]
+
+  # Calendar events endpoint
+  get 'calendar/events', to: 'calendar#events', as: :calendar_events
+
   resources :challenges, only: [:create, :show] do
     member do
       patch :accept

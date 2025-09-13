@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_04_01_044111) do
+ActiveRecord::Schema[8.0].define(version: 2025_09_13_074929) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -112,6 +112,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_04_01_044111) do
     t.datetime "updated_at", null: false
     t.index ["slug"], name: "index_arenas_on_slug", unique: true
     t.index ["status"], name: "index_arenas_on_status"
+  end
+
+  create_table "availabilities", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "availablable_type", null: false
+    t.string "availablable_id", limit: 36, null: false
+    t.datetime "starts_at", null: false
+    t.datetime "ends_at", null: false
+    t.string "reason"
+    t.integer "status", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["availablable_type", "availablable_id"], name: "index_availabilities_on_availablable"
   end
 
   create_table "callups", id: { type: :string, limit: 36 }, force: :cascade do |t|

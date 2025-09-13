@@ -673,6 +673,73 @@ export default class extends Controller {
       initialView: "dayGridMonth",
       selectable: true,
       validRange: { start: new Date() },
+      // Cargar eventos desde el endpoint del SGC
+      events: {
+        url: '/calendar/events.json',
+        method: 'GET',
+        failure: function() {
+          console.error('❌ Error al cargar eventos del calendario');
+        }
+      },
+      // Configurar eventos para bloquear slots ocupados
+      eventDidMount: (info) => {
+        const event = info.event;
+        const extendedProps = event.extendedProps;
+        
+        // Marcar eventos ocupados como no seleccionables
+        if (extendedProps.type === 'reservation' && 
+            ['blocked', 'reserved', 'held', 'canceled'].includes(extendedProps.status)) {
+          info.el.style.opacity = '0.6';
+          info.el.style.pointerEvents = 'none';
+          info.el.style.cursor = 'not-allowed';
+          info.el.title = 'Horario no disponible';
+          
+          // Estilo especial para eventos cancelados (tachados)
+          if (extendedProps.status === 'canceled') {
+            info.el.style.textDecoration = 'line-through';
+            info.el.style.backgroundColor = '#6b7280'; // Gris más oscuro
+            info.el.style.borderColor = '#4b5563';
+            info.el.title = 'Reserva cancelada';
+          }
+        }
+        
+        // Marcar disponibilidades bloqueadas como no seleccionables
+        if (extendedProps.type === 'availability' && extendedProps.status === 'blocked') {
+          info.el.style.opacity = '0.6';
+          info.el.style.pointerEvents = 'none';
+          info.el.style.cursor = 'not-allowed';
+          info.el.title = 'Usuario/Referee no disponible';
+        }
+      },
+      // Validar selección de fechas
+      select: (info) => {
+        const start = info.start;
+        const end = info.end;
+        
+        // Verificar si hay eventos en el rango seleccionado
+        const eventsInRange = this.calendar.getEvents().filter(event => {
+          const eventStart = event.start;
+          const eventEnd = event.end || event.start;
+          const extendedProps = event.extendedProps;
+          
+          // Verificar si el evento está ocupado
+          const isOccupied = (extendedProps.type === 'reservation' && 
+                             ['blocked', 'reserved', 'held', 'canceled'].includes(extendedProps.status)) ||
+                            (extendedProps.type === 'availability' && extendedProps.status === 'blocked');
+          
+          // Verificar si hay solapamiento
+          return isOccupied && eventStart < end && eventEnd > start;
+        });
+        
+        if (eventsInRange.length > 0) {
+          console.warn("⚠️ No se puede seleccionar: hay eventos ocupados en este rango");
+          info.jsEvent.preventDefault();
+          return false;
+        }
+        
+        // Si no hay conflictos, proceder con la selección normal
+        this.handleDateSelection(start, end);
+      },
       dateClick: (info) => {
         // Guardar la fecha seleccionada
         const selectedDate = info.dateStr;
@@ -697,6 +764,95 @@ export default class extends Controller {
     console.log("📅 Ejecutando calendar.render()")
     this.calendar.render();
     console.log("✅ Calendario renderizado correctamente")
+  }
+
+  // Manejar selección de rango de fechas válido
+  handleDateSelection(start, end) {
+    console.log("📅 Rango seleccionado:", { start, end });
+    
+    // Verificar si hay arena seleccionada
+    const arenaId = this.arenaIdTarget?.value;
+    if (!arenaId) {
+      console.warn("⚠️ No hay arena seleccionada");
+      return;
+    }
+    
+    // Crear reserva automáticamente
+    this.createReservation(arenaId, start, end);
+  }
+
+  // Crear reserva automáticamente desde el wizard
+  async createReservation(arenaId, start, end) {
+    try {
+      console.log("🔄 Creando reserva automática...", { arenaId, start, end });
+      
+      const response = await fetch('/reservations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({
+          arena_id: arenaId,
+          starts_at: start.toISOString()
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const reservation = await response.json();
+      console.log("✅ Reserva creada exitosamente:", reservation);
+      
+      // Refrescar eventos del calendario para mostrar la nueva reserva
+      this.refreshCalendarEvents();
+      
+      // Mostrar mensaje de éxito
+      this.showSuccessMessage("Reserva creada exitosamente. Puedes continuar al siguiente paso.");
+      
+    } catch (error) {
+      console.error("❌ Error creando reserva:", error);
+      this.showErrorMessage(`Error creando reserva: ${error.message}`);
+    }
+  }
+
+  // Mostrar mensaje de éxito
+  showSuccessMessage(message) {
+    const flashContainer = document.getElementById('flash-messages') || document.querySelector('.flash-messages');
+    if (flashContainer) {
+      flashContainer.innerHTML = `
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+          <i class="fas fa-check-circle me-2"></i>
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      `;
+    }
+  }
+
+  // Mostrar mensaje de error
+  showErrorMessage(message) {
+    const flashContainer = document.getElementById('flash-messages') || document.querySelector('.flash-messages');
+    if (flashContainer) {
+      flashContainer.innerHTML = `
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      `;
+    }
+  }
+
+  // Refrescar eventos del calendario desde el SGC
+  refreshCalendarEvents() {
+    if (this.calendar) {
+      console.log("🔄 Refrescando eventos del calendario...");
+      this.calendar.refetchEvents();
+    }
   }
 
   // Fetch a la disponibilidad de la arena

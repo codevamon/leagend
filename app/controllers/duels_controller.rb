@@ -189,6 +189,33 @@ class DuelsController < ApplicationController
     redirect_to @duel, notice: "El duelo ya está creado. Gestiona desde el panel."
   end
 
+  def finalize_creation
+    @duel = Duel.find(params[:id])
+    
+    # Buscar la reserva held asociada al duelo
+    reservation = Reservation.find_by(
+      reservable: @duel.arena,
+      payer: current_user,
+      receiver: current_user,
+      starts_at: @duel.starts_at,
+      status: :held
+    )
+    
+    if reservation
+      # Confirmar la reserva
+      reservation.update!(status: :reserved)
+      Rails.logger.info("[Duels#finalize_creation] Reserva confirmada: #{reservation.id}")
+    else
+      Rails.logger.warn("[Duels#finalize_creation] No se encontró reserva held para el duelo #{@duel.id}")
+    end
+    
+    respond_to do |format|
+      format.turbo_stream
+      format.html { redirect_to @duel, notice: 'Duelo finalizado exitosamente.' }
+      format.json { render json: { status: 'success', message: 'Duelo finalizado exitosamente.' } }
+    end
+  end
+
   # 🔹 GESTIÓN DE DUELOS
   def manage
     @home_team_users = @duel.home_team ? @duel.home_team.callups.where(duel: @duel).includes(:user) : []

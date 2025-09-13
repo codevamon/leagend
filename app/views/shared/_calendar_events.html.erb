@@ -1,0 +1,45 @@
+<!-- Partial HTML para eventos del calendario -->
+<!-- Este partial se usa para actualizar el calendario via Turbo Streams -->
+
+<div id="calendar" data-controller="calendar" data-calendar-events-url="<%= calendar_events_path %>">
+  <!-- El calendario se renderiza aquí -->
+  <!-- Los eventos se cargan dinámicamente via JavaScript -->
+</div>
+
+<script>
+  // Función para actualizar eventos del calendario
+  function updateCalendarEvents() {
+    if (typeof calendar !== 'undefined' && calendar.getApi) {
+      const calendarApi = calendar.getApi();
+      
+      // Cargar eventos desde el endpoint
+      fetch('<%= calendar_events_path %>')
+        .then(response => response.json())
+        .then(events => {
+          // Limpiar eventos existentes
+          calendarApi.removeAllEvents();
+          
+          // Agregar nuevos eventos
+          events.forEach(event => {
+            calendarApi.addEvent({
+              title: event.title,
+              start: event.start,
+              end: event.end,
+              color: event.color,
+              editable: event.editable,
+              selectable: event.selectable,
+              className: event.className,
+              extendedProps: event.extendedProps
+            });
+          });
+        })
+        .catch(error => console.error('Error loading calendar events:', error));
+    }
+  }
+
+  // Actualizar eventos cuando se carga la página
+  document.addEventListener('DOMContentLoaded', updateCalendarEvents);
+  
+  // Escuchar actualizaciones de Turbo Streams
+  document.addEventListener('turbo:load', updateCalendarEvents);
+</script>

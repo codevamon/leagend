@@ -1,5 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
+const DEBUG_DUELS = false // poner true para volver a ver los TRACE detallados
+
 export default class extends Controller {
   // VERSION TAG: DUEL-STEP v2025-08-15T10:45Z - VERIFICAR QUE SE EJECUTA ESTE CÓDIGO
   static targets = ["step", "progress", "nextBtn", "prevBtn", "submitBtn", "arenaId", "mapContainer", "arenaList", "arenaGrid", "arenaSearch", "latitude", "longitude", "summaryMap", "durationSelect", "calendar", "startsAt"]
@@ -156,7 +158,7 @@ export default class extends Controller {
     console.log(`⏰ [${startTime}] BOOT: resolveInitialCoordinates() - INICIO`)
     console.log('🔍 BOOT: Resolviendo coordenadas iniciales para cálculo de radio de 3km...')
     console.log('NOTA: Solo se usan coordenadas numéricas, NO centroides de país/ciudad/address')
-    console.trace('📍 TRACE: resolveInitialCoordinates() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: resolveInitialCoordinates() llamado desde:')
     
     // PRIORIDAD 1: Valores en campos hidden si ya existen y son numéricos
     let latInput, lngInput
@@ -241,7 +243,7 @@ export default class extends Controller {
 
   setupEventListeners() {
     console.log('🔧 setupEventListeners() - Configurando event listeners')
-    console.trace('📍 TRACE: setupEventListeners() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: setupEventListeners() llamado desde:')
     
     // CONFIGURACIÓN DE VALIDACIÓN EN TIEMPO REAL DEL PASO 1:
     // Se configuran listeners para habilitar/deshabilitar el botón "Siguiente"
@@ -483,9 +485,15 @@ export default class extends Controller {
     // Si estamos en Step 2, configurar validación en tiempo real y calendario
     if (n === 2) {
       setTimeout(() => {
+        console.log("➡️ Entrando a Step 2: inicializando calendario")
         this.setupStep2Validation()
         this.initializeCalendar()
-      }, 100)
+        if (this.hasCalendarTarget && this.calendar) {
+          this.calendar.render()
+          console.log("✅ Calendario renderizado en Step 2")
+          setTimeout(() => this.calendar.updateSize(), 50) // 🔧 Forzar resize tras hacerse visible
+        }
+      }, 150)
     }
 
     // Si estamos en Step 1, forzar resize del mapa que maneja arena_location_controller
@@ -613,6 +621,12 @@ export default class extends Controller {
 
   // Inicializar FullCalendar en el Paso 2
   initializeCalendar() {
+    console.log("📅 initializeCalendar ejecutado", {
+      hasCalendarTarget: this.hasCalendarTarget,
+      target: this.calendarTarget,
+      arenaId: document.querySelector("#duel_arena_id")?.value
+    })
+    
     if (!this.hasCalendarTarget) {
       console.log("❌ initializeCalendar: Target calendar no encontrado");
       return;
@@ -629,21 +643,208 @@ export default class extends Controller {
       return;
     }
 
+    // 🔧 Depuración de plugins de FullCalendar
+    console.log("🔍 Depuración FullCalendar:", {
+      "typeof window.FullCalendar": typeof window.FullCalendar,
+      "window.FullCalendar?.dayGridPlugin": window.FullCalendar?.dayGridPlugin,
+      "window.FullCalendar?.interactionPlugin": window.FullCalendar?.interactionPlugin
+    });
+
+    // Crear array dinámico de plugins verificando disponibilidad
+    const plugins = [];
+    if (window.FullCalendar?.dayGridPlugin) {
+      plugins.push(window.FullCalendar.dayGridPlugin);
+      console.log("✅ dayGridPlugin agregado");
+    } else {
+      console.warn("⚠️ dayGridPlugin no disponible");
+    }
+    
+    if (window.FullCalendar?.interactionPlugin) {
+      plugins.push(window.FullCalendar.interactionPlugin);
+      console.log("✅ interactionPlugin agregado");
+    } else {
+      console.warn("⚠️ interactionPlugin no disponible");
+    }
+
+    console.log("📦 Plugins finales:", plugins);
+
     this.calendar = new window.FullCalendar.Calendar(this.calendarTarget, {
-      plugins: [ window.FullCalendar.dayGridPlugin, window.FullCalendar.interactionPlugin ],
+      plugins: plugins,
       initialView: "dayGridMonth",
       selectable: true,
       validRange: { start: new Date() },
       dateClick: (info) => {
-        const iso = `${info.dateStr}T12:00`;
-        this.startsAtTarget.value = iso;
-        this.updateSummary();
-        this.updateButtons();
-        console.log("✅ Fecha seleccionada:", iso);
+        // Guardar la fecha seleccionada
+        const selectedDate = info.dateStr;
+        console.log("📅 Fecha seleccionada:", selectedDate);
+        
+        // Verificar si hay arena seleccionada
+        const arenaId = this.arenaIdTarget?.value;
+        if (!arenaId) {
+          console.warn("⚠️ No hay arena seleccionada, no se puede consultar disponibilidad");
+          return;
+        }
+        
+        // Obtener duración seleccionada
+        const durationSelect = this.durationSelectTarget || document.getElementById("duel_duration_minutes");
+        const duration = durationSelect?.value || "90";
+        
+        // Hacer fetch al endpoint de disponibilidad
+        this.fetchArenaAvailability(arenaId, selectedDate, duration);
       }
     });
 
+    console.log("📅 Ejecutando calendar.render()")
     this.calendar.render();
+    console.log("✅ Calendario renderizado correctamente")
+  }
+
+  // Fetch a la disponibilidad de la arena
+  async fetchArenaAvailability(arenaId, date, slotMinutes) {
+    try {
+      const url = `/arenas/${arenaId}/availability?date=${date}&slot_minutes=${slotMinutes}`;
+      console.log("🔍 Consultando disponibilidad:", url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log("✅ Slots disponibles recibidos:", data.slots);
+      
+      // Mostrar modal con las horas disponibles
+      this.showTimeModal(data.slots, date);
+      
+    } catch (error) {
+      console.error("❌ Error consultando disponibilidad:", error);
+      // Fallback: mostrar modal con horas mockeadas
+      this.showTimeModal(this.getMockedTimeSlots(), date);
+    }
+  }
+
+  // Generar slots mockeados como fallback
+  getMockedTimeSlots() {
+    const slots = [];
+    for (let hour = 8; hour <= 22; hour++) {
+      slots.push(new Date(2025, 0, 1, hour, 0)); // Fecha dummy, solo importa la hora
+    }
+    return slots;
+  }
+
+  // Mostrar modal con horas disponibles/ocupadas
+  showTimeModal(availableSlots, selectedDate) {
+    // Obtener el modal controller
+    const modalElement = document.getElementById('time-slots-modal');
+    if (!modalElement) {
+      console.error("❌ Modal time-slots-modal no encontrado");
+      return;
+    }
+    
+    const modalController = this.application.getControllerForElementAndIdentifier(modalElement, 'modal');
+    if (!modalController) {
+      console.error("❌ Modal controller no encontrado");
+      return;
+    }
+    
+    // Renderizar las horas en el contenedor
+    this.renderTimeSlots(availableSlots, selectedDate);
+    
+    // Abrir el modal
+    modalController.open();
+  }
+
+  // Renderizar botones de horas disponibles/ocupadas
+  renderTimeSlots(availableSlots, selectedDate) {
+    const container = document.getElementById('time-slots-container');
+    if (!container) {
+      console.error("❌ Contenedor time-slots-container no encontrado");
+      return;
+    }
+    
+    // Limpiar contenedor
+    container.innerHTML = '';
+    
+    // Generar todas las horas del día (8:00 a 22:00)
+    const allHours = [];
+    for (let hour = 8; hour <= 22; hour++) {
+      allHours.push(new Date(2025, 0, 1, hour, 0)); // Fecha dummy
+    }
+    
+    // Crear botones para cada hora
+    allHours.forEach(timeSlot => {
+      const hour = timeSlot.getHours();
+      const timeString = `${hour.toString().padStart(2, '0')}:00`;
+      const isAvailable = this.isTimeSlotAvailable(timeSlot, availableSlots);
+      
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `btn ${isAvailable ? 'btn-outline-primary' : 'btn-outline-secondary'} me-2 mb-2`;
+      button.textContent = timeString;
+      button.disabled = !isAvailable;
+      
+      if (isAvailable) {
+        button.addEventListener('click', () => {
+          this.selectTimeSlot(selectedDate, hour);
+        });
+      }
+      
+      container.appendChild(button);
+    });
+    
+    // Agregar mensaje informativo
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'mt-3 text-muted small';
+    infoDiv.innerHTML = `
+      <i class="fas fa-info-circle me-1"></i>
+      Horas disponibles en verde, ocupadas en gris. Duración: ${this.durationSelectTarget?.value || '90'} min.
+    `;
+    container.appendChild(infoDiv);
+  }
+
+  // Verificar si un slot de tiempo está disponible
+  isTimeSlotAvailable(timeSlot, availableSlots) {
+    const targetHour = timeSlot.getHours();
+    return availableSlots.some(slot => {
+      const slotDate = new Date(slot);
+      return slotDate.getHours() === targetHour;
+    });
+  }
+
+  // Seleccionar una hora específica
+  selectTimeSlot(selectedDate, hour) {
+    // Construir string local YYYY-MM-DDTHH:MM
+    const timeString = `${hour.toString().padStart(2, '0')}:00`;
+    const fullDateTime = `${selectedDate}T${timeString}`;
+    
+    console.log("⏰ Hora seleccionada:", fullDateTime);
+    
+    // Asignar al campo hidden
+    if (this.hasStartsAtTarget) {
+      this.startsAtTarget.value = fullDateTime;
+    }
+    
+    // Actualizar resumen y botones
+    this.updateSummary();
+    this.updateButtons();
+    
+    // Cerrar modal automáticamente
+    const modalElement = document.getElementById('time-slots-modal');
+    if (modalElement) {
+      const modalController = this.application.getControllerForElementAndIdentifier(modalElement, 'modal');
+      if (modalController) {
+        modalController.close();
+      }
+    }
+    
+    console.log("✅ Hora seleccionada y modal cerrado:", fullDateTime);
   }
   
   // Forzar revalidación del Paso 2 (útil para widgets externos)
@@ -1333,7 +1534,7 @@ export default class extends Controller {
   // Cargar arenas desde el DOM
   loadArenasFromDOM() {
     console.log('📥 loadArenasFromDOM() - Cargando arenas desde el DOM')
-    console.trace('📍 TRACE: loadArenasFromDOM() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: loadArenasFromDOM() llamado desde:')
     
     if (!this.hasArenaGridTarget) {
       console.warn('⚠️ No hay arenaGridTarget, no se pueden cargar arenas')
@@ -1374,7 +1575,7 @@ export default class extends Controller {
   // Construir catálogo de arenas desde el DOM (alias para compatibilidad)
   buildArenasFromDOM() {
     console.log('🏗️ buildArenasFromDOM() - Construyendo catálogo de arenas')
-    console.trace('📍 TRACE: buildArenasFromDOM() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: buildArenasFromDOM() llamado desde:')
     
     this.loadArenasFromDOM()
     
@@ -1384,7 +1585,7 @@ export default class extends Controller {
   // Dibujar marcadores de arenas en el mapa
   drawArenaMarkers() {
     console.log('🎯 drawArenaMarkers() - Dibujando marcadores de arenas')
-    console.trace('📍 TRACE: drawArenaMarkers() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: drawArenaMarkers() llamado desde:')
     
     const map = this.getActiveMap();
     if (!map || !this.arenas) {
@@ -1428,7 +1629,7 @@ export default class extends Controller {
   // Resaltar arena seleccionada
   highlightArena(arena) {
     console.log(`✨ highlightArena() - Resaltando arena ${arena?.name || 'desconocida'}`)
-    console.trace('📍 TRACE: highlightArena() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: highlightArena() llamado desde:')
     
     if (!arena || !this.map) {
       console.warn('⚠️ highlightArena: arena o mapa no disponibles')
@@ -1497,8 +1698,8 @@ export default class extends Controller {
   // SOLO usa coordenadas numéricas válidas para el cálculo de radio de 3km
   onLocationChanged(e) {
     const startTime = new Date().toISOString()
-    console.log(`⏰ [${startTime}] onLocationChanged() - INICIO`)
-    console.trace('📍 TRACE: onLocationChanged() llamado desde:')
+    if (DEBUG_DUELS) console.log(`⏰ [${startTime}] onLocationChanged() - INICIO`)
+    if (DEBUG_DUELS) console.trace('📍 TRACE: onLocationChanged() llamado desde:')
     
     if (!e?.detail) {
       console.warn('⚠️ Evento leagend:location_changed sin detail')
@@ -1570,13 +1771,13 @@ export default class extends Controller {
     }
     
     const endTime = new Date().toISOString()
-    console.log(`⏰ [${endTime}] onLocationChanged() - FIN`)
+    if (DEBUG_DUELS) console.log(`⏰ [${endTime}] onLocationChanged() - FIN`)
   }
 
   // Manejar eventos de arena creada desde el modal
   onArenaCreated(e) {
     console.log('🎯 onArenaCreated() - Arena creada desde modal')
-    console.trace('📍 TRACE: onArenaCreated() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: onArenaCreated() llamado desde:')
     
     if (!e?.detail) {
       console.warn('⚠️ Evento leagend:arena_created sin detail')
@@ -1631,7 +1832,7 @@ export default class extends Controller {
   // Búsqueda por texto - integrada con filtro de radio de 3km
   onSearchInput() {
     console.log('🔍 onSearchInput() - Búsqueda por texto')
-    console.trace('📍 TRACE: onSearchInput() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: onSearchInput() llamado desde:')
     
     // Ejecutar filtro de radio de 3km con búsqueda
     console.log('🔄 Ejecutando recomputeAndRenderNearby(3) con búsqueda')
@@ -1765,7 +1966,7 @@ export default class extends Controller {
     const arenasFueraRadio = this.arenas.filter(a => a.distance > radiusKm && a.visible)
     if (arenasFueraRadio.length > 0) {
       console.error('❌ ERROR: Arenas fuera de radio están visibles:', arenasFueraRadio.map(a => `${a.name} (${a.distance.toFixed(1)} km)`))
-      console.trace('📍 TRACE: ERROR - Arenas fuera de radio visibles')
+      if (DEBUG_DUELS) console.trace('📍 TRACE: ERROR - Arenas fuera de radio visibles')
     } else {
       console.log('✅ VERIFICACIÓN: Todas las arenas fuera de radio están correctamente ocultas')
     }
@@ -1786,7 +1987,7 @@ export default class extends Controller {
     const arenaId = String(arenaCard?.dataset?.arenaId || '')
     
     console.log(`🎯 selectArenaCard() - ${e?.type || 'event'} en arena ${arenaId}`)
-    console.trace('📍 TRACE: selectArenaCard() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: selectArenaCard() llamado desde:')
     
     // GUARDS ADICIONALES: Verificar datos válidos
     if (!arenaCard) {
@@ -1983,7 +2184,7 @@ export default class extends Controller {
   // Seleccionar arena por ID
   selectArenaById(id) {
     console.log(`🎯 selectArenaById(${id}) - Seleccionando arena`)
-    console.trace('📍 TRACE: selectArenaById() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: selectArenaById() llamado desde:')
     
     // GUARD: Verificar que tenemos el campo arena_id
     if (!this.hasArenaIdTarget) {
@@ -2089,6 +2290,14 @@ export default class extends Controller {
     // Actualizar resumen
     if (this.updateSummary) this.updateSummary()
     
+    // 🔧 Forzar re-render del calendario al seleccionar arena
+    if (this.currentStep === 2 && this.calendar) {
+      setTimeout(() => {
+        this.calendar.updateSize()
+        console.log("✅ Calendario actualizado tras seleccionar arena")
+      }, 100)
+    }
+    
     // Actualizar campos de ubicación si la arena tiene ubicación
     if (arena.country || arena.city || arena.address) {
       const countryField = this.getInput('country')
@@ -2134,7 +2343,7 @@ export default class extends Controller {
   // Actualizar distancias de arenas y ejecutar filtro de radio
   updateArenaDistances() {
     console.log('📏 updateArenaDistances() - Actualizando distancias de arenas')
-    console.trace('📍 TRACE: updateArenaDistances() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: updateArenaDistances() llamado desde:')
     
     if (!Number.isFinite(this.currentLat) || !Number.isFinite(this.currentLng)) {
       console.warn('⚠️ No hay coordenadas válidas para calcular distancias')
@@ -2191,7 +2400,7 @@ export default class extends Controller {
   // Helper para obtener token de Mapbox
   getMapboxToken() {
     console.log('🔑 getMapboxToken() - Obteniendo token de Mapbox')
-    console.trace('📍 TRACE: getMapboxToken() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: getMapboxToken() llamado desde:')
     
     // Prioridad 1: data-mapbox-token del elemento del controlador
     if (this.element.dataset.mapboxToken) {
@@ -2223,7 +2432,7 @@ export default class extends Controller {
   // Intentar geolocalización del navegador
   attemptGeolocation() {
     console.log('📍 attemptGeolocation() - Intentando geolocalización del navegador')
-    console.trace('📍 TRACE: attemptGeolocation() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: attemptGeolocation() llamado desde:')
     
     if (!navigator.geolocation) {
       console.warn('⚠️ Geolocalización no soportada por el navegador')
@@ -2246,8 +2455,8 @@ export default class extends Controller {
   // Éxito en geolocalización - SIEMPRE completa ubicación
   onGeolocationSuccess(position) {
     const startTime = new Date().toISOString()
-    console.log(`⏰ [${startTime}] onGeolocationSuccess() - INICIO`)
-    console.trace('📍 TRACE: onGeolocationSuccess() llamado desde:')
+    if (DEBUG_DUELS) console.log(`⏰ [${startTime}] onGeolocationSuccess() - INICIO`)
+    if (DEBUG_DUELS) console.trace('📍 TRACE: onGeolocationSuccess() llamado desde:')
     
     const { latitude, longitude } = position.coords
     
@@ -2283,7 +2492,7 @@ export default class extends Controller {
   // Error en geolocalización
   onGeolocationError(error) {
     console.log('❌ onGeolocationError() - Error en geolocalización')
-    console.trace('📍 TRACE: onGeolocationError() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: onGeolocationError() llamado desde:')
     
     console.warn('❌ Error en geolocalización:', error.message || 'Error desconocido')
     console.log('ℹ️ Continuando sin coordenadas de geolocalización')
@@ -2292,7 +2501,7 @@ export default class extends Controller {
   // Reverse geocoding con Mapbox - SIEMPRE completa country/city/address
   reverseGeocode(lat, lng) {
     console.log('🔄 reverseGeocode() - Reverse geocoding con Mapbox')
-    console.trace('📍 TRACE: reverseGeocode() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: reverseGeocode() llamado desde:')
     
     const token = this.getMapboxToken()
     if (!token) {
@@ -2458,7 +2667,7 @@ export default class extends Controller {
   updateNearbyList(radiusKm = 20, limit = 20) {
     console.warn('DEPRECATED: updateNearbyList() no debe usarse. Radio ahora es 3km exactos por lat/lng')
     console.warn('Usar recomputeAndRender() en su lugar')
-    console.trace('❌ TRACE: updateNearbyList() fue llamado desde:')
+    if (DEBUG_DUELS) console.trace('❌ TRACE: updateNearbyList() fue llamado desde:')
     return // Bloquear ejecución
     
     /* CÓDIGO LEGACY COMENTADO - NO USAR
@@ -2544,8 +2753,8 @@ export default class extends Controller {
 
   // Mostrar/ocultar mensaje de "no hay arenas"
   toggleNoArenasMessage(show) {
-    console.log(`📢 toggleNoArenasMessage(${show}) - ${show ? 'MOSTRAR' : 'OCULTAR'} mensaje`)
-    console.trace('📍 TRACE: toggleNoArenasMessage() llamado desde:')
+    if (DEBUG_DUELS) console.log(`📢 toggleNoArenasMessage(${show}) - ${show ? 'MOSTRAR' : 'OCULTAR'} mensaje`)
+    if (DEBUG_DUELS) console.trace('📍 TRACE: toggleNoArenasMessage() llamado desde:')
     
     const noArenasMessage = document.getElementById('no-arenas-message')
     if (noArenasMessage) {
@@ -2672,7 +2881,7 @@ export default class extends Controller {
     console.log(`⏰ [${startTime}] resolveInitialCoordinates() - INICIO`)
     console.log('🔍 Resolviendo coordenadas iniciales para cálculo de radio de 3km...')
     console.log('NOTA: Solo se usan coordenadas numéricas, NO centroides de país/ciudad/address')
-    console.trace('📍 TRACE: resolveInitialCoordinates() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: resolveInitialCoordinates() llamado desde:')
     
     // Prioridad 1: Valores en campos hidden si ya existen y son numéricos
     let latInput, lngInput
@@ -2748,7 +2957,7 @@ export default class extends Controller {
   // Actualizar campos de ubicación del formulario
   updateLocationFields(country, city, address) {
     console.log('📝 updateLocationFields() - Actualizando campos de ubicación')
-    console.trace('📍 TRACE: updateLocationFields() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: updateLocationFields() llamado desde:')
     
     console.log(`🌍 País: ${country}`)
     console.log(`🏙️ Ciudad: ${city}`)
@@ -2787,7 +2996,7 @@ export default class extends Controller {
   // Disparar evento de cambio de ubicación con source
   dispatchLocationChangedEvent(lat, lng, city = null, country = null, address = null, source = 'unknown') {
     console.log('📡 dispatchLocationChangedEvent() - Disparando evento de cambio de ubicación')
-    console.trace('📍 TRACE: dispatchLocationChangedEvent() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: dispatchLocationChangedEvent() llamado desde:')
     
     const eventData = {
       lat: lat,
@@ -2848,7 +3057,7 @@ export default class extends Controller {
   // BOOT DE GEOLOCALIZACIÓN ANTICIPADA: No bloqueante, en paralelo al flujo actual
   attemptGeolocationAnticipated() {
     console.log('🚀 BOOT: Iniciando geolocalización anticipada...')
-    console.trace('📍 TRACE: attemptGeolocationAnticipated() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: attemptGeolocationAnticipated() llamado desde:')
     
     // Verificar que el navegador soporte geolocalización
     if (!navigator.geolocation) {
@@ -2881,8 +3090,8 @@ export default class extends Controller {
   // Éxito en geolocalización anticipada - SIEMPRE completa ubicación
   onGeolocationAnticipatedSuccess(position) {
     const startTime = new Date().toISOString()
-    console.log(`⏰ [${startTime}] BOOT: onGeolocationAnticipatedSuccess() - INICIO`)
-    console.trace('📍 TRACE: onGeolocationAnticipatedSuccess() llamado desde:')
+    if (DEBUG_DUELS) console.log(`⏰ [${startTime}] BOOT: onGeolocationAnticipatedSuccess() - INICIO`)
+    if (DEBUG_DUELS) console.trace('📍 TRACE: onGeolocationAnticipatedSuccess() llamado desde:')
     
     const { latitude, longitude } = position.coords
     
@@ -3099,7 +3308,7 @@ export default class extends Controller {
   // Manejar eventos de arena seleccionada desde el mapa
   onArenaSelectedFromMap(e) {
     console.log('🎯 onArenaSelectedFromMap() - Arena seleccionada desde marcador del mapa')
-    console.trace('📍 TRACE: onArenaSelectedFromMap() llamado desde:')
+    if (DEBUG_DUELS) console.trace('📍 TRACE: onArenaSelectedFromMap() llamado desde:')
     
     if (!e?.detail) {
       console.warn('⚠️ Evento leagend:arena_selected sin detail')

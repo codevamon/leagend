@@ -1,5 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
+const DEBUG_ARENA = false // cambiar a true para ver trazas detalladas
+
 export default class extends Controller {
   static targets = ["country", "city", "address", "neighborhood", "latitude", "longitude", "map", "geocoderCountry", "geocoderCity", "geocoderAddress"]
   static values = { 
@@ -92,7 +94,7 @@ export default class extends Controller {
       const storedLng = localStorage.getItem('leagend:lastLng');
       
       const applyUserLocation = (lat, lng) => {
-        console.log('📍 ARENA-LOCATION: Aplicando ubicación inicial de usuario en arenas/new', { lat, lng });
+        if (DEBUG_ARENA) console.log('📍 ARENA-LOCATION: Aplicando ubicación inicial de usuario en arenas/new', { lat, lng });
         this.updateCoordinates(lat, lng);       // guarda en hidden fields
         this.updateMapLocation(lat, lng);       // mueve marcador + centra mapa
         this.reverseGeocode(lat, lng);          // completa country, city, address
@@ -112,7 +114,7 @@ export default class extends Controller {
             applyUserLocation(pos.coords.latitude, pos.coords.longitude);
           },
           (err) => {
-            console.warn('⚠️ ARENA-LOCATION: Error obteniendo geolocalización del usuario', err);
+            if (DEBUG_ARENA) console.warn('⚠️ ARENA-LOCATION: Error obteniendo geolocalización del usuario', err);
           }
         );
       }
@@ -177,18 +179,18 @@ export default class extends Controller {
   setupArenaObserver() {
     // EVITAR DUPLICAR OBSERVER: Solo crear una instancia
     if (this._cardsObserverInitialized || this.arenaObserver) {
-      if (this.debug) console.log('Observer de arena ya inicializado o existente, saltando...');
+      if (this.debug && DEBUG_ARENA) console.log('Observer de arena ya inicializado o existente, saltando...');
       return;
     }
     
     // Buscar el contenedor específico de la grilla de arenas (NO document.body)
     const arenaGridContainer = document.querySelector('.arenas-grid, .arenas-container, [data-arenas-grid]');
     if (!arenaGridContainer) {
-      if (this.debug) console.log('Contenedor de grilla de arenas no encontrado, saltando observer...');
+      if (this.debug && DEBUG_ARENA) console.log('Contenedor de grilla de arenas no encontrado, saltando observer...');
       return;
     }
     
-    if (this.debug) console.log('Configurando observer para contenedor de grilla de arenas:', arenaGridContainer);
+    if (this.debug && DEBUG_ARENA) console.log('Configurando observer para contenedor de grilla de arenas:', arenaGridContainer);
     
     // Observer para detectar cambios en el DOM que puedan afectar las tarjetas de arena
     this.arenaObserver = new MutationObserver((mutations) => {
@@ -206,7 +208,7 @@ export default class extends Controller {
       
       // Actualizar marcadores si es necesario
       if (shouldUpdateMarkers) {
-        if (this.debug) console.log('Cambios detectados en tarjetas de arena, programando actualización...');
+        if (this.debug && DEBUG_ARENA) console.log('Cambios detectados en tarjetas de arena, programando actualización...');
         // Usar debounce para evitar múltiples actualizaciones rápidas
         if (this.arenaUpdateTimer) {
           clearTimeout(this.arenaUpdateTimer);
@@ -224,7 +226,7 @@ export default class extends Controller {
     });
     
     this._cardsObserverInitialized = true;
-    if (this.debug) console.log('Observer de arena configurado exitosamente');
+    if (this.debug && DEBUG_ARENA) console.log('Observer de arena configurado exitosamente');
   }
 
   // Remover listeners del modal
@@ -246,7 +248,7 @@ export default class extends Controller {
   handleModalShown(event) {
     // Verificar si este controlador está dentro del modal que se abrió
     if (event.target.contains(this.element)) {
-      console.log('Modal abierto, ejecutando resize del mapa...');
+      if (DEBUG_ARENA) console.log('Modal abierto, ejecutando resize del mapa...');
       // Esperar un poco para que el modal esté completamente visible
       setTimeout(() => {
         this.resizeMap()
@@ -258,7 +260,7 @@ export default class extends Controller {
   handleModalHidden(event) {
     // Verificar si este controlador está dentro del modal que se ocultó
     if (event.target.contains(this.element)) {
-      console.log('Modal ocultado');
+      if (DEBUG_ARENA) console.log('Modal ocultado');
     }
   }
 
@@ -273,7 +275,7 @@ export default class extends Controller {
       this.initializeMap()
       this.initializeGeocoders()
     } else if (this.mapboxRetryCount < this.maxRetries) {
-      console.log(`Mapbox no disponible, reintento ${this.mapboxRetryCount + 1}/${this.maxRetries}...`);
+      if (DEBUG_ARENA) console.log(`Mapbox no disponible, reintento ${this.mapboxRetryCount + 1}/${this.maxRetries}...`);
       this.mapboxRetryCount++
       
       // Escuchar eventos personalizados de carga
@@ -292,7 +294,7 @@ export default class extends Controller {
       
       // Esperar eventos de carga
       window.addEventListener('mapboxgl:loaded', () => {
-        console.log('Evento mapboxgl:loaded recibido');
+        if (DEBUG_ARENA) console.log('Evento mapboxgl:loaded recibido');
         setTimeout(() => checkAvailability(), 100)
       })
       
@@ -304,10 +306,10 @@ export default class extends Controller {
       // Fallback: reintentar cada 250ms
       setTimeout(() => this.waitForMapbox(), 250)
     } else {
-      console.error('Mapbox no disponible después de reintentos máximos');
+      if (DEBUG_ARENA) console.error('Mapbox no disponible después de reintentos máximos');
       // Inicializar mapa sin geocoders si al menos mapboxgl está disponible
       if (typeof mapboxgl !== 'undefined') {
-        console.log('Inicializando mapa sin geocoders...');
+        if (DEBUG_ARENA) console.log('Inicializando mapa sin geocoders...');
         this.initializeMap()
         // Registrar one-shot para cuando aparezca MapboxGeocoder
         this.waitForGeocoder()
@@ -318,7 +320,7 @@ export default class extends Controller {
   // Esperar a que aparezca MapboxGeocoder después de que el mapa esté listo
   waitForGeocoder() {
     if (typeof MapboxGeocoder !== 'undefined') {
-      console.log('MapboxGeocoder apareció, inicializando geocoders...');
+      if (DEBUG_ARENA) console.log('MapboxGeocoder apareció, inicializando geocoders...');
       this.initializeGeocoders()
     } else {
       // Reintentar cada 100ms
@@ -329,19 +331,19 @@ export default class extends Controller {
   // Limpieza completa del mapa
   cleanupMap() {
     if (this.map) {
-      console.log('Limpiando mapa existente...');
+      if (DEBUG_ARENA) console.log('Limpiando mapa existente...');
       this.map.remove()
       this.map = null
     }
     if (this.marker) {
-      console.log('Limpiando marcador...');
+      if (DEBUG_ARENA) console.log('Limpiando marcador...');
       this.marker = null
     }
     // Limpiar marcadores de arenas
     this.removeArenaMarkers();
     // Limpiar contenedor para cumplir "container should be empty"
     if (this.hasMapTarget) {
-      console.log('Limpiando contenedor del mapa...');
+      if (DEBUG_ARENA) console.log('Limpiando contenedor del mapa...');
       this.mapTarget.innerHTML = ''
     }
   }
@@ -389,16 +391,16 @@ export default class extends Controller {
 
   // Inicialización de los tres geocoders independientes
   initializeGeocoders() {
-    console.log('Inicializando geocoders...');
+    if (DEBUG_ARENA) console.log('Inicializando geocoders...');
     const token = this.getMapboxToken()
     if (!token || typeof MapboxGeocoder === 'undefined') {
-      console.warn("Mapbox token o MapboxGeocoder no disponible")
-      console.log('Token:', token ? 'presente' : 'ausente');
-      console.log('MapboxGeocoder:', typeof MapboxGeocoder);
+      if (DEBUG_ARENA) console.warn("Mapbox token o MapboxGeocoder no disponible")
+      if (DEBUG_ARENA) console.log('Token:', token ? 'presente' : 'ausente');
+      if (DEBUG_ARENA) console.log('MapboxGeocoder:', typeof MapboxGeocoder);
       return
     }
 
-    console.log('Token Mapbox válido, creando geocoders...');
+    if (DEBUG_ARENA) console.log('Token Mapbox válido, creando geocoders...');
 
     // Limpiar geocoders existentes antes de crear nuevos
     this.cleanupGeocoders()
@@ -439,19 +441,19 @@ export default class extends Controller {
       proximity: this.getProximityBias()
     })
 
-    console.log('Geocoders creados, configurando eventos...');
+    if (DEBUG_ARENA) console.log('Geocoders creados, configurando eventos...');
 
     // Configurar eventos para cada geocoder
     this.setupGeocoderEvents()
     
-    console.log('Montando geocoders en contenedores...');
+    if (DEBUG_ARENA) console.log('Montando geocoders en contenedores...');
     
     // Montar geocoders en sus contenedores
     this.geocoders.country.addTo(this.geocoderCountryTarget)
     this.geocoders.city.addTo(this.geocoderCityTarget)
     this.geocoders.address.addTo(this.geocoderAddressTarget)
     
-    console.log('Geocoders montados exitosamente');
+    if (DEBUG_ARENA) console.log('Geocoders montados exitosamente');
   }
 
   // Configurar eventos para cada geocoder
@@ -567,7 +569,7 @@ export default class extends Controller {
         name: cityName,
         country: countryName
       };
-      console.log('🏙️ ARENA-LOCATION: City bias almacenado:', this.cityBias);
+      if (DEBUG_ARENA) console.log('🏙️ ARENA-LOCATION: City bias almacenado:', this.cityBias);
     }
     
     // Actualizar bias para geocoder de direcciones
@@ -575,7 +577,7 @@ export default class extends Controller {
     
     // SOLO actualizar cityTarget.value y bias de geocoder
     // NO mover marcador, NO actualizar coordenadas, NO disparar eventos
-    console.log('🏙️ ARENA-LOCATION: Ciudad seleccionada - solo actualiza campo city y bias')
+    if (DEBUG_ARENA) console.log('🏙️ ARENA-LOCATION: Ciudad seleccionada - solo actualiza campo city y bias')
   }
 
   // Manejar selección de dirección - actualiza #duel_city de forma confiable
@@ -591,9 +593,9 @@ export default class extends Controller {
     
     const neighborhood = this.getContextText(result.context || [], ["neighborhood"])
     
-    console.log(`Dirección seleccionada: ${addressName}`)
-    console.log(`Ciudad extraída: ${cityName} (prioridad: place/locality → region)`)
-    console.log(`País: ${countryName}`)
+    if (DEBUG_ARENA) console.log(`Dirección seleccionada: ${addressName}`)
+    if (DEBUG_ARENA) console.log(`Ciudad extraída: ${cityName} (prioridad: place/locality → region)`)
+    if (DEBUG_ARENA) console.log(`País: ${countryName}`)
     
     // Solo actualizar address si está vacío Y no tiene foco
     if (!this.addressTarget.value && document.activeElement !== this.addressTarget) {
@@ -604,11 +606,11 @@ export default class extends Controller {
     // Address tiene prioridad sobre city, pero respetamos si el usuario está escribiendo
     if (cityName && !this.cityTarget.value && document.activeElement !== this.cityTarget) {
       this.cityTarget.value = cityName
-      console.log('🧭 Jerarquía: city actualizado desde address (campo vacío y sin foco)')
+      if (DEBUG_ARENA) console.log('🧭 Jerarquía: city actualizado desde address (campo vacío y sin foco)')
     } else if (cityName && this.cityTarget.value) {
-      console.log('🧭 Jerarquía: city NO actualizado desde address (ya tiene valor)')
+      if (DEBUG_ARENA) console.log('🧭 Jerarquía: city NO actualizado desde address (ya tiene valor)')
     } else if (cityName && document.activeElement === this.cityTarget) {
-      console.log('🧭 Jerarquía: city NO actualizado desde address (usuario escribiendo)')
+      if (DEBUG_ARENA) console.log('🧭 Jerarquía: city NO actualizado desde address (usuario escribiendo)')
     }
     
     // Solo actualizar country si está vacío Y no tiene foco
@@ -650,7 +652,7 @@ export default class extends Controller {
   schedule() {
     // Comentado para evitar movimiento automático del marcador
     // El geocoding ahora solo se ejecuta manualmente desde submitAddressSearch()
-    console.log('🔍 ARENA-LOCATION: schedule() llamado pero deshabilitado para evitar movimiento automático')
+    if (DEBUG_ARENA) console.log('🔍 ARENA-LOCATION: schedule() llamado pero deshabilitado para evitar movimiento automático')
     return
     
     // Código original comentado:
@@ -706,9 +708,9 @@ export default class extends Controller {
           // Disparar evento de cambio de ubicación
           this.dispatchLocationChangedEvent(data.lat, data.lng, null, null, null, null, 'backend_geocode')
           
-          console.log('Geocodificación backend exitosa:', { lat: data.lat, lng: data.lng })
+          if (DEBUG_ARENA) console.log('Geocodificación backend exitosa:', { lat: data.lat, lng: data.lng })
         } else {
-          console.log('No se encontraron coordenadas para la dirección')
+          if (DEBUG_ARENA) console.log('No se encontraron coordenadas para la dirección')
           this.latitudeTarget.value = ''
           this.longitudeTarget.value = ''
           this.writeHidden({ 
@@ -721,7 +723,7 @@ export default class extends Controller {
           })
         }
       } else {
-        console.warn('Error en geocodificación backend:', response.status)
+        if (DEBUG_ARENA) console.warn('Error en geocodificación backend:', response.status)
         this.latitudeTarget.value = ''
         this.longitudeTarget.value = ''
         this.writeHidden({ 
@@ -734,7 +736,7 @@ export default class extends Controller {
         })
       }
     } catch (error) {
-      console.error('Error en geocodificación backend:', error)
+      if (DEBUG_ARENA) console.error('Error en geocodificación backend:', error)
       this.latitudeTarget.value = ''
       this.longitudeTarget.value = ''
       this.writeHidden({ 
@@ -788,24 +790,24 @@ export default class extends Controller {
 
   // Inicialización del mapa
   initializeMap() {
-    console.log('Inicializando mapa...');
+    if (DEBUG_ARENA) console.log('Inicializando mapa...');
     const token = this.getMapboxToken()
     if (!token) {
-      console.warn("Mapbox token no encontrado")
+      if (DEBUG_ARENA) console.warn("Mapbox token no encontrado")
       return
     }
     
     if (typeof mapboxgl === 'undefined') {
-      console.warn("Mapbox GL JS no cargado")
+      if (DEBUG_ARENA) console.warn("Mapbox GL JS no cargado")
       return
     }
     
-    console.log('Token y Mapbox GL disponibles, creando mapa...');
+    if (DEBUG_ARENA) console.log('Token y Mapbox GL disponibles, creando mapa...');
     mapboxgl.accessToken = token
 
     // Limpiar contenedor antes de crear el mapa para cumplir "container should be empty"
     if (this.hasMapTarget) {
-      console.log('Limpiando contenedor del mapa...');
+      if (DEBUG_ARENA) console.log('Limpiando contenedor del mapa...');
       this.mapTarget.innerHTML = ''
     }
 
@@ -820,7 +822,7 @@ export default class extends Controller {
       initialLng = parseFloat(this.longitudeTarget.value)
     }
 
-    console.log('Coordenadas iniciales:', { lat: initialLat, lng: initialLng });
+    if (DEBUG_ARENA) console.log('Coordenadas iniciales:', { lat: initialLat, lng: initialLng });
 
     // Crear el mapa
     this.map = new mapboxgl.Map({
@@ -833,7 +835,7 @@ export default class extends Controller {
     // Guardar instancia global para reutilizar
     window.leagendMap = this.map
     
-    console.log('Mapa creado, agregando controles...');
+    if (DEBUG_ARENA) console.log('Mapa creado, agregando controles...');
     this.map.addControl(new mapboxgl.NavigationControl(), "top-right")
 
     // Crear marcador draggable si es editable
@@ -841,7 +843,7 @@ export default class extends Controller {
       draggable: false 
     }).setLngLat([initialLng, initialLat]).addTo(this.map)
 
-    console.log('Marcador creado, draggable:', this.editableValue);
+    if (DEBUG_ARENA) console.log('Marcador creado, draggable:', this.editableValue);
 
     // Configurar eventos del marcador si es editable
     if (this.editableValue) {
@@ -950,7 +952,7 @@ export default class extends Controller {
           try { this.reverseGeocode(lat, lng); } catch(_) {}
         }
       } catch (err) {
-        console.warn('No se pudo procesar dblclick en mapa:', err);
+        if (DEBUG_ARENA) console.warn('No se pudo procesar dblclick en mapa:', err);
       }
     });
 
@@ -970,14 +972,14 @@ export default class extends Controller {
 
     // Resize del mapa cuando se carga completamente
     this.map.on('load', () => {
-      console.log('Mapa cargado completamente, ejecutando resize...');
+      if (DEBUG_ARENA) console.log('Mapa cargado completamente, ejecutando resize...');
       if (this.map) {
         this.map.resize()
       }
       
       // VERIFICAR COORDENADAS PENDIENTES: Si hay coordenadas esperando, centrar el mapa
       if (this.pendingCenter) {
-        console.log('🎯 ARENA-LOCATION: Mapa listo, aplicando coordenadas pendientes:', this.pendingCenter)
+        if (DEBUG_ARENA) console.log('🎯 ARENA-LOCATION: Mapa listo, aplicando coordenadas pendientes:', this.pendingCenter)
         this.centerMapToCoordinates(this.pendingCenter.lat, this.pendingCenter.lng)
         this.pendingCenter = null // Limpiar pendiente
       }
@@ -989,24 +991,24 @@ export default class extends Controller {
       }
     })
     
-    console.log('Mapa inicializado exitosamente');
+    if (DEBUG_ARENA) console.log('Mapa inicializado exitosamente');
   }
 
   // Crear marcadores para todas las arenas visibles
   createArenaMarkers() {
     if (!this.map) {
-      if (this.debug) console.log('No hay mapa disponible para crear marcadores de arenas');
+      if (this.debug && DEBUG_ARENA) console.log('No hay mapa disponible para crear marcadores de arenas');
       return;
     }
 
-    if (this.debug) console.log('Creando marcadores de arenas...');
+    if (this.debug && DEBUG_ARENA) console.log('Creando marcadores de arenas...');
     
     // Remover marcadores existentes para evitar duplicados
     this.removeArenaMarkers();
     
     // Buscar todas las tarjetas de arena visibles
     const arenaCards = document.querySelectorAll('.arena-card');
-    if (this.debug) console.log(`Encontradas ${arenaCards.length} tarjetas de arena`);
+    if (this.debug && DEBUG_ARENA) console.log(`Encontradas ${arenaCards.length} tarjetas de arena`);
     
     arenaCards.forEach(card => {
       const arenaId = card.dataset.arenaId;
@@ -1017,11 +1019,11 @@ export default class extends Controller {
       
       // Verificar que tenemos coordenadas válidas
       if (!arenaId || !Number.isFinite(lat) || !Number.isFinite(lng) || !name) {
-        if (this.debug) console.warn('Datos de arena incompletos:', { arenaId, lat, lng, name });
+        if (this.debug && DEBUG_ARENA) console.warn('Datos de arena incompletos:', { arenaId, lat, lng, name });
         return;
       }
       
-      if (this.debug) console.log(`Creando marcador para arena: ${name} en (${lat}, ${lng})`);
+      if (this.debug && DEBUG_ARENA) console.log(`Creando marcador para arena: ${name} en (${lat}, ${lng})`);
       
       // Crear popup con el nombre de la arena
       const popup = new mapboxgl.Popup({ 
@@ -1048,17 +1050,17 @@ export default class extends Controller {
       this.arenaMarkers.push(marker);
     });
     
-    if (this.debug) console.log(`Marcadores de arenas creados: ${this.arenaMarkers.length}`);
+    if (this.debug && DEBUG_ARENA) console.log(`Marcadores de arenas creados: ${this.arenaMarkers.length}`);
   }
 
   // MANEJAR CLICK EN MARCADOR DE ARENA: Sincronizar ubicación y emitir eventos
   handleArenaMarkerClick(arenaId, name, city, lat, lng) {
-    console.log(`🎯 ARENA-LOCATION: Click en marcador de arena ${name} (${arenaId}) en (${lat}, ${lng})`);
+    if (DEBUG_ARENA) console.log(`🎯 ARENA-LOCATION: Click en marcador de arena ${name} (${arenaId}) en (${lat}, ${lng})`);
     
     // 1. MOVER MARCADOR PRINCIPAL a la ubicación de la arena
     if (this.marker) {
       this.marker.setLngLat([lng, lat]);
-      console.log('📍 ARENA-LOCATION: Marcador principal movido a ubicación de arena');
+      if (DEBUG_ARENA) console.log('📍 ARENA-LOCATION: Marcador principal movido a ubicación de arena');
     }
     
     // 2. ACTUALIZAR CAMPOS HIDDEN con las coordenadas de la arena
@@ -1075,7 +1077,7 @@ export default class extends Controller {
         duration: 2000,
         essential: true
       });
-      console.log('🗺️ ARENA-LOCATION: Mapa centrado en ubicación de arena');
+      if (DEBUG_ARENA) console.log('🗺️ ARENA-LOCATION: Mapa centrado en ubicación de arena');
     }
     
     // 5. EMITIR EVENTOS para sincronizar con el wizard
@@ -1085,7 +1087,7 @@ export default class extends Controller {
     // Evento de arena seleccionada
     this.dispatchArenaSelectedEvent(arenaId, name, city, lat, lng);
     
-    console.log('✅ ARENA-LOCATION: Eventos emitidos para sincronización con wizard');
+    if (DEBUG_ARENA) console.log('✅ ARENA-LOCATION: Eventos emitidos para sincronización con wizard');
   }
 
   // DISPARAR EVENTO DE ARENA SELECCIONADA
@@ -1098,7 +1100,7 @@ export default class extends Controller {
       lng: lng
     };
     
-    console.log('📡 ARENA-LOCATION: Disparando evento leagend:arena_selected:', eventData);
+    if (DEBUG_ARENA) console.log('📡 ARENA-LOCATION: Disparando evento leagend:arena_selected:', eventData);
     
     window.dispatchEvent(new CustomEvent("leagend:arena_selected", {
       detail: eventData
@@ -1192,7 +1194,7 @@ export default class extends Controller {
       
       if (!feat) return
       
-      console.log(`Reverse geocoding para (${lat}, ${lng}): ${feat.place_name}`)
+      if (DEBUG_ARENA) console.log(`Reverse geocoding para (${lat}, ${lng}): ${feat.place_name}`)
       
       // PRIORIDAD para ciudad: place → locality → region
       let city = this.getContextText(feat.context || [], ["place", "locality"])
@@ -1202,29 +1204,29 @@ export default class extends Controller {
       
       const country = this.getContextText(feat.context || [], ["country"])
       
-      console.log(`Ciudad extraída: ${city} (prioridad: place/locality → region)`)
-      console.log(`País: ${country}`)
+      if (DEBUG_ARENA) console.log(`Ciudad extraída: ${city} (prioridad: place/locality → region)`)
+      if (DEBUG_ARENA) console.log(`País: ${country}`)
       
       // 🧭 JERARQUÍA: Solo rellenar city o country si están vacíos y sin foco
       // Address: NUNCA sobrescribir si ya tiene texto
       if (country && !this.countryTarget.value && document.activeElement !== this.countryTarget) {
         this.countryTarget.value = country
-        console.log('🧭 Jerarquía: country actualizado desde reverseGeocode (campo vacío y sin foco)')
+        if (DEBUG_ARENA) console.log('🧭 Jerarquía: country actualizado desde reverseGeocode (campo vacío y sin foco)')
       }
       if (city && !this.cityTarget.value && document.activeElement !== this.cityTarget) {
         this.cityTarget.value = city
-        console.log('🧭 Jerarquía: city actualizado desde reverseGeocode (campo vacío y sin foco)')
+        if (DEBUG_ARENA) console.log('🧭 Jerarquía: city actualizado desde reverseGeocode (campo vacío y sin foco)')
       } else if (city && this.cityTarget.value) {
-        console.log('🧭 Jerarquía: city NO actualizado desde reverseGeocode (ya tiene valor)')
+        if (DEBUG_ARENA) console.log('🧭 Jerarquía: city NO actualizado desde reverseGeocode (ya tiene valor)')
       } else if (city && document.activeElement === this.cityTarget) {
-        console.log('🧭 Jerarquía: city NO actualizado desde reverseGeocode (usuario escribiendo)')
+        if (DEBUG_ARENA) console.log('🧭 Jerarquía: city NO actualizado desde reverseGeocode (usuario escribiendo)')
       }
       // Address: NUNCA sobrescribir si ya tiene texto
       if (feat.place_name && !this.addressTarget.value && document.activeElement !== this.addressTarget) {
         this.addressTarget.value = feat.place_name
-        console.log('🧭 Jerarquía: address actualizado desde reverseGeocode (campo vacío y sin foco)')
+        if (DEBUG_ARENA) console.log('🧭 Jerarquía: address actualizado desde reverseGeocode (campo vacío y sin foco)')
       } else if (feat.place_name && this.addressTarget.value) {
-        console.log('🧭 Jerarquía: address NO actualizado desde reverseGeocode (ya tiene valor)')
+        if (DEBUG_ARENA) console.log('🧭 Jerarquía: address NO actualizado desde reverseGeocode (ya tiene valor)')
       }
       
       // Actualizar campos hidden del formulario
@@ -1239,9 +1241,9 @@ export default class extends Controller {
       
       // NO disparar evento de cambio de ubicación
       // reverseGeocode solo completa campos de texto, no mueve marcador
-      console.log('🔄 ARENA-LOCATION: reverseGeocode completado - solo campos de texto actualizados')
+      if (DEBUG_ARENA) console.log('🔄 ARENA-LOCATION: reverseGeocode completado - solo campos de texto actualizados')
     } catch(error) {
-      console.warn("Error en geocodificación inversa:", error)
+      if (DEBUG_ARENA) console.warn("Error en geocodificación inversa:", error)
     }
   }
   
@@ -1353,8 +1355,8 @@ export default class extends Controller {
 
   // MANEJAR CAMBIO DE UBICACIÓN: Centrar mapa y sincronizar
   handleLocationChanged(event) {
-    console.log('📍 ARENA-LOCATION: Evento leagend:location_changed recibido')
-    console.trace('📍 TRACE: handleLocationChanged() llamado desde:')
+    if (DEBUG_ARENA) console.log('📍 ARENA-LOCATION: Evento leagend:location_changed recibido')
+    if (DEBUG_ARENA) console.trace('📍 TRACE: handleLocationChanged() llamado desde:')
     
     if (!event?.detail) {
       console.warn('⚠️ ARENA-LOCATION: Evento sin detail')
@@ -1362,17 +1364,17 @@ export default class extends Controller {
     }
     
     const { lat, lng, source, noCenter } = event.detail
-    console.log(`📍 ARENA-LOCATION: Coordenadas recibidas: (${lat}, ${lng}) desde ${source}`)
+    if (DEBUG_ARENA) console.log(`📍 ARENA-LOCATION: Coordenadas recibidas: (${lat}, ${lng}) desde ${source}`)
     
     // ⛔ ignorar si el emisor pide explícitamente no centrar
     if (noCenter) {
-      console.log('🔄 ARENA-LOCATION: Evento con noCenter=true, no se recentra el mapa')
+      if (DEBUG_ARENA) console.log('🔄 ARENA-LOCATION: Evento con noCenter=true, no se recentra el mapa')
       return
     }
     
     // 🔒 ya ignorabas esto; mantenlo
     if (source === 'map_center_move') {
-      console.log('🔄 ARENA-LOCATION: Evento de map_center_move ignorado para evitar loop')
+      if (DEBUG_ARENA) console.log('🔄 ARENA-LOCATION: Evento de map_center_move ignorado para evitar loop')
       return
     }
     
@@ -1384,19 +1386,19 @@ export default class extends Controller {
     
     // SI EL MAPA ESTÁ LISTO: Centrar inmediatamente
     if (this.map && this.map.isStyleLoaded()) {
-      console.log('✅ ARENA-LOCATION: Mapa listo, centrando inmediatamente')
+      if (DEBUG_ARENA) console.log('✅ ARENA-LOCATION: Mapa listo, centrando inmediatamente')
       this.centerMapToCoordinates(lat, lng)
       this.pendingCenter = null // Limpiar pendiente
     } else {
       // SI EL MAPA NO ESTÁ LISTO: Cachear para cuando esté listo
-      console.log('⏳ ARENA-LOCATION: Mapa no listo, cacheando coordenadas pendientes')
+      if (DEBUG_ARENA) console.log('⏳ ARENA-LOCATION: Mapa no listo, cacheando coordenadas pendientes')
       this.pendingCenter = { lat, lng, source }
     }
   }
   
   // CENTRAR MAPA A COORDENADAS ESPECÍFICAS
   centerMapToCoordinates(lat, lng) {
-    console.log(`🎯 ARENA-LOCATION: Centrando mapa a (${lat}, ${lng})`)
+    if (DEBUG_ARENA) console.log(`🎯 ARENA-LOCATION: Centrando mapa a (${lat}, ${lng})`)
     
     if (!this.map) {
       console.warn('⚠️ ARENA-LOCATION: No hay mapa para centrar')
@@ -1412,11 +1414,11 @@ export default class extends Controller {
 
     if (this.marker) {
       this.marker.setLngLat([lng, lat])
-      console.log('📍 ARENA-LOCATION: Marcador movido a nuevas coordenadas')
+      if (DEBUG_ARENA) console.log('📍 ARENA-LOCATION: Marcador movido a nuevas coordenadas')
     }
 
     if (same) {
-      console.log('✅ ARENA-LOCATION: Ya está centrado; se evita flyTo')
+      if (DEBUG_ARENA) console.log('✅ ARENA-LOCATION: Ya está centrado; se evita flyTo')
       return
     }
     
@@ -1428,13 +1430,13 @@ export default class extends Controller {
       essential: true
     })
     
-    console.log('✅ ARENA-LOCATION: Mapa centrado exitosamente')
+    if (DEBUG_ARENA) console.log('✅ ARENA-LOCATION: Mapa centrado exitosamente')
   }
   
   // Método para habilitar logs verbosos
   enableDebug() {
     this.debug = true;
-    console.log('🔍 ARENA-LOCATION: Modo debug habilitado');
+    if (DEBUG_ARENA) console.log('🔍 ARENA-LOCATION: Modo debug habilitado');
   }
   
   // Método para deshabilitar logs verbosos
@@ -2086,7 +2088,7 @@ export default class extends Controller {
         name: cityName,
         country: countryName
       };
-      console.log('🏙️ ARENA-LOCATION: City bias almacenado:', this.cityBias);
+      if (DEBUG_ARENA) console.log('🏙️ ARENA-LOCATION: City bias almacenado:', this.cityBias);
     }
 
     // Actualizar bias para geocoder de direcciones
